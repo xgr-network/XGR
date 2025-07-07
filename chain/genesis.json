@@ -1,0 +1,23 @@
+{
+  "config": {
+    "chainId": 137,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "londonBlock": 0,
+    "ethash": {}
+  },
+  "alloc": {
+    "0xDEIN_ADRESSE": { "balance": "180000000000000000000000000" }  // 180 Mio XGR (18%)
+  },
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "difficulty": "0x1",
+  "gasLimit": "0x47b760",
+  "nonce": "0x0000000000000042",
+  "timestamp": "0x0"
+}
