@@ -39,8 +39,7 @@ Dokumentation der einzelnen Schritte nach dem Build bis zum funktionierenden Meh
 
   * ECDSA-Key (für Validator-Adresse)
   * BLS-Key (für IBFT)
-  * LibP2P-Netzwerkschlüssel
-    erzeugt und abgelegt unter:
+  * LibP2P-Netzwerkschlüssel erzeugt und abgelegt unter:
 
 ```bash
 xgrmain/node-1/consensus/
@@ -112,15 +111,20 @@ make xgr-deploy all
 
 ---
 
-### ᵅ. 🔄 Startbefehl pro Node
+### ᵅ. 🔄 Startbefehl pro Node (im Hintergrund)
 
 ```bash
-xgrchain server \
+nohup xgrchain server \
   --data-dir ./data \
   --grpc-address 0.0.0.0:9632 \
   --libp2p 0.0.0.0:1478 \
-  --jsonrpc 0.0.0.0:8545
+  --jsonrpc 0.0.0.0:8545 \
+  > node.log 2>&1 &
 ```
+
+> Startet den Server ohne `--seal`, im Hintergrund. Logs landen in `node.log`
+
+> ⚠️ Der `--seal`-Parameter wird **nicht benötigt**, da automatisch gesiegelt wird, wenn der Node ein aktiver Validator ist. Bei nicht-validatorischen Nodes muss `--seal` weggelassen werden.
 
 > ⚠️ Falls "validator key already initialized" kommt: Manifest.json oder Konsensverzeichnis prüfen
 
