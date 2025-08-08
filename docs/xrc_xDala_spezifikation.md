@@ -1,36 +1,29 @@
-### 🔄 Komponenten der xDaLa-Engine&#x20;
+### 🔄 Komponenten der xDaLa-Engine
 
-```text
-┌────────────────────────────┐
-│ xgr_validateDataTransfer   │◄──── Initialer Aufruf
-└────────────┬───────────────┘
-             │
-             ▼
-     ┌────────────────────┐
-     │     XRC-729        │
-     │  (Orchestrierung)  │
-     └────────┬───────────┘
-              │ (stepId)
-              ▼
-         ┌──────────────┐
-         │ XRC-137 A    │◄────────────┐
-         └────┬─────────┘             │
-              ▼                       │
-      [isValid = true/false]          │
-              │                       │
-      ┌───────┴─────────────┐         │
-      │                     │         │
-      ▼                     ▼         │
- onValid                onInvalid     │
-   │                       │          │
-   ▼                       │          │
-┌──────────────┐           │          │
-│ XRC-137 B    │           │          │
-└──────────────┘           │          │
-                           └──────────┘ Rücksprung
 ```
-
-
+🏉 xgr_validateDataTransfer   ◀︍︍︍ Initialer Aufruf
+└──────────────────────────────┐
+           │
+           ▼
+   🏢 XRC-729        
+     (Orchestrierung)  
+   └───────┐
+          │ (stepId)
+          ▼
+     📄 XRC-137 A    ◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀◀┐
+     └─────┐             │
+          ▼             │
+  [isValid = true/false]    │
+          │             │
+   ├─────────────────┐     │
+   │                     │     │
+   ▼                     ▼     │
+onValid                onInvalid     │
+   │                       │      │
+   ▼                       │      │
+📄 XRC-137 B            │      │
+                         └──────────────────────┘ Rücksprung
+```
 
 Das Validierungssystem basiert auf drei eng verzahnten Komponenten:
 
@@ -38,7 +31,7 @@ Das Validierungssystem basiert auf drei eng verzahnten Komponenten:
 
 - **XRC-729** strukturiert mehrere XRC-137-Instanzen zu komplexen Abläufen. Es definiert, was bei Erfolg oder Misserfolg der einzelnen Validierung passieren soll und in welcher Reihenfolge die Schritte abgearbeitet werden.
 
-- `` ist der zentrale RPC-Endpunkt, der eine XRC-729-Kette sequenziell durchläuft. Dabei werden die XRC-137-Regeln nacheinander interpretiert, die jeweiligen Ausgänge verarbeitet und gegebenenfalls Ausführungsverträge gestartet – solange Gas verfügbar ist oder die Kette nicht abbricht.
+- `xgr_validateDataTransfer` ist der zentrale RPC-Endpunkt, der eine XRC-729-Kette sequenziell durchläuft. Dabei werden die XRC-137-Regeln nacheinander interpretiert, die jeweiligen Ausgänge verarbeitet und gegebenenfalls Ausführungsverträge gestartet – solange Gas verfügbar ist oder die Kette nicht abbricht.
 
 ---
 
@@ -48,10 +41,13 @@ Das Validierungssystem basiert auf drei eng verzahnten Komponenten:
 
 ```json
 {
-  "inputs": [
-    { "name": "Wallet", "type": "string", "optional": false },
-    { "name": "ProduktID", "type": "string", "optional": false }
-  ],
+  "payload": {
+    "Wallet": { "type": "string", "optional": false },
+    "ProduktID": { "type": "string", "optional": false }
+  },
+  "encryptedPayload": {
+    "IBAN": { "type": "string", "optional": false }
+  },
   "apiCalls": [
     {
       "name": "ProduktPreis",
@@ -78,7 +74,6 @@ Das Validierungssystem basiert auf drei eng verzahnten Komponenten:
   "onValid": {
     "waitMs": 1000,
     "params": {
-      "isFirst": false,
       "processId": "[prozess_id]",
       "payload": {
         "produktId": "[ProduktID]",
@@ -89,7 +84,6 @@ Das Validierungssystem basiert auf drei eng verzahnten Komponenten:
   "onInvalid": {
     "waitMs": 1000,
     "params": {
-      "isFirst": false,
       "processId": "[prozess_id]",
       "payload": {
         "error": "Wallet enthält nicht genug Token oder Produkt ungültig"
@@ -99,19 +93,18 @@ Das Validierungssystem basiert auf drei eng verzahnten Komponenten:
 }
 ```
 
----
-
 ### 🔁 Ablauf:
 
 1. XRC-137 wird **nicht direkt ausgeführt**, sondern durch die Engine interpretiert.
 2. Die Engine (`xgr_validateDataTransfer`) liest:
-   - Eingaben (z. B. Wallet, Produkt-ID)
+   - Eingaben aus `payload` (z. B. Wallet, Produkt-ID)
+   - verschlüsselte Eingaben aus `encryptedPayload` (→ `decryption`, 30.000 Gas)
    - API-Aufrufe (Produktpreis extern)
    - Smart-Contract-Reads (z. B. `balanceOf`)
    - Regeln zur Prüfung
 3. Ergebnis ist ein Boolean: `isValid`
-4. **Das Verhalten bei Gültigkeit oder Ungültigkeit (**`**, **`**) wird direkt innerhalb der Loop von ****\`\`**** abgehandelt.**
-5. Auch im Fall von `onInvalid` wird eine Transaktion erzeugt. Diese wird jedoch kontrolliert **mit ****\`\`**** zurückgewiesen**, verursacht aber **bewusst Validierungskosten**.
+4. **Das Verhalten bei Gültigkeit oder Ungültigkeit** (`onValid` / `onInvalid`) wird direkt innerhalb der Loop von `xgr_validateDataTransfer` abgehandelt.
+5. Auch im Fall von `onInvalid` wird eine Transaktion erzeugt. Diese wird jedoch kontrolliert \*\*mit \*\*\`\` zurückgewiesen, verursacht aber **bewusst Validierungskosten**.
 
 ### ⚠️ Entwicklerhinweis:
 
@@ -121,7 +114,7 @@ Wenn bei der Auswertung eines XRC-137 kritische Werte aus einem Smart Contract g
 
 ## 🔷 Komponente: XRC-729 – Orchestrierungsstruktur (Knotenpunkte)
 
-### 📍 Zweck
+### 📌 Zweck
 
 Modularisierung und Steuerung einer Abfolge von Validierungsschritten (`XRC-137`) über eindeutige Bezeichner, inkl. Ausführung bei Erfolg/Misserfolg.
 
@@ -170,9 +163,9 @@ Modularisierung und Steuerung einer Abfolge von Validierungsschritten (`XRC-137`
 
 ---
 
-## 🧩 RPC-Spezifikation: `xgr_validateDataTransfer`
+## ✩️ RPC-Spezifikation: `xgr_validateDataTransfer`
 
-### 📍 Zweck
+### 📌 Zweck
 
 Der zentrale Aufruf zur Verarbeitung einer vollständigen Validierungskette innerhalb einer XRC-729-Orchestrierung. Alle Schritte werden sequenziell in einer einzigen Ausführung durchlaufen.
 
@@ -180,31 +173,50 @@ Der zentrale Aufruf zur Verarbeitung einer vollständigen Validierungskette inne
 
 ```json
 {
-  "isFirst": true,
-  "processId": "",  
-  "orchestrationId": "my_orchestration",
+  "orchestration": "0xOrchestrationContract",
   "stepId": "step_0_priceCheck",
-  "inputs": {
-    "Wallet": "0x1234...",
-    "ProduktID": "ABC-123"
-  }
+  "payload": {
+    "IBAN": "DE28243423420012345600"
+  },
+  "encryption": false,
+  "validatorKey": "0x...",
+  "recipientKey": "0x...",
+  "senderKey": "0x..."
 }
 ```
+
+Alternativ bei verschlüsselten Eingaben:
+
+```json
+{
+  "orchestration": "0xOrchestrationContract",
+  "stepId": "step_0_priceCheck",
+  "encryptedPayload": "0xABC123...",
+  "encryption": true,
+  "validatorKey": "0x...",
+  "recipientKey": "0x...",
+  "senderKey": "0x..."
+}
+```
+
+➡️ Ergebnis der Entschlüsselung wird im Engine-Modul als `inputs.decryption` gespeichert und wie normale Inputs verarbeitet.
 
 ### 🔁 Ablauf intern (Loop-basiert)
 
 ```ts
 let currentStep = input.stepId;
 let resultLog = [];
+let processId = generateProcessId(...);
 
 while (currentStep) {
   // 1. Hole Regel (XRC-137 Contract)
-  // 2. Führe API-Calls & ContractReads durch
-  // 3. Evaluiere Regeln → isValid
-  // 4. Logge Ergebnis (optional)
-  // 5. Führe zugehörigen executionContract aus (wenn definiert)
-  // 6. Warte `waitMs` aus onValid/onInvalid
-  // 7. Gehe zu nextStep → currentStep = onValidNext / onInvalidNext
+  // 2. Zerlege Regelstruktur in Teilkomponenten (→ modularer Parser)
+  // 3. Führe API-Calls & ContractReads durch
+  // 4. Evaluiere Regeln → isValid
+  // 5. Logge Ergebnis (optional)
+  // 6. Führe zugehörigen executionContract aus (wenn definiert)
+  // 7. Warte `waitMs` aus onValid/onInvalid
+  // 8. Gehe zu nextStep → currentStep = onValidNext / onInvalidNext
 }
 
 return {
@@ -232,4 +244,37 @@ return {
 - Der gesamte Ablauf erfolgt **synchron im selben RPC-Kontext**
 - Die Engine verhält sich wie ein **TaskHandler**, der Regelketten vollständig abarbeitet
 - Es existiert **kein festes Limit für Schleifendurchläufe** – Schleifen stoppen automatisch bei Erreichen des Gaslimits oder bei fehlenden nextStep
+- Die Inputs bestehen aus Klartext (`payload`) und/oder entschlüsseltem Inhalt (`encryptedPayload`) – beide werden gleichwertig genutzt
+- Die Rule Engine kann auf alle Teilbereiche zugreifen: `payload`, `apiResults`, `contractReads`, `encryptedPayload`
+- Bei `encryption: true` erfolgt die Entschlüsselung serverseitig vor Auswertung
+
+---
+
+## ✳️ Modulare Aufbereitung für Gasabschätzung und Validierung
+
+Zur einheitlichen Behandlung beider RPCs `xgr_validateDataTransfer` und `xgr_getValidationGas` wird eine zentrale Parsing-Funktion bereitgestellt:
+
+```go
+type ParsedXRC137 struct {
+  PlainInputs     []InputField
+  EncryptedInputs []InputField
+  APICalls        []APICall
+  ContractReads   []ContractRead
+  Expressions     []string
+}
+
+func ParseXRC137(rawJSON []byte) (*ParsedXRC137, error)
+```
+
+Diese Funktion wird sowohl in der Validierungslogik als auch bei der Gaskalkulation eingesetzt.
+
+Folgefunktionen:
+
+```go
+func CalculateGas(parsed *ParsedXRC137) uint64 {
+  // z. B. EncryptedInputs → +30_000, Regeln/Operators zählen usw.
+}
+```
+
+Damit ist die gesamte Gasschätzung wiederverwendbar und konsistent zur realen Ausführung.
 
