@@ -1,0 +1,489 @@
+# XDaLa – MDP (Structured Fork–Join) – Implementationsplan v0.2
+
+> Ziel: Minimalen, deterministischen Fork–Join-Scheduler (XRC‑729/MDP) definieren und in XDaLa implementieren – mit Soft‑Join, Threads, Limits und reproduzierbaren Receipts. 729 bleibt datenagnostisch; 137 validiert Inhalte.
+
+---
+
+## 1) XRC‑729/MDP: Kanonische JSON‑Struktur (konzis)
+
+```json
+{
+  "schema": "xrc-729",
+  "version": "2.0",
+  "limits": { "maxThreads": 128, "ratePerSec": 10, "burst": 20 },
+  "nodes": {
+    "<NodeId>": {
+      "rule": "xrc137://<RuleName>",
+      "limits": { "maxConcurrent": 10, "maxQueue": 100 },
+      "join": {
+        "type": "first|kofn|all|window",
+        "k": 1,
+        "timeoutSec": 20,
+        "select": ["labelA", "labelB"],
+        "assemble": "bag|array",
+        "includeParent": true,
+        "cancelOnFirst": false
+      },
+      "onValid": [
+        { "to": "<NodeId>", "mode": "spawn|continue", "label": "<uniqueInRound>", "waitOnJoin": true }
+      ],
+      "onInvalid": [
+        { "to": "<NodeId>", "mode": "continue", "label": "err", "waitOnJoin": false }
+      ]
+    }
+  }
+}
+```
+
+**Validierungsregeln (Schema‑Essenz):**
+
+- `label` **muss** pro Parent‑Runde eindeutig sein (Set‑Validierung).
+- `continue` darf `waitOnJoin:true` tragen; `spawn` ignoriert `waitOnJoin`.
+- `join.select` bezieht sich **nur** auf Labels aus **dieser** Parent‑Runde.
+- Fehlende `join` ⇒ kein Join; `continue` startet sofort.
+- `window` (MDP‑Variante): sammelt fortlaufend bis Timeout; liefert Bag der bis dahin fertigen Children (Partial OK).
+
+---
+
+## 2) Engine‑Datenmodell (Go‑Strukturen)
+
+```go
+// ThreadState repräsentiert den Zustand einer Thread-Laufspur.
+type ThreadState int
+const (
+    ThWaiting ThreadState = iota // queued (node/maxConcurrent, wakeAt, tokens)
+    ThRunning
+    ThJoinWait // nur Parent mit waitOnJoin:true
+    ThDone
+    ThAborted
+    ThPaused
+)
+
+type ThreadID uint64
+
+type Thread struct {
+    PID          uint64     // processId
+    ID           ThreadID   // threadId
+    ParentID     ThreadID   // 0 bei Root
+    ParentBatch  uint32     // parent.Gen zum Zeitpunkt des spawn
+    NodeID       string
+    State        ThreadState
+    InputRefCID  string // referenziert Daten (137‑Output/Artefakte)
+    OutputRefCID string
+    Valid        *bool
+    WakeAt       time.Time // optional, für Timer/Polling via 137
+    DeadlineAt   time.Time // Join‑Deadline, wenn JoinWait
+    CreatedAt    time.Time
+    UpdatedAt    time.Time
+}
+
+// JoinKey identifiziert ein Sibling‑Set eindeutig.
+type JoinKey struct {
+    Parent ThreadID
+    Batch  uint32 // parent.Gen
+}
+
+type JoinSpec struct {
+    Type           string   // first | kofn | all | window
+    K              int
+    Timeout        time.Duration
+    SelectLabels   []string // nil => alle Children der Runde
+    Assemble       string   // bag | array (bag = stabiles Mapping)
+    IncludeParent  bool
+    CancelOnFirst  bool
+}
+
+type ChildResult struct {
+    Thread ThreadID
+    Label  string
+    RefCID string
+    Valid  bool
+}
+
+type JoinState struct {
+    Spec        JoinSpec
+    StartedAt   time.Time
+    DeadlineAt  time.Time
+    Chosen      []ChildResult
+    Fulfilled   bool
+    TimedOut    bool
+    // intern
+    expectedLabels map[string]struct{}
+    seen           map[ThreadID]ChildResult
+}
+
+// Globale/Session-Limits
+
+type TokenBucket struct {
+    RatePerSec float64
+    Burst      int
+    tokens     float64
+    lastRefill time.Time
+}
+
+// Node-Limits und Queues
+
+type NodeLimiter struct {
+    MaxConcurrent int
+    MaxQueue      int
+    Running       int
+    Queue         []ThreadID // FIFO
+}
+
+// Scheduler-Sicht
+
+type Scheduler struct {
+    ReadyFIFO      []ThreadID
+    TB             TokenBucket
+    NodeLimits     map[string]*NodeLimiter
+    Threads        map[ThreadID]*Thread
+    Joins          map[JoinKey]*JoinState
+    NextThreadID   ThreadID
+}
+```
+
+---
+
+## 3) Deterministischer Scheduler (Pseudo‑Code)
+
+```text
+TICK():
+  refill(TokenBucket)
+  // Promotion: node-waiting → running (FIFO)
+  for each node in stable_order(NodeLimits):
+    while node.Running < node.MaxConcurrent && node.Queue not empty:
+      if TB.tokens < 1: break
+      tid = popFront(node.Queue)
+      startRunning(tid)
+      TB.tokens -= 1
+
+  // Ready‑FIFO: continue ohne waitOnJoin sofort
+  while ReadyFIFO not empty:
+    tid = popFront(ReadyFIFO)
+    if canExecuteNow(tid):
+      executeNode(tid)
+
+onNodeFinish(tid, valid, outCID):
+  T := Threads[tid]
+  T.OutputRefCID = outCID; T.Valid=&valid; T.State=ThDone
+  // join‑accounting
+  if T.ParentID != 0:
+     jk := JoinKey{Parent:T.ParentID, Batch:T.ParentBatch}
+     updateJoin(jk, T, labelOfEdge(T), outCID, valid)
+
+  // wenn Parent joinwait:true und join erfüllt/timeout
+  P := Threads[T.ParentID]
+  if P.State==ThJoinWait && joinSatisfiedFor(P):
+     P.State = ThRunning
+     enqueue(ReadyFIFO, P.ID)
+
+spawn(parent, edge):
+  child := newThread(node=edge.To, parent=parent.ID, batch=parent.Gen)
+  if canRunNow(child.NodeID) && TB.tokens>=1:
+     startRunning(child); TB.tokens-=1
+  else enqueue(NodeLimits[child.NodeID].Queue, child)
+
+continue(parent, edge):
+  if edge.waitOnJoin: parent.State=ThJoinWait; setJoinDeadline(parent)
+  else enqueue(ReadyFIFO, parent.ID)
+```
+
+**joinSatisfiedFor(Parent):**
+
+- `first`: erstes valides Child aus `select` bzw. allen Labels; bei `cancelOnFirst` ⇒ weitere Child‑Ergebnisse **ignorieren** (Best‑Effort ohne aktive Abbrüche im MDP).
+- `kofn`: sobald `k` valide Children vorliegen.
+- `all`: wenn alle `select` (oder alle gestarteten Labels der Runde) abgeschlossen sind (valid/invalid egal) **oder** Timeout erreicht.
+- `window`: immer bei Timeout; vorher optional Zwischenstände (nur wenn `continue` parallel ohne waitOnJoin genutzt wird – MDP lässt `window` primär als „partial bag on timeout“ gelten).
+
+**Assemble:**
+
+- `bag` ⇒ deterministische Ordnung: sortiere `(label, childThreadId)`; speichere als `{ label → [ {threadId, refCID, valid} ] }`.
+- `array` ⇒ stabile Einschreibereihenfolge (FIFO der Fertigstellungen) + vollständige Metadaten.
+
+---
+
+## 4) Receipts & Logs (V3‑Felder)
+
+**Event: EngineMetaV3**
+
+```
+(processId u256, threadId u64, parentId u64, parentBatchId u32,
+ nodeId string, xrc137 bytes32, xrc729 bytes32,
+ inputRef_cid string, outputRef_cid string, valid bool)
+```
+
+**Event: EngineJoinV3**
+
+```
+(processId u256, parentId u64, parentBatchId u32,
+ type string, k u16, selectLabels string[], assemble string,
+ includeParent bool, cancelOnFirst bool,
+ deadlineAt u64, fulfilled bool, timeoutFired bool,
+ chosenChildThreadIds u64[], joinRef_cid string)
+```
+
+**Event: EngineEdgesV3** (pro Node‑Übergang)
+
+```
+(processId u256, threadId u64, edges [ (label string, mode u8, waitOnJoin bool) ])
+```
+
+> **Reproduzierbarkeit:** Gleiche 729‑Graph‑JSON (hash), gleiche Scheduler‑Regeln, gleiche 137‑Outputs ⇒ gleiche Receipts ⇒ gleiches Resultat.
+
+---
+
+## 5) Gas‑/Kostenschema (MDP‑Heuristik)
+
+- `spawn`‑Overhead (Scheduler + Accounting): \~5k – 8k Gas pro Kind (konfigurierbar).
+- `continue`‑Overhead: \~2k – 3k Gas.
+- Join‑Accounting: Basis 4k + 1k pro Child‑Ergebnis; `first/kofn` früh beendet.
+- Events: reale Log‑Kosten gemäß Topics/Data.
+- **TokenBucket & NodeQueues** sind Off‑Chain/RPC‑seitig → nur indirekte Gaswirkung (weniger/mehr Calls).
+- `GetValidationGas(137)` bleibt **unverändert** (nur Node‑Rule). Für 729‑MDP optional: `EstimateOrchestrationGas(729)` ⇒ Summation der Overheads + erwartete 137‑Knoten.
+
+---
+
+## 6) API/RPC – Minimalumfang
+
+- `xgr_submitProcess(729json, inputs[]) → processId`\
+  Persistiert den Graph (hash), legt Root‑Thread an, queued.
+
+- `xgr_getProcessReceipt(processId) → {threads[], joins[], edges[]}`\
+  Aggregiert V3‑Events (oder internen Store) deterministisch.
+
+- `xgr_getThread(threadId) → Thread`\
+  Debug/Tracing.
+
+- `xgr_pauseProcess(pid)/xgr_resumeProcess(pid)`\
+  Bindet an bestehenden Session‑Manager (Flag).
+
+> *Bestehendes* `xgr_getValidationGas` (nur 137) bleibt – MDP verlangt nichts anderes.
+
+---
+
+## 7) Migrationsschritte (aus Bestand)
+
+1. **Labels**: Enforce Einzigartigkeit pro Parent‑Runde (Schema + Runtime‑Check).
+2. **Join‑Registry**: `map[(parent,gen)] → JoinState` implementieren; Deadline/Timeout.
+3. **NodeLimiter**: pro Node FIFO‑Queue + Running‑Count.
+4. **ReadyFIFO**: deterministische, stabile Queue.
+5. **Events V3**: neue Topics/Signaturen; alte V1/V2 deprecaten, Reader anpassen.
+6. **Tx‑Layer Deadlock‑Fix**: keine blockierenden Schleifen; Submission + Receipt‑Wait mit bounded backoff; Engine nie im Hot‑Path blockieren (siehe Codex‑Task unten).
+7. **GC/Artefakte**: CIDs beibehalten solange von Join/Receipts referenziert.
+
+---
+
+## 8) Test‑Matrix (essentiell)
+
+- **Determinismus**: identische Inputs ⇒ identische Receipts (hash compare).
+- **maxConcurrent**: M=1 erzwingt strikte FIFO pro Node.
+- **TokenBucket**: burst, ratePerSec – Promotion‑Takte.
+- **Join „first“**: gleichzeitiger Abschluss zweier Children → stabile Auswahl (kleinster `childThreadId`).
+- **Join „kofn“**: k>1, gemischte Validität.
+- **Timeout**: proceedPartial vs. fail‑Pfad.
+- **label‑Kollision**: Schema‑Fehler.
+- **window**: partieller Bag bei Timeout.
+
+---
+
+## 9) Beispielgraph A (Top/Bottom + Final)
+
+```json
+{
+  "schema": "xrc-729",
+  "version": "2.0",
+  "limits": { "maxThreads": 128, "ratePerSec": 10, "burst": 20 },
+  "nodes": {
+    "Root": {
+      "rule": "xrc137://Root",
+      "join": { "type": "all", "timeoutSec": 120, "select": ["toTop","toBottom"], "assemble": "bag" },
+      "onValid": [
+        { "to": "StageTop",    "mode": "spawn",    "label": "toTop" },
+        { "to": "StageBottom", "mode": "spawn",    "label": "toBottom" },
+        { "to": "FinalAssembly","mode":"continue", "waitOnJoin": true }
+      ]
+    },
+    "StageTop": {
+      "rule": "xrc137://StageTop",
+      "limits": { "maxConcurrent": 10 },
+      "join": { "type": "all", "timeoutSec": 60, "select": ["toT1","toT2"], "assemble": "bag" },
+      "onValid": [
+        { "to": "T1", "mode": "spawn", "label": "toT1" },
+        { "to": "T2", "mode": "spawn", "label": "toT2" },
+        { "to": "TopOutput", "mode": "continue", "waitOnJoin": true }
+      ]
+    },
+    "StageBottom": {
+      "rule": "xrc137://StageBottom",
+      "limits": { "maxConcurrent": 10 },
+      "join": { "type": "all", "timeoutSec": 60, "select": ["toB1","toB2"], "assemble": "bag" },
+      "onValid": [
+        { "to": "B1", "mode": "spawn", "label": "toB1" },
+        { "to": "B2", "mode": "spawn", "label": "toB2" },
+        { "to": "BottomOutput", "mode": "continue", "waitOnJoin": true }
+      ]
+    }
+  }
+}
+```
+
+---
+
+## 10) Codex‑Tasks (präzise Patches)
+
+### 10.1 Tx‑Layer: Non‑Blocking Submission & Receipt
+
+> Entfernt potentielle Deadlocks durch blockierendes Warten in der Engine; nutzt bounded backoff + Kontext‑Cancel.
+
+```diff
+--- a/engine/xdala/tx_layer.go
++++ b/engine/xdala/tx_layer.go
+@@
+ func (l *RpcTxLayer) InjectLocalBoundTx(from types.Address, to types.Address, data []byte, valueWei *big.Int, gasLimit uint64) (types.Hash, uint64, error) {
+-   // ALT: synchrones Senden + Busy‑Wait auf Receipt (blockiert Node)
+-   // ...
++   // NEU: Senden, dann Receipt mit bounded backoff & ctx‑aware holen
++   ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
++   defer cancel()
++
++   tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{ /* ... */ })
++   if err := l.ec.SendTransaction(ctx, tx); err != nil { return types.Hash{}, 0, err }
++
++   // bounded backoff (max ~2s) – kein tight loop
++   backoff := 50 * time.Millisecond
++   for {
++       rcpt, err := l.ec.TransactionReceipt(ctx, tx.Hash())
++       if err == nil && rcpt != nil {
++           return types.Hash(tx.Hash()), rcpt.GasUsed, nil
++       }
++       select {
++       case <-ctx.Done():
++           return types.Hash(tx.Hash()), 0, ctx.Err()
++       case <-time.After(backoff):
++           if backoff < 2*time.Second { backoff *= 2 }
++       }
++   }
+ }
+```
+
+### 10.2 Events V3: Neue Signaturen
+
+```diff
+--- a/state/runtime/precompiled/engine_execute.go
++++ b/state/runtime/precompiled/engine_execute.go
+@@
+- // TODO: V2‑Events
++ // V3‑Events: Meta, Join, Edges
++ var (
++   evMetaV3  = crypto.Keccak256Hash([]byte("EngineMetaV3(uint256,uint64,uint64,uint32,string,bytes32,bytes32,string,string,bool)"))
++   evJoinV3  = crypto.Keccak256Hash([]byte("EngineJoinV3(uint256,uint64,uint32,string,uint16,string[],string,bool,bool,uint64,bool,bool,uint64[],string)"))
++   evEdgesV3 = crypto.Keccak256Hash([]byte("EngineEdgesV3(uint256,uint64,(string,uint8,bool)[])"))
++ )
+```
+
+*(Signaturen exemplarisch; ggf. Arrays als Bytes kodieren, wenn ABI‑Support limitiert.)*
+
+---
+
+## 11) Explizite Design‑Entscheidungen (MDP)
+
+- **Keine Cross‑Joins.** Für batch‑weite Aggregation separaten Koordinator‑Node verwenden.
+- **Keine aktiven Abbrüche.** `cancelOnFirst` ist ein **Hint**; späte Child‑Ergebnisse werden ignoriert.
+- **Deterministische Auswahl.** Bei Gleichstand gewinnt kleinstes `childThreadId`.
+- **Stable Ordering.** Bags sortiert nach `(label, childThreadId)`.
+- **continue ohne waitOnJoin** ist **sofort** – ideal für Poll‑Schleifen.
+
+---
+
+## 12) Nächste Schritte (konkret)
+
+1. JSON‑Schema für 729/MDP veröffentlichen (Draft 2020‑12), inkl. Label‑Eindeutigkeit.
+2. Scheduler‑Kernel + Join‑Registry implementieren (obige Structs).
+3. Events V3 + Reader aktualisieren (Python‑Tools anpassen).
+4. Test‑Matrix automatisieren (Go tests + Python E2E).
+5. Beispiel „MontageInsel[n]“ (Fall B) als Referenzgraph implementieren.
+
+---
+
+*Ende v0.2*
+
+---
+
+## 9b) Referenzbeispiel (mit onInvalid‑Loop C3→C1)
+
+### Kurz erklärt für Anwender
+
+- **Buchstaben = Threads** (durch `spawn` entstanden): A, B, C, BA, BB …
+- **Zahlen = Schritte** im **gleichen Thread** (durch `continue`): B1→B2, BB1→BB2→BB3, C1→C2→C3.
+- **Join ist lokal:** Ein Parent‑Thread kann **nur** die **Children seiner aktuellen Runde** joinen (Soft‑Join). Cross‑Join gibt es nicht.
+- **Rücksprünge sind erlaubt:** `continue` kann zu Zyklen führen (z. B. C3→C1). Der Parent wartet bis Join‑Bedingung/Timeout erfüllt ist.
+
+### Vollständiges XRC‑729 JSON zum Diagramm
+
+```json
+{
+  "schema": "xrc-729",
+  "version": "2.0",
+  "name": "B/C mit BA+BB→B2 und finalem Join nach A2; C3 onInvalid-Loop",
+  "limits": { "maxThreads": 128, "ratePerSec": 10, "burst": 20 },
+  "nodes": {
+    "A1": {
+      "rule": "xrc137://A1",
+      "join": { "type": "all", "select": ["toB","toC"], "timeoutSec": 300, "assemble": "bag" },
+      "onValid": [
+        { "to": "B1", "mode": "spawn", "label": "toB" },
+        { "to": "C1", "mode": "spawn", "label": "toC" },
+        { "to": "A2", "mode": "continue", "waitOnJoin": true }
+      ],
+      "onInvalid": []
+    },
+
+    "B1": {
+      "rule": "xrc137://B1",
+      "join": { "type": "all", "select": ["toBA","toBB"], "timeoutSec": 300, "assemble": "bag" },
+      "onValid": [
+        { "to": "BA1", "mode": "spawn", "label": "toBA" },
+        { "to": "BB1", "mode": "spawn", "label": "toBB" },
+        { "to": "B2",  "mode": "continue", "waitOnJoin": true }
+      ],
+      "onInvalid": []
+    },
+
+    "BA1": { "rule": "xrc137://BA1", "onValid": [], "onInvalid": [] },
+
+    "BB1": { "rule": "xrc137://BB1", 
+      "onValid":  [ { "to": "BB2", "mode": "continue", "label": "toBB2" } ],
+      "onInvalid": [ { "to": "BB1", "mode": "continue", "label": "retryBB1" } ]
+    },
+    "BB2": { "rule": "xrc137://BB2",
+      "onValid":  [ { "to": "BB3", "mode": "continue", "label": "toBB3" } ],
+      "onInvalid": [ { "to": "BB2", "mode": "continue", "label": "retryBB2" } ]
+    },
+    "BB3": { "rule": "xrc137://BB3", "onValid": [], "onInvalid": [] },
+
+    "B2":  { "rule": "xrc137://B2",  "onValid": [], "onInvalid": [] },
+
+    "C1": { "rule": "xrc137://C1",
+      "onValid":  [ { "to": "C2", "mode": "continue", "label": "toC2" } ],
+      "onInvalid": [ { "to": "C1", "mode": "continue", "label": "retryC1" } ]
+    },
+    "C2": { "rule": "xrc137://C2",
+      "onValid":  [ { "to": "C3", "mode": "continue", "label": "toC3" } ],
+      "onInvalid": [ { "to": "C2", "mode": "continue", "label": "retryC2" } ]
+    },
+    "C3": { "rule": "xrc137://C3",
+      "onValid":  [],
+      "onInvalid": [ { "to": "C1", "mode": "continue", "label": "redoC" } ]
+    },
+
+    "A2": { "rule": "xrc137://A2", "onValid": [], "onInvalid": [] }
+  }
+}
+```
+
+**Hinweise**
+
+- **A1** wartet auf **B** und **C** (`join: all`). Erst dann feuert `continue → A2`.
+- **B1** wartet auf **BA** und **BB**; danach `continue → B2`.
+- **C3 onInvalid → C1** bildet die rote Retry‑Schleife (gleicher C‑Thread). Ohne Timeout bleibt **A1** blockiert; mit `timeoutSec` läuft **A1** teilaggregiert weiter (`join.meta.timeout=true`).
+
