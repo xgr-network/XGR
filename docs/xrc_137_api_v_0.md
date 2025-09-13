@@ -1,288 +1,282 @@
-# XRC-137 – API Calls v0.2 (Strict, Full Spec)
+# XRC-137 – CEL-Only Spec (Unified Rules & API Extracts)
 
-**Scope (v0.2):** JSON-only. Deterministisch. Keine Heuristiken. `apiCalls` dienen ausschließlich der **Datenbeschaffung** vor der Regelprüfung. Seiteneffekte (HTTP-Sends) sind in v0.2 **nicht Teil von \*\*\*\***\`\`.
+**Scope:** deterministisch, fetch-only `apiCalls`, einheitliche **CEL**-Ausdrücke in *allen* Kontexten (Rules, Extracts, Gas/Value, Args, Output-Payload). JSON-only Responses.
 
-**Pipeline:** `payload prüfen → apiCalls (fetch) → Regeln prüfen → Ausführung (außerhalb dieser Spec)`.
+**Pipeline:** `Payload prüfen → apiCalls (fetch) → Rules (CEL) → Branch (onValid/onInvalid) → Execution (optional)`
 
-**Striktes Schema:** Unbekannte Felder → **Fehler**. In `apiCalls` ist `extractMap` **Pflicht** (kein `extract`/`saveAs`).
-
----
-
-## 1) `apiCalls` – Schema (fetch-only)
-
-Jedes Element in `apiCalls` ist ein Objekt:
-
-| Feld           | Typ                            | Default | Beschreibung                                                                                                                             |         |       |                                                   |
-| -------------- | ------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----- | ------------------------------------------------- |
-| `name`         | string                         | –       | Interner Bezeichner für Logs/Debugging.                                                                                                  |         |       |                                                   |
-| `method`       | "GET"                          | "POST"  | "PUT"                                                                                                                                    | "PATCH" | `GET` | HTTP-Methode (nur fetchend/idempotent verwenden). |
-| `urlTemplate`  | string                         | –       | URL mit Platzhaltern `[key]`.                                                                                                            |         |       |                                                   |
-| `headers`      | map\<string,string>            | `{}`    | Feste Header (Platzhalter erlaubt). Sensibles wird geloggt **maskiert**.                                                                 |         |       |                                                   |
-| `bodyTemplate` | string                         | –       | Body (bei POST/PUT/PATCH). Platzhalter erlaubt.                                                                                          |         |       |                                                   |
-| `contentType`  | "json"                         | `json`  | Erwarteter Response-Typ; v0.2: **nur \*\*\*\***\`\`.                                                                                     |         |       |                                                   |
-| `extractMap`   | map\<string, string \| object> | –       | **Pflicht.** Alias → (String‑Expr **oder** Objekt `{expr, save?}`). Schreibt Aliasse in `inputs`; `save` steuert Speicherung im Receipt. |         |       |                                                   |
-| `defaults`     | map\<string,any>               | `{}`    | Defaultwerte pro **Alias-Key** (werden verwendet, wenn für den Alias kein Wert extrahiert werden kann).                                  |         |       |                                                   |
-
----
-
-## 2) Platzhalter in Templates
-
-**Syntax:** `[key]` → Wert aus `inputs[key]`.
-
-- In `urlTemplate`: URL-encoded. In `bodyTemplate`: roh (JSON selbst bauen).
-- Fehlender Key ⇒ Fehler.
-- Escaping: `[[` → `[` , `]]` → `]`.
-- Serialisierung: Zahl → Dezimal; Bool → `true/false`; Objekt/Array → JSON.
-- Erlaubte Zeichen in Keys: `[a-zA-Z0-9._-]` (keine Leerzeichen).
-
----
-
-## 3) Extract-Expressions (Pipeline)
-
-**Form:** `JSONPath ( "|" Step )*`
-
-### 3.1 JSONPath-Subset (v0.2)
-
-- Root: `$`
-- Child: `.name` oder `['name']`
-- Wildcard: `*` (Objektwerte/Array-Items)
-- Array-Index: `[0]`, `[-1]` (negativ = vom Ende)
-- Filter: `[?( <predicate> )]` **nur auf Listen** (Array / Wildcard-Ergebnis)\
-  `@` = aktuelles Element. Operatoren: `== != < <= > >=`\
-  Funktionen: `startsWith(s)`, `endsWith(s)`, `contains(s)`\
-  Existenz: `exists(@.field)`, `!exists(@.field)`
-
-> Regel: Filter **nur** wenn der linke Teil eine Liste liefert. Auf Objekten/Skalaren nicht erlaubt.
-
-**Klarstellung: Feldzugriff vs. Platzhalter**
-
-- `.name` und `['name']` sind **JSONPath-Feldzugriffe** auf die **Response**.
-- `['name']` adressiert den **literalen** Key – nötig bei Sonderzeichen, Leerzeichen, Punkten oder numerischem Beginn (z. B. `['price.value']`, `['weird key']`, `['0']`).
-- `[key]` (ohne Anführungszeichen) ist **kein JSONPath**, sondern unser **Template‑Platzhalter** in `urlTemplate`/`bodyTemplate`. In Extract‑Expressions **nicht erlaubt**.
-- Unterschied: `['0']` (Objektfeld mit Key "0") vs. `[0]` (Array‑Index 0).
-
-**Mini‑Beispiele** Response:
+## 1) Top-Level Schema (XRC-137)
 
 ```json
 {
-  "quote": { "name": "AAPL", "price.value": "214.02", "weird key": 7, "0": "zero" },
-  "arr": [10, 11]
+  "payload": { "<Key>": {"type": "string|number|bool|array|object", "optional": false } },
+  "apiCalls": [ APICall, ... ],
+  "contractReads": [ {"name": "<alias>", "save": false}, ... ],
+  "rules": [ "<CEL>", "<CEL>", ... ],
+  "onValid":  Outcome,
+  "onInvalid": Outcome,
+  "address": "0x..."
 }
 ```
 
-Zugriffe:
+``: deklarative Pflichtfelder (nur Plain). Pflichtfelder müssen im finalen Inputs-Satz vorhanden/nicht‑leer sein.
 
-- `$.quote.name` ⟶ `"AAPL"`  (gleich wie `$.quote['name']`)
-- `$.quote['price.value']` ⟶ `"214.02"`
-- `$.quote['weird key']` ⟶ `7`
-- `$.quote['0']` ⟶ `"zero"`
-- `$.arr[0]` ⟶ `10`  (Array‑Index, nicht mit `['0']` verwechseln)
+``: Alias + optional `save`. Liefert deterministische Werte aus der Chain (Implementierungsspezifik).
 
-### 3.2 Steps (nach JSONPath)
+``: Liste von **CEL-Strings**. Alle müssen `true` liefern.
 
-**Reducer (Mehrtreffer → Einzelwert):**\
-`first` · `last` · `one` (genau 1, sonst Fehler) · `nth(k)` · `sum` · `avg` · `min` · `max` · `count` · `join(sep)` · `unique`
-
-**Cast (Typisierung):**\
-`number` · `int` · `bool` · `string` · `object` · `array`
-
-**Transforms:**\
-`round(ndigits)` · `lower` · `upper` · `trim`
-
-**Mehrtreffer-Policy:** Ohne Reducer bei >1 Treffer ⇒ **Fehler**. Ein Cast ist **kein** Reducer.
-
-**Beispiele:**\
-`$.quote.venues[?(@.name=='BATS')].price.value|first|number`\
-`$.items[*].amount|sum|number`
-
----
-
-## 3.3 `extractMap`: Kurzform/Langform & Receipt
-
-- **Kurzform (String):** `"alias": "<Extract-Expression>"`\
-  Entspricht intern `{ "expr": "<Extract-Expression>", "save": false }`.
-- **Langform (Objekt):** `"alias": { "expr": "<Extract-Expression>", "save": <bool optional> }`\
-  `save` Default = `false`.
-- **Inputs:** Jeder Alias (egal ob Kurz- oder Langform) wird nach `inputs[alias]` geschrieben.
-- **Receipt:** Nur Aliasse mit `save:true` erscheinen im Receipt (Key = Alias, Value = finaler Wert).\
-  – Wenn kein Treffer und `defaults[alias]` existiert, wird **der Default** gespeichert.\
-  – Für `save:true` muss der finale Wert **skalar** sein (`string|number|bool|int`); sonst Fehler (ggf. `|string` casten).
-
----
-
-## 4) Schreiben in `inputs`
-
-- Für jeden `extractMap`-Eintrag: `inputs[alias] = Wert`.
-- **Receipt:** Speicherung gemäß `save:true` (siehe §3.3).
-- **Eindeutige Benennung** liegt beim XRC-Autor direkt im Alias (z. B. `fx.rate`, `quote.ask`).
-- **Alias-Regeln:**
-  - Syntax: `^[A-Za-z][A-Za-z0-9._-]{0,63}$` (1–64 Zeichen, beginnt mit Buchstabe).
-  - Eindeutigkeit: Aliasse müssen **über alle ****\`\`**** hinweg** eindeutig sein.
-  - Case: **case-sensitiv**; Empfehlung: lowercase mit Punkten.
-  - Reserviert/verboten: beginnend mit `_` oder `sys.`.
-- **Kollisions-Policy:** Alias muss im Call eindeutig sein; Kollision **zwischen** Calls ⇒ **Fehler**.
-
----
-
-## 5) Zahlenbehandlung
-
-- Intern **Decimal bevorzugt** (Geld/Preise). Fallback Float64 (konfigurierbar) mit Warnung.
-- `number`: Decimal-Parse; `int`: nur ganzzahlig (kein implizites Runden).
-- `round(ndigits)`: Rundung **HALF\_UP**.
-- **Receipt (bei ****\`\`****) – kanonische JSON-Zahlen:**
-  - Typ: JSON-Number (kein String), **ohne Exponent**.
-  - Format: optionales `-`, Ziffern; optional `.` + Dezimalteil.
-  - Trailing-Zeros im Dezimalteil werden entfernt (`2.3000` → `2.3`, `2.0` → `2`).
-  - Präzision: max. **38** signifikante Stellen, max. **18** Nachkommastellen.
-  - Verboten: `NaN`, `Infinity`, `-Infinity`.
-
----
-
-## 6) Fehler- & Default-Handling
-
-Fehlerquellen: Timeout, HTTP-Status, Parsing, kein Treffer, Mehrtreffer, Cast-Fehler.
-
-- **Kein Wert für Alias:** Wenn die Pfadauswertung 0 Treffer liefert, wird – falls vorhanden – `defaults[alias]` verwendet, sonst **Fehler**.
-- **Mehrtreffer ohne Reducer:** **Fehler**.
-- **Cast-/Transform-Fehler:** **Fehler**.
-
----
-
-## 7) Sicherheit & Limits
-
-- Host-Allowlist, TLS ≥ 1.2, Redirects ≤ 3.
-- Log-Redaction: `Authorization`, `Cookie`, `X-Api-Key`.
-- Max `apiCalls` pro XRC-137: 50 (konfigurierbar).
-- Max Responsegröße: 1 MB.
-- Timeout & Retry: engine-intern festgelegt (nicht konfigurierbar in `apiCalls`).
-- Keine Seiteneffekte in `apiCalls` (v0.2).
-
----
-
-## 8) Beispiele
-
-### 8.1 Einfacher Fetch (ein Wert)
-
-**Spec:**
+`` (`onValid` / `onInvalid`):
 
 ```json
 {
-  "name": "fx_latest_single",
-  "method": "GET",
-  "urlTemplate": "https://api.exchangerate.host/latest?base=EUR&symbols=USD",
+  "waitMs": 0,
+  "waitUntilMs": 0,
+  "params": { "payload": { "<outKey>": "<ExprOrTemplate>" } },
+  "execution": Execution
+}
+```
+
+`` (Output-Payload):
+
+- **Genau** `"[Key]"` → direktes Mapping.
+- String mit Platzhaltern **ohne Operatoren** → reine Placeholder-Ersetzung (kein CEL).
+- Sonst → **CEL** (siehe §4) mit denselben Variablen/Funktionen wie `rules`.
+
+---
+
+## 2) APICall (fetch-only)
+
+```json
+APICall = {
+  "name": "<id>",
+  "method": "GET|POST|PUT|PATCH",
+  "urlTemplate": "https://.../path?x=[key]",
+  "headers": {"K": "V"},
+  "bodyTemplate": "...",
   "contentType": "json",
-  "extractMap": { "fxRate": { "expr": "$.rates.USD|number", "save": true } }
+  "extractMap": { "alias": "<CEL on resp>", "alias2": "<CEL>" },
+  "defaults": { "alias": <any> }
 }
 ```
 
-**Beispiel-Response:**
+**Semantik:**
+
+- **Timeout je Call:** 8s. **Redirects:** ≤3. **Max Response:** 1 MB. **TLS ≥1.2**. IPv4 bevorzugt. HTTP/1.1 erzwungen.
+- `contentType`: nur `json` (Response wird als JSON geparst; Array‑Root erlaubt).
+- `` ist Pflicht. Jeder Alias wird nach `inputs[alias]` geschrieben.
+- **Persistenz:** Extrakte werden **automatisch gespeichert**, sofern der resultierende Wert **skalar** ist (`string|number|bool|int`). Für Listen/Objekte vorher in CEL reduzieren/casten; sonst Fehler.
+- **Defaults:** Wenn CEL‑Auswertung fehlschlägt → `defaults[alias]` verwenden; sonst Fehler.
+- **Alias‑Regeln:** Regex `^[A-Za-z][A-Za-z0-9._-]{0,63}$`, nicht mit `_` oder `sys.` beginnen, global eindeutig.
+
+### 2.1 Platzhalter in `urlTemplate`/`bodyTemplate`
+
+- Syntax: `[key]` → Wert aus `inputs[key]`.
+- URL: URL-encoded. Body: roh (du baust selbst gültiges JSON/Plain).
+- Fehlender Key ⇒ Fehler. Escapes: `[[` → `[`, `]]` → `]`.
+
+### 2.2 API-Attribute (Strict)
+
+| Feld           | Typ                  | Default | Pflicht | Beschreibung                                                                                                |       |      |                                                                                                       |
+| -------------- | -------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------- | ----- | ---- | ----------------------------------------------------------------------------------------------------- |
+| `name`         | string               | –       | nein    | Interner Bezeichner für Logs/Debugging. Keine Semantik für Auswertung.                                      |       |      |                                                                                                       |
+| `method`       | "GET"                | "POST"  | "PUT"   | "PATCH"                                                                                                     | `GET` | nein | HTTP-Methode. **Nur fetchend/idempotent verwenden.** Für `POST/PUT/PATCH` ggf. `bodyTemplate` setzen. |
+| `urlTemplate`  | string               | –       | **ja**  | Ziel-URL mit Platzhaltern `[key]`. URL-Encoding wird automatisch angewandt.                                 |       |      |                                                                                                       |
+| `headers`      | map\<string,string>  | `{}`    | nein    | Feste Header. Platzhalter erlaubt. Sensible Werte werden geloggt **maskiert** (Engine-Policy).              |       |      |                                                                                                       |
+| `bodyTemplate` | string               | –       | nein    | Request-Body für `POST/PUT/PATCH`. Platzhalter erlaubt. Serialisierung liegt beim Autor (Raw-String).       |       |      |                                                                                                       |
+| `contentType`  | "json"               | `json`  | nein    | Erwarteter Response-Typ (Root-Array erlaubt).                                                               |       |      |                                                                                                       |
+| `extractMap`   | map\<string, string> | –       | **ja**  | Alias → CEL (Kurzform). Schreibt Werte nach `inputs[alias]` und persistiert sie automatisch, sofern skalar. |       |      |                                                                                                       |
+| `defaults`     | map\<string, any>    | `{}`    | nein    | Fallback pro Alias bei Eval-Fehler des jeweiligen Extracts.                                                 |       |      |                                                                                                       |
+
+---
+
+## 3) Rules (CEL)
+
+- Typ: **Array von Strings**; jeder String ist ein **CEL-Ausdruck** über deine **Input-Keys**.
+- Schreibweise mit Platzhalter-Klammern: `[Key]` wird intern zu CEL-Ident `Key` umgeschrieben.
+- **Bewertung:** Alle `rules[i]` müssen `true` liefern. Fehlende Keys ⇒ Ausdruck wird als `false` bewertet (kein Fehler). Max Länge pro Expr: 1024 Zeichen. Per-Expr-Timeout: 25 ms.
+
+**Beispiele:**
+
+- `"[AmountA] > 0"`
+- `"[AmountA] + [AmountB] > [Threshold]"`
+- `"[RecipientIBAN].startsWith('GH') == true"`
+
+---
+
+## 4) CEL – Syntax & Funktionen (in allen Kontexten)
+
+### 4.1 Grundsyntax
+
+- Operatoren: `+ - * / %`, `== != < <= > >=`, `&& || !`, Ternary `cond ? a : b`.
+- Zugriff: `obj.field`, `map["key"]`, `list[0]`.
+- Casts: `double(x)`, `int(x)`, `string(x)`, `bool(x)`.
+
+### 4.2 Listen-Makros (CEL)
+
+- `list.map(x, expr)`
+- `list.filter(x, predicate)`
+- `list.exists(x, predicate)` · `list.exists_one(x, predicate)` · `list.all(x, predicate)`
+
+### 4.3 XGR-Helper (zusätzlich verfügbar)
+
+- `max(list<dyn>) -> double`
+- `min(list<dyn>) -> double`
+- `sum(list<dyn>) -> double`
+- `avg(list<dyn>) -> double`
+- `join(list<dyn>, sep) -> string`
+- `unique(list<dyn>) -> list<dyn>`
+
+### 4.4 Variablen je Kontext
+
+- **extractMap:** eine Variable `resp` (parsed JSON der HTTP-Response).
+- **rules**, **execution.args**, **gas.limitExpr**, **execution.valueExpr**, **Output-Payload**: Variablen sind deine **Input-Keys** (ohne Klammern) sowie optional `pid`.
+
+**Beispiele (extractMap)**
+
+- `double(resp.quote.price.value)`
+- `max(resp.quote.venues.map(v, double(v.price.value)))`
+- `resp.quote.venues.filter(v, double(v.price.value) == max(resp.quote.venues.map(x, double(x.price.value)))).map(v, v.name)[0]`
+
+**Beispiele (Rules/Args/Gas/Value/Output):**
+
+- `"[AmountA] > 0 && [q.price] > 0"`
+- Gas: `"220000 + 50000"`
+- Arg: `"string([AmountA])"`
+- Output: `"[AmountA]-[AmountB]"` oder komplex als CEL.
+
+---
+
+## 5) Execution
 
 ```json
-{
-  "base": "EUR",
-  "date": "2025-09-10",
-  "rates": { "USD": 1.0875 }
+Execution = {
+  "to": "0x...",
+  "function": "setMessage(string)",
+  "args": [ "<ExprOrLiteral>", ... ],
+  "valueExpr": "<CEL>",
+  "gas": { "limit": 150000, "limitExpr": "<CEL>", "cap": 220000 }
 }
 ```
 
-### 8.2 Komplexe Antwort (Filter, Aggregat, Aliasse)
+**Auflösung:**
 
-**Spec:**
+- `gas.limitExpr` hat Vorrang vor `gas.limit`. `cap` begrenzt den resultierenden `limit`.
+- `args[i]` werden jeweils als CEL ausgewertet und anschließend in den ABI-Typ der Signatur gecastet.
+- `valueExpr` wird in Wei umgewandelt (Ganzzahl ≥0).
+
+Fehlerfälle: fehlender/ungültiger `to`, Argumentanzahl ≠ Signatur, nicht castbare Werte, Gaslimit=0 bei vorhandenem `to`.
+
+---
+
+## 6) Required Inputs & Validierung
+
+- Aus `payload` definierte Pflichtfelder müssen **vor** Rule-Eval vorhanden sein (nicht `nil`, nicht leerer String/Array/Map).
+- `rules`: Alle müssen `true` sein, sonst `onInvalid`.
+
+---
+
+## 7) Receipt & Speicherung
+
+- **APISaves**: alle `extractMap`-Aliasse (automatisch), **nur skalare Werte**. Bei Fehlern greifen `defaults` (falls gesetzt).
+- **ContractSaves**: alle `contractReads` mit `save:true`.
+- **PayloadAll**: finale Plain-Payload (ohne API-/Contract-Werte) nach Outcome-Resolving.
+- Optionale **Verschlüsselung** der Receipt-Logs (Engine/Chain-spezifisch).
+
+---
+
+## 8) Limits & Sicherheit
+
+- `apiCalls` pro XRC-137: Empfehlung ≤50.
+- HTTP: Timeout je Call 8s, Redirects ≤3, Response ≤1MB, TLS ≥1.2.
+- Header-Redaction für Secrets empfohlen (Engine-Policy).
+- Host-Allowlist: Engine-Policy; default offen (konfigurierbar).
+
+---
+
+## 9) Fehlerbehandlung (Auszug)
+
+- Platzhalter: ungültiger Key / fehlender Key.
+- HTTP: Status ≠ 2xx, Non‑JSON, Timeout, Größe > Limit.
+- `extractMap`: leerer Ausdruck, Eval‑Fehler ohne `defaults`, nicht‑skalares Ergebnis (ohne Reduktion).
+- `rules`: Syntaxfehler, Non‑Boolean‑Result, Timeout, Expr > 1024 Zeichen.
+- Execution: invalides Ziel, ABI‑Mismatch, Gaslimit 0 trotz Call, Cast‑Fehler.
+- Output‑Payload: fehlende Keys, ungültige Template‑Ersetzung, Auswertungsfehler.
+
+---
+
+## 10) Beispiele
+
+### 10.1 Quote mit Aggregaten (GET)
 
 ```json
 {
-  "name": "quote_latest",
+  "name": "test-quote",
   "method": "GET",
-  "urlTemplate": "https://api.example.com/quote?symbol=[sym]",
+  "urlTemplate": "https://api.test.xgr.network/quote/AAPL",
   "contentType": "json",
+  "headers": {"Accept": "application/json"},
   "extractMap": {
-    "quote.symbol": { "expr": "$.quote.symbol|string", "save": true },
-    "quote.price":  { "expr": "$.quote.price.value|number", "save": true },
-    "quote.bid":    { "expr": "$.quote.bid.value|number", "save": true },
-    "quote.ask":    { "expr": "$.quote.ask.value|number", "save": true },
-    "quote.bats":   "$.quote.venues[?(@.name=='BATS')].price.value|first|number",
-    "quote.venues": { "expr": "$.quote.venues[*].name|unique|join(';')|string", "save": false },
-    "quote.ts":     "$.quote.meta.ts|int"
+    "q.symbol": "resp.quote.symbol",
+    "q.price":  "double(resp.quote.price.value)",
+    "q.bid":    "double(resp.quote.bid.value)",
+    "q.ask":    "double(resp.quote.ask.value)",
+    "q.ts":     "int(resp.quote.meta.ts)",
+    "q.venue_best_px":   "max(resp.quote.venues.map(v, double(v.price.value)))",
+    "q.venue_best_name": "resp.quote.venues.filter(v, double(v.price.value) == max(resp.quote.venues.map(x, double(x.price.value)))).map(v, v.name)[0]"
   },
-  "defaults": { "quote.venues": "" }
+  "defaults": {"q.price":0, "q.bid":0, "q.ask":0}
 }
 ```
 
-**Beispiel-Response:**
+### 10.2 Komplettes XRC-137 (Ausschnitt)
 
 ```json
 {
-  "quote": {
-    "symbol": "AAPL",
-    "price": { "value": "214.01", "ccy": "USD" },
-    "bid":   { "value": "213.98" },
-    "ask":   { "value": "214.04" },
-    "venues": [
-      { "id": "v1", "name": "XNAS", "price": { "value": "214.01" } },
-      { "id": "v2", "name": "BATS", "price": { "value": "214.02" } }
-    ],
-    "meta": { "ts": 1725882000 }
+  "payload": {
+    "AmountA": {"type":"number","optional":false},
+    "AmountB": {"type":"number","optional":false}
+  },
+  "apiCalls": [ { /* see 10.1 */ } ],
+  "contractReads": [],
+  "rules": [
+    "[AmountA] > 0",
+    "[AmountB] > 0",
+    "[q.price] > 0"
+  ],
+  "onValid": {
+    "waitMs": 50000,
+    "params": {"payload": {
+      "AmountA": "[AmountA]-[AmountB]",
+      "AmountB": "[AmountB]",
+      "fromApi": "[q.symbol]"
+    }},
+    "execution": {
+      "to": "0x7863b2E0Cb04102bc3758C8A70aC88512B46477C",
+      "function": "setMessage(string)",
+      "args": ["string([AmountA])"],
+      "valueExpr": null,
+      "gas": {"limit":150000, "limitExpr":"220000 + 50000", "cap":220000}
+    }
+  },
+  "onInvalid": {
+    "waitMs": 1000,
+    "params": {"payload": {"memo":"invalid-path","error":"Amount"}},
+    "execution": {
+      "to": "0x7863b2E0Cb04102bc3758C8A70aC88512B46477C",
+      "function": "setMessage(string)",
+      "args": ["not enough balance"],
+      "gas": {"limit":90000, "cap":120000}
+    }
   }
 }
 ```
-
-### 8.3 POST als fetch (Input raus, Score rein)
-
-**Spec:**
-
-```json
-{
-  "name": "risk_score",
-  "method": "POST",
-  "urlTemplate": "https://risk.example.com/score",
-  "headers": { "Content-Type": "application/json" },
-  "bodyTemplate": "{\"amount\": [AmountA], \"user\": \"[userId]\"}",
-  "contentType": "json",
-  "extractMap": { "risk.score": { "expr": "$.score|number", "save": true } }
-}
-```
-
-**Beispiel-Response:**
-
-```json
-{ "score": "0.73" }
-```
-
----
-
-## 9) Validierung & Determinismus
-
-- Keine „Best Guess“-Extraktion. Jeder Pfad eindeutig oder mit Reducer.
-- Reihenfolgeabhängige Reducer (`first/last/nth`) sind deterministisch bzgl. API-Reihenfolge.
-- Treffer=0 → Fehler; falls `defaults[alias]` gesetzt ist, wird dieser verwendet. Treffer>1 ohne Reducer → Fehler.
-
----
-
-## 10) Reserved für v0.3 (nicht Teil von v0.2)
-
-- `contentType: "text"|"xml"|"csv"|"auto"`
-- Weitere Reducer/Transforms: `sort`, `sortBy(path)`, `take(k)`, `slice(a,b)`
-- Casts: `decimal(scale)`, `date(fmt)`, `epochSeconds/epochMillis`
-- Filter: `matches(/regex/i)`
-- Platzhalter-Modifier: `[key|raw]`, `[key|url]`, `[key|json]`
-- Pre-Seiteneffekte (Two-Phase Reserve/Commit) als explizites Feature-Flag
 
 ---
 
 ## 11) Best Practices
 
-- Aliasse **eindeutig benennen** (z. B. `fx.rate`, `quote.ask`) – direkt im `extractMap`-Alias.
-- Beträge: `number` + `round(ndigits)`; intern Decimal.
-- Defaults gezielt einsetzen.
-- Responses klein halten (serverseitige Filter/Fields nutzen).
-- Keine Seiteneffekte vor Regeln.
-
----
-
-## 12) Cheatsheet
-
-- `extractMap` ist **Pflicht** in `apiCalls`.
-- Filter nur auf Listen; ohne Reducer bei Mehrtreffern → **Fehler**.
-- Platzhalter `[key]`: URL-encoded in URLs, roh in Bodies.
-- Seiteneffekte sind **nicht Teil** von `apiCalls` (v0.2).
+- Aliasse sprechend und stabil benennen (`quote.price`, `fx.rate`).
+- Frühe Reduktion auf **Skalare**, da nur skalare Ergebnisse persistiert werden.
+- `waitUntilMs` für deterministische Verzögerungen bevorzugen (UTC-Epochenzeit).
+- Gaslimit via einfacher Formel (`base + delta`) berechnen und mit `cap` begrenzen.
+- Responses serverseitig klein halten (Query-Filter/Fields).
 
