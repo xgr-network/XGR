@@ -1,5 +1,4 @@
-# XRC-137 — Technical Specification (v0.2)
-
+# XRC-137 — Technical Specification
 > **Scope:** This document defines the XRC‑137 JSON rule format and its runtime semantics for a **single validation step** with optional execution. **Expression language details are out of scope** and are covered in the companion document **“XRC‑137 Expression Evaluation — Developer Guide.”**
 
 ---
