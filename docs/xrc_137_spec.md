@@ -6,10 +6,13 @@
 ## 1) Purpose & Design Goals
 
 - Deterministic, fetch-only rule execution for a single step.
-- Uniform authoring across payload, HTTP extracts, branching, and execution metadata.
+- Uniform authoring across payload, **contract reads**, HTTP extracts, branching, and execution metadata.
 - JSON-first, engine-agnostic; contracts return rules via `getRule()`/`rule()` and variants.
 
-**Processing pipeline**: `Validate payload → Execute apiCalls (fetch) → Evaluate rules → Pick Outcome (onValid/onInvalid) → Optional execution → Receipt persistence`
+**Processing pipeline**:  
+`Validate payload → Execute contractReads (on-chain) → Execute apiCalls (HTTP fetch) → Evaluate rules → Pick Outcome (onValid/onInvalid) → Optional execution → Receipt persistence`
+
+> **Why this order?** Contract read results become input keys and **can be used by both `apiCalls` templates and `rules`** in the same step.
 
 ---
 
@@ -18,8 +21,8 @@
 ```json
 {
   "payload": { "<Key>": {"type":"string|number|bool|array|object", "optional": false } },
-  "apiCalls": [ APICall, ... ],
   "contractReads": [ ContractRead, ... ],
+  "apiCalls": [ APICall, ... ],
   "rules": [ "<CEL>", ... ],
   "onValid":  Outcome,
   "onInvalid": Outcome,
@@ -30,8 +33,8 @@
 **Notes**
 
 - `payload` declares plain inputs and their requiredness.
+- `contractReads` run **before** `apiCalls`; their results merge into inputs and are available to `apiCalls` templates and `rules`.
 - `apiCalls` fetch JSON and write extracted aliases into the inputs map.
-- `contractReads` provide deterministic on-chain reads (engine-specific execution mechanism), see §8.
 - `rules` are boolean expressions; **see companion Expression document** for language and functions.
 - Outcomes define optional waits, **output payload mapping (flat)**, and an optional execution.
 
@@ -40,8 +43,8 @@
 | Field           | Type             | Required             | Description                                                                                                            |
 | --------------- | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `payload`       | object           | yes                  | Declares input keys available to expressions. Each entry defines `type` (doc hint) and `optional` (requiredness).      |
-| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches whose extracted aliases are merged into inputs. Order matters when aliases depend on prior extracts. |
 | `contractReads` | array            | no                   | Declarative on-chain reads. ABI-aware (`to`/`function`/`args`) with optional `saveAs` to persist single/multi returns. |
+| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches; executed **after** `contractReads`. Their templates may reference keys from reads and payload.      |
 | `rules`         | array of string  | no (recommended)     | Boolean expressions; if omitted, validation succeeds when required inputs are present.                                 |
 | `onValid`       | Outcome          | no                   | Outcome executed when **all** rules evaluate to `true`.                                                                |
 | `onInvalid`     | Outcome          | no                   | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
@@ -69,7 +72,71 @@
 
 ---
 
-## 4) HTTP API Calls (fetch-only, JSON)
+## 4) Contract Reads
+
+Declarative, ABI-aware reads whose results become inputs and can be persisted. Executed **before** `apiCalls` in the same step so their keys are available to API templates and rules.
+
+```json
+ContractRead = {
+  "to": "0x... or ${addr:Alias}",
+  "function": "balanceOf(address) returns (uint256)",
+  "args": ["<ExprOrLiteral>", ...],
+  "gas": { "limit": 150000 },
+  "saveAs": "Alias" | { "0": "Key0", "1": "Key1", "...": "..." }
+}
+```
+
+### 4.1 Semantics
+
+- `to`: EVM address or engine-resolved placeholder like `${addr:TokenA}`.
+- `function`: Solidity signature; determines ABI for args and return tuple.
+- `args[i]`: evaluated first, then cast to ABI type.
+- Return value is treated as a Solidity **tuple** (even for single return).
+  - `saveAs: "Alias"` → persist index **0** under `"Alias"`.
+  - `saveAs: { "0": "A", "1": "B", ... }` → persist **multiple indices** under provided keys.
+- If `saveAs` is omitted, the engine may still execute the read for evaluation, but **no keys are added/persisted**.
+
+### 4.2 SaveAs for multi-return — details
+
+- Object keys are **stringified non-negative integers** (`"0"`, `"1"`, …).
+- Values are non-empty strings naming the keys to write into the inputs map.
+- Indices must be within the function’s return arity; otherwise error.
+
+### 4.3 Validation & errors
+
+- `to` must be a valid 0x address **or** a placeholder `${addr:...}`.
+- `saveAs`:
+  - String → non-empty; maps to index `0`.
+  - Object → keys: `"0".."N"`, values: non-empty strings; indices `>=0`.
+- Index out of range for the function’s return tuple → error.
+- Arg evaluation/casting errors propagate as rule errors (engine handling).
+
+### 4.4 Example (reads only)
+
+```json
+{
+  "contractReads": [
+    {
+      "to": "${addr:TokenA}",
+      "function": "balanceOf(address) returns (uint256)",
+      "args": ["[User]"],
+      "saveAs": "BalanceA"
+    },
+    {
+      "to": "${addr:Pair}",
+      "function": "getReserves() returns (uint112,uint112,uint32)",
+      "args": [],
+      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" }
+    }
+  ]
+}
+```
+
+---
+
+## 5) HTTP API Calls (fetch-only, JSON)
+
+Executed **after** `contractReads`. Templates and extract expressions can reference any keys present in the **combined inputs** (payload + contractReads + prior apiCalls).
 
 ```json
 APICall = {
@@ -96,15 +163,15 @@ APICall = {
 
 - Regex: `^[A-Za-z][A-Za-z0-9._-]{0,63}$`; must not start with `_` or `sys.`; must be unique across all apiCalls in the rule.
 
-### 4.1 Placeholders in `urlTemplate` / `bodyTemplate`
+### 5.1 Placeholders in `urlTemplate` / `bodyTemplate`
 
-- Syntax: `[key]` references `inputs[key]`.
+- Syntax: `[key]` references `inputs[key]` (including values from `contractReads`).
 - URL templates URL-encode placeholder values; body templates use raw serialization.
 - Escapes: `[[` → `[` and `]]` → `]`.
 - Missing placeholder key ⇒ error.
 - Complex/non-string values are JSON-serialized for body usage.
 
-### 4.2 APICall fields — parameter reference
+### 5.2 APICall fields — parameter reference
 
 | Field          | Type   | Required | Constraints / Notes                                                                          |
 | -------------- | ------ | -------- | -------------------------------------------------------------------------------------------- |
@@ -117,7 +184,7 @@ APICall = {
 | `extractMap`   | object | yes      | Map of `alias` → expression over `resp`. Result must be scalar to be persisted.              |
 | `defaults`     | object | no       | Fallback values per alias when the corresponding extract expression errors.                  |
 
-### 4.3 Example extracts
+### 5.3 Example extracts
 
 ```json
 {
@@ -129,23 +196,15 @@ APICall = {
 }
 ```
 
-### 4.1 Placeholders in `urlTemplate` / `bodyTemplate`
-
-- Syntax: `[key]` references `inputs[key]`.
-- URL templates URL-encode placeholder values; body templates use raw serialization.
-- Escapes: `[[` → `[` and `]]` → `]`.
-- Missing placeholder key ⇒ error.
-- Complex/non-string values are JSON-serialized for body usage.
-
 ---
 
-## 5) Rules (Boolean)
+## 6) Rules (Boolean)
 
 - `rules` is an array of boolean expressions. **All must evaluate to `true`.**
 - Missing referenced keys make the individual expression evaluate to `false` (no exception).
 - **Expression details (operators, helpers, timeouts, length limits) are documented in “XRC-137 Expression Evaluation — Developer Guide.”**
 
-### 5.1 Rule behavior — parameter reference
+### 6.1 Rule behavior — parameter reference
 
 | Aspect             | Specification                                                                                                           |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
@@ -156,7 +215,7 @@ APICall = {
 
 ---
 
-## 6) Outcomes (`onValid` / `onInvalid`)
+## 7) Outcomes (`onValid` / `onInvalid`)
 
 ```json
 Outcome = {
@@ -182,18 +241,18 @@ Outcome = {
 
 - If `execution` is omitted or has an empty `to`, no inner call is performed; outcome remains metadata-only (receipt still records payload and saves).
 
-### 6.1 Outcome fields — parameter reference
+### 7.1 Outcome fields — parameter reference
 
 | Field         | Type               | Required | Notes                                                                     |
 | ------------- | ------------------ | -------- | ------------------------------------------------------------------------- |
 | `waitMs`      | integer ≥ 0        | no       | Relative delay before applying the outcome. Ignored if `waitUntilMs` > 0. |
 | `waitUntilMs` | integer (epoch ms) | no       | Absolute timestamp to apply the outcome. Overrides `waitMs`.              |
 | `payload`     | object             | no       | Output keys to persist. Values can be template strings or expressions.    |
-| `execution`   | object             | no       | See §7. When omitted or `to==""`, the outcome is metadata-only.           |
+| `execution`   | object             | no       | See §8. When omitted or `to==""`, the outcome is metadata-only.           |
 
 ---
 
-## 7) Execution
+## 8) Execution
 
 ```json
 Execution = {
@@ -216,7 +275,7 @@ Execution = {
 
 - Invalid target address/placeholer; argument count/type mismatch; casting failures; negative `value`.
 
-### 7.1 Execution fields — parameter reference
+### 8.1 Execution fields — parameter reference
 
 | Field       | Type                | Required        | Notes                                                                                     |
 | ----------- | ------------------- | --------------- | ----------------------------------------------------------------------------------------- |
@@ -225,68 +284,6 @@ Execution = {
 | `args`      | array               | yes if `to` set | Each entry may be a literal or expression. Evaluated at runtime, then ABI-encoded.        |
 | `value`     | string              | no              | Expression/literal yielding Wei (uint256). If omitted ⇒ 0.                                |
 | `gas.limit` | integer             | no              | Base gas limit used if provided.                                                          |
-
----
-
-## 8) Contract Reads
-
-Declarative, ABI-aware reads whose results become inputs and can be persisted.
-
-```json
-ContractRead = {
-  "to": "0x... or ${addr:Alias}",
-  "function": "balanceOf(address) returns (uint256)",
-  "args": ["<ExprOrLiteral>", ...],
-  "gas": { "limit": 150000 },
-  "saveAs": "Alias" | { "0": "Key0", "1": "Key1", "...": "..." }
-}
-```
-
-### 8.1 Semantics
-
-- `to`: EVM address or engine-resolved placeholder like `${addr:TokenA}`.
-- `function`: Solidity signature; determines ABI for args and return tuple.
-- `args[i]`: evaluated first, then cast to ABI type.
-- Return value is treated as a Solidity **tuple** (even for single return).
-  - `saveAs: "Alias"` → persist index **0** under `"Alias"`.
-  - `saveAs: { "0": "A", "1": "B", ... }` → persist **multiple indices** under provided keys.
-- If `saveAs` is omitted, the engine may still execute the read for evaluation, but **no keys are added/persisted**.
-
-### 8.2 SaveAs for multi-return — details
-
-- Object keys are **stringified non-negative integers** (`"0"`, `"1"`, …).
-- Values are non-empty strings naming the keys to write into the inputs map.
-- Indices must be within the function’s return arity; otherwise error.
-
-### 8.3 Validation & errors
-
-- `to` must be a valid 0x address **or** a placeholder `${addr:...}`.
-- `saveAs`:
-  - String → non-empty; maps to index `0`.
-  - Object → keys: `"0".."N"`, values: non-empty strings; indices `>=0`.
-- Index out of range for the function’s return tuple → error.
-- Arg evaluation/casting errors propagate as rule errors (engine handling).
-
-### 8.4 Example (reads only)
-
-```json
-{
-  "contractReads": [
-    {
-      "to": "${addr:TokenA}",
-      "function": "balanceOf(address) returns (uint256)",
-      "args": ["[User]"],
-      "saveAs": "BalanceA"
-    },
-    {
-      "to": "${addr:Pair}",
-      "function": "getReserves() returns (uint112,uint112,uint32)",
-      "args": [],
-      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" }
-    }
-  ]
-}
-```
 
 ---
 
@@ -353,6 +350,20 @@ ContractRead = {
     "AmountA": {"type":"number","optional":false},
     "AmountB": {"type":"number","optional":false}
   },
+  "contractReads": [
+    {
+      "to": "${addr:TokenA}",
+      "function": "balanceOf(address) returns (uint256)",
+      "args": ["[User]"],
+      "saveAs": "BalanceA"
+    },
+    {
+      "to": "${addr:Pair}",
+      "function": "getReserves() returns (uint112,uint112,uint32)",
+      "args": [],
+      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" }
+    }
+  ],
   "apiCalls": [
     {
       "name": "test-quote",
@@ -367,20 +378,6 @@ ContractRead = {
         "q.ask":    "double(resp.quote.ask.value)"
       },
       "defaults": {"q.price":0, "q.bid":0, "q.ask":0}
-    }
-  ],
-  "contractReads": [
-    {
-      "to": "${addr:TokenA}",
-      "function": "balanceOf(address) returns (uint256)",
-      "args": ["[User]"],
-      "saveAs": "BalanceA"
-    },
-    {
-      "to": "${addr:Pair}",
-      "function": "getReserves() returns (uint112,uint112,uint32)",
-      "args": [],
-      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" }
     }
   ],
   "rules": [
