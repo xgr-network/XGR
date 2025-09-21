@@ -6,13 +6,10 @@
 ## 1) Purpose & Design Goals
 
 - Deterministic, fetch-only rule execution for a single step.
-- Uniform authoring across payload, **contract reads**, HTTP extracts, branching, and execution metadata.
+- Uniform authoring across payload, HTTP extracts, branching, and execution metadata.
 - JSON-first, engine-agnostic; contracts return rules via `getRule()`/`rule()` and variants.
 
-**Processing pipeline**:  
-`Validate payload → Execute contractReads (on-chain) → Execute apiCalls (HTTP fetch) → Evaluate rules → Pick Outcome (onValid/onInvalid) → Optional execution → Receipt persistence`
-
-> **Why this order?** Contract read results become input keys and **can be used by both `apiCalls` templates and `rules`** in the same step.
+**Processing pipeline**: `Validate payload → Execute contractReads (on-chain) → Execute apiCalls (fetch) → Evaluate rules → Pick Outcome (onValid/onInvalid) → Optional execution → Receipt persistence`
 
 ---
 
@@ -33,18 +30,26 @@
 **Notes**
 
 - `payload` declares plain inputs and their requiredness.
-- `contractReads` run **before** `apiCalls`; their results merge into inputs and are available to `apiCalls` templates and `rules`.
+- `contractReads` run **before** `apiCalls`; their results merge into inputs and are available to `apiCalls` templates and `rules` (see §4).
 - `apiCalls` fetch JSON and write extracted aliases into the inputs map.
 - `rules` are boolean expressions; **see companion Expression document** for language and functions.
-- Outcomes define optional waits, **output payload mapping (flat)**, and an optional execution.
-
-### 2.1 Top-level fields — parameter reference
+- Outcomes define optional waits, **output payload mapping### 2.1 Top-level fields — parameter reference
 
 | Field           | Type             | Required             | Description                                                                                                            |
 | --------------- | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `payload`       | object           | yes                  | Declares input keys available to expressions. Each entry defines `type` (doc hint) and `optional` (requiredness).      |
 | `contractReads` | array            | no                   | Declarative on-chain reads. ABI-aware (`to`/`function`/`args`) with optional `saveAs` to persist single/multi returns. |
-| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches; executed **after** `contractReads`. Their templates may reference keys from reads and payload.      |
+| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches whose extracted aliases are merged into inputs. Executed **after** `contractReads`.                  |
+| `rules`         | array of string  | no (recommended)     | Boolean expressions; if omitted, validation succeeds when required inputs are present.                                 |
+| `onValid`       | Outcome          | no                   | Outcome executed when **all** rules evaluate to `true`.                                                                |
+| `onInvalid`     | Outcome          | no                   | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
+| `address`       | string (0x…)     | no                   | Authoring aid; target EVM address for UI/display. Engines may ignore at runtime and use `execution.to` instead.        |
+
+---                                |
+| --------------- | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `payload`       | object           | yes                  | Declares input keys available to expressions. Each entry defines `type` (doc hint) and `optional` (requiredness).      |
+| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches whose extracted aliases are merged into inputs. Order matters when aliases depend on prior extracts. |
+| `contractReads` | array            | no                   | Declarative on-chain reads. ABI-aware (`to`/`function`/`args`) with optional `saveAs` to persist single/multi returns. |
 | `rules`         | array of string  | no (recommended)     | Boolean expressions; if omitted, validation succeeds when required inputs are present.                                 |
 | `onValid`       | Outcome          | no                   | Outcome executed when **all** rules evaluate to `true`.                                                                |
 | `onInvalid`     | Outcome          | no                   | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
@@ -74,7 +79,7 @@
 
 ## 4) Contract Reads
 
-Declarative, ABI-aware reads whose results become inputs and can be persisted. Executed **before** `apiCalls` in the same step so their keys are available to API templates and rules.
+Declarative, ABI-aware reads whose results become inputs and can be persisted. Executed **before** `apiCalls` so their keys are available to API templates and rules.
 
 ```json
 ContractRead = {
@@ -136,8 +141,6 @@ ContractRead = {
 
 ## 5) HTTP API Calls (fetch-only, JSON)
 
-Executed **after** `contractReads`. Templates and extract expressions can reference any keys present in the **combined inputs** (payload + contractReads + prior apiCalls).
-
 ```json
 APICall = {
   "name": "<id>",
@@ -165,7 +168,7 @@ APICall = {
 
 ### 5.1 Placeholders in `urlTemplate` / `bodyTemplate`
 
-- Syntax: `[key]` references `inputs[key]` (including values from `contractReads`).
+- Syntax: `[key]` references `inputs[key]`.
 - URL templates URL-encode placeholder values; body templates use raw serialization.
 - Escapes: `[[` → `[` and `]]` → `]`.
 - Missing placeholder key ⇒ error.
@@ -195,6 +198,14 @@ APICall = {
   "defaults": {"q.best_px": 0}
 }
 ```
+
+### 5.1 Placeholders in `urlTemplate` / `bodyTemplate`
+
+- Syntax: `[key]` references `inputs[key]`.
+- URL templates URL-encode placeholder values; body templates use raw serialization.
+- Escapes: `[[` → `[` and `]]` → `]`.
+- Missing placeholder key ⇒ error.
+- Complex/non-string values are JSON-serialized for body usage.
 
 ---
 
@@ -421,3 +432,4 @@ Execution = {
 ### Companion document
 
 For the expression language (operators, helpers, placeholder rewriting, timeouts, limits, scalar persistence rules, etc.), read **“XRC-137 Expression Evaluation — Developer Guide.”**
+
