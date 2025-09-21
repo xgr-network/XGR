@@ -45,15 +45,6 @@
 | `onInvalid`     | Outcome          | no                   | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
 | `address`       | string (0x…)     | no                   | Authoring aid; target EVM address for UI/display. Engines may ignore at runtime and use `execution.to` instead.        |
 
----                                |
-| --------------- | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `payload`       | object           | yes                  | Declares input keys available to expressions. Each entry defines `type` (doc hint) and `optional` (requiredness).      |
-| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches whose extracted aliases are merged into inputs. Order matters when aliases depend on prior extracts. |
-| `contractReads` | array            | no                   | Declarative on-chain reads. ABI-aware (`to`/`function`/`args`) with optional `saveAs` to persist single/multi returns. |
-| `rules`         | array of string  | no (recommended)     | Boolean expressions; if omitted, validation succeeds when required inputs are present.                                 |
-| `onValid`       | Outcome          | no                   | Outcome executed when **all** rules evaluate to `true`.                                                                |
-| `onInvalid`     | Outcome          | no                   | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
-| `address`       | string (0x…)     | no                   | Authoring aid; target EVM address for UI/display. Engines may ignore at runtime and use `execution.to` instead.        |
 
 ---
 
