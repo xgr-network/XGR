@@ -1,4 +1,5 @@
 # XRC-137 — Technical Specification
+
 > **Scope:** This document defines the XRC-137 JSON rule format and its runtime semantics for a **single validation step** with optional execution. **Expression language details are out of scope** and are covered in the companion document **“XRC-137 Expression Evaluation — Developer Guide.”**
 
 ---
@@ -33,18 +34,19 @@
 - `contractReads` run **before** `apiCalls`; their results merge into inputs and are available to `apiCalls` templates and `rules` (see §4).
 - `apiCalls` fetch JSON and write extracted aliases into the inputs map.
 - `rules` are boolean expressions; **see companion Expression document** for language and functions.
-- Outcomes define optional waits, **output payload mapping### 2.1 Top-level fields — parameter reference
+- Outcomes define optional waits, **output payload mapping (flat)**, and an optional execution.
 
-| Field           | Type             | Required             | Description                                                                                                            |
-| --------------- | ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `payload`       | object           | yes                  | Declares input keys available to expressions. Each entry defines `type` (doc hint) and `optional` (requiredness).      |
-| `contractReads` | array            | no                   | Declarative on-chain reads. ABI-aware (`to`/`function`/`args`) with optional `saveAs` to persist single/multi returns. |
-| `apiCalls`      | array of APICall | no                   | HTTP JSON fetches whose extracted aliases are merged into inputs. Executed **after** `contractReads`.                  |
-| `rules`         | array of string  | no (recommended)     | Boolean expressions; if omitted, validation succeeds when required inputs are present.                                 |
-| `onValid`       | Outcome          | no                   | Outcome executed when **all** rules evaluate to `true`.                                                                |
-| `onInvalid`     | Outcome          | no                   | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
-| `address`       | string (0x…)     | no                   | Authoring aid; target EVM address for UI/display. Engines may ignore at runtime and use `execution.to` instead.        |
+### 2.1 Top-level fields — parameter reference
 
+| Field           | Type             | Required         | Description                                                                                                            |
+| --------------- | ---------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `payload`       | object           | yes              | Declares input keys available to expressions. Each entry defines `type` (doc hint) and `optional` (requiredness).      |
+| `contractReads` | array            | no               | Declarative on-chain reads. ABI-aware (`to`/`function`/`args`) with optional `saveAs` + `defaults` for single/multi returns. |
+| `apiCalls`      | array of APICall | no               | HTTP JSON fetches whose extracted aliases are merged into inputs. Executed **after** `contractReads`.                  |
+| `rules`         | array of string  | no (recommended) | Boolean expressions; if omitted, validation succeeds when required inputs are present.                                 |
+| `onValid`       | Outcome          | no               | Outcome executed when **all** rules evaluate to `true`.                                                                |
+| `onInvalid`     | Outcome          | no               | Outcome executed when **any** rule is `false` or a required key is missing.                                            |
+| `address`       | string (0x…)     | no               | Authoring aid; target EVM address for UI/display. Engines may ignore at runtime and use `execution.to` instead.        |
 
 ---
 
@@ -56,11 +58,11 @@
 
 ### 3.1 Payload fields — parameter reference
 
-| Property         | Type    | Required | Notes                                                                                     |        |      |       |                                                                    |
-| ---------------- | ------- | -------- | ----------------------------------------------------------------------------------------- | ------ | ---- | ----- | ------------------------------------------------------------------ |
-| `<Key>`          | object  | yes      | Declares one input. The map key is the input name (used as `[Key]` in templates).         |        |      |       |                                                                    |
-| `<Key>.type`     | string  | no       | Doc hint: `string \| number \| bool \| array \| object`. Engines may use for UI only.     |        |      |       |                                                                    |
-| `<Key>.optional` | boolean | yes      | When `false`, missing/empty values send the flow to `onInvalid` without evaluating rules. |        |      |       |                                                                    |
+| Property         | Type    | Required | Notes                                                                                     |
+| ---------------- | ------- | -------- | ----------------------------------------------------------------------------------------- |
+| `<Key>`          | object  | yes      | Declares one input. The map key is the input name (used as `[Key]` in templates).         |
+| `<Key>.type`     | string  | no       | Doc hint: `string \| number \| bool \| array \| object`. Engines may use for UI only.     |
+| `<Key>.optional` | boolean | yes      | When `false`, missing/empty values send the flow to `onInvalid` without evaluating rules. |
 
 **Requiredness check (summary)**
 
@@ -77,8 +79,8 @@ ContractRead = {
   "to": "0x... or ${addr:Alias}",
   "function": "balanceOf(address) returns (uint256)",
   "args": ["<ExprOrLiteral>", ...],
-  "gas": { "limit": 150000 },
-  "saveAs": "Alias" | { "0": "Key0", "1": "Key1", "...": "..." }
+  "saveAs": "Alias" | { "0": "Key0", "1": "Key1", "...": "..." },
+  "defaults": <scalar> | { "0": <fallback0>, "1": <fallback1>, "Key0": <fallbackForKey0>, ... }
 }
 ```
 
@@ -98,14 +100,16 @@ ContractRead = {
 - Values are non-empty strings naming the keys to write into the inputs map.
 - Indices must be within the function’s return arity; otherwise error.
 
-### 4.3 Validation & errors
+### 4.3 Defaults & errors
 
-- `to` must be a valid 0x address **or** a placeholder `${addr:...}`.
-- `saveAs`:
-  - String → non-empty; maps to index `0`.
-  - Object → keys: `"0".."N"`, values: non-empty strings; indices `>=0`.
-- Index out of range for the function’s return tuple → error.
-- Arg evaluation/casting errors propagate as rule errors (engine handling).
+- `defaults` provides fallbacks when the read fails (RPC error/revert) **or** when a referenced return index is missing.\n
+  - **Scalar form**: allowed only if `saveAs` is a single string (index `0`). Used as fallback for index `0`.\n
+  - **Object form**: keys may be **tuple indices** (\"0\", \"1\", …) **or** the **names** used in `saveAs`. Values are the fallback literals.\n
+  - All indices referenced by `saveAs` **must** be covered by `defaults` to proceed after a read failure; otherwise the engine aborts the step.\n
+  - If the read succeeds but a specific index is out of range, the engine uses the corresponding default (if present) or fails.
+- `to` must be a valid 0x address **or** placeholder `${addr:...}`.
+- `saveAs` string maps to index `0`; object form must use non-negative integer keys and non-empty string values.
+- Arg evaluation/casting errors propagate as rule errors.
 
 ### 4.4 Example (reads only)
 
@@ -116,13 +120,15 @@ ContractRead = {
       "to": "${addr:TokenA}",
       "function": "balanceOf(address) returns (uint256)",
       "args": ["[User]"],
-      "saveAs": "BalanceA"
+      "saveAs": "BalanceA",
+      "defaults": 0
     },
     {
       "to": "${addr:Pair}",
       "function": "getReserves() returns (uint112,uint112,uint32)",
       "args": [],
-      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" }
+      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" },
+      "defaults": { "0": 0, "1": 0, "2": 0 }
     }
   ]
 }
@@ -190,19 +196,11 @@ APICall = {
 }
 ```
 
-### 5.1 Placeholders in `urlTemplate` / `bodyTemplate`
-
-- Syntax: `[key]` references `inputs[key]`.
-- URL templates URL-encode placeholder values; body templates use raw serialization.
-- Escapes: `[[` → `[` and `]]` → `]`.
-- Missing placeholder key ⇒ error.
-- Complex/non-string values are JSON-serialized for body usage.
-
 ---
 
 ## 6) Rules (Boolean)
 
-- `rules` is an array of boolean expressions. **All must evaluate to `true`.**
+- `rules` is an array of boolean expressions. All must evaluate to `true`.
 - Missing referenced keys make the individual expression evaluate to `false` (no exception).
 - **Expression details (operators, helpers, timeouts, length limits) are documented in “XRC-137 Expression Evaluation — Developer Guide.”**
 
@@ -250,7 +248,7 @@ Outcome = {
 | `waitMs`      | integer ≥ 0        | no       | Relative delay before applying the outcome. Ignored if `waitUntilMs` > 0. |
 | `waitUntilMs` | integer (epoch ms) | no       | Absolute timestamp to apply the outcome. Overrides `waitMs`.              |
 | `payload`     | object             | no       | Output keys to persist. Values can be template strings or expressions.    |
-| `execution`   | object             | no       | See §8. When omitted or `to==""`, the outcome is metadata-only.           |
+| `execution`   | object             | no       | See §8. When omitted or `to==\"\"`, the outcome is metadata-only.           |
 
 ---
 
@@ -275,23 +273,23 @@ Execution = {
 
 **Error conditions (non-exhaustive)**
 
-- Invalid target address/placeholer; argument count/type mismatch; casting failures; negative `value`.
+- Invalid target address/placeholder; argument count/type mismatch; casting failures; negative `value`.
 
 ### 8.1 Execution fields — parameter reference
 
-| Field       | Type                | Required        | Notes                                                                                     |
-| ----------- | ------------------- | --------------- | ----------------------------------------------------------------------------------------- |
-| `to`        | string              | no              | EVM target or placeholder `${addr:...}`. If empty ⇒ no inner call.                        |
-| `function`  | string              | yes if `to` set | Solidity signature (e.g., `transfer(address,uint256)`). Determines ABI casting of `args`. |
-| `args`      | array               | yes if `to` set | Each entry may be a literal or expression. Evaluated at runtime, then ABI-encoded.        |
-| `value`     | string              | no              | Expression/literal yielding Wei (uint256). If omitted ⇒ 0.                                |
-| `gas.limit` | integer             | no              | Base gas limit used if provided.                                                          |
+| Field       | Type    | Required        | Notes                                                                                     |
+| ----------- | ------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `to`        | string  | no              | EVM target or placeholder `${addr:...}`. If empty ⇒ no inner call.                        |
+| `function`  | string  | yes if `to` set | Solidity signature (e.g., `transfer(address,uint256)`). Determines ABI casting of `args`. |
+| `args`      | array   | yes if `to` set | Each entry may be a literal or expression. Evaluated at runtime, then ABI-encoded.        |
+| `value`     | string  | no              | Expression/literal yielding Wei (uint256). If omitted ⇒ 0.                                |
+| `gas.limit` | integer | no              | Base gas limit used if provided.                                                          |
 
 ---
 
 ## 9) Persistence (Receipt)
 
-- **APISaves**: every `extractMap` alias that evaluates to a **scalar**.  
+- **APISaves**: every `extractMap` alias that evaluates to a **scalar**.
 - **ContractSaves**: every key produced via `contractReads.saveAs` (string or map entries).
 - **PayloadAll**: final plain payload (non-API, non-contract) after outcome mapping.
 - Optional log encryption may be applied by the engine when supported.
@@ -299,10 +297,10 @@ Execution = {
 ### 9.1 Persistence fields — parameter reference
 
 | Bucket          | Source                          | Contains                                       |
-| --------------- | -------------------------------- | ---------------------------------------------- |
-| `APISaves`      | `apiCalls.extractMap` (scalars)  | Scalar extracted values only.                  |
-| `ContractSaves` | `contractReads.saveAs`           | Deterministic chain values.                    |
-| `PayloadAll`    | Outcome `payload`                | Final authored payload (non-API/non-contract). |
+| --------------- | ------------------------------- | ---------------------------------------------- |
+| `APISaves`      | `apiCalls.extractMap` (scalars) | Scalar extracted values only.                  |
+| `ContractSaves` | `contractReads.saveAs`          | Deterministic chain values.                    |
+| `PayloadAll`    | Outcome `payload`               | Final authored payload (non-API/non-contract). |
 
 ---
 
@@ -324,7 +322,7 @@ Execution = {
 - **Rules**: syntax error, non-boolean result, timeout, expression length over limit.
 - **Execution**: invalid `to`, ABI mismatch, cast errors, negative `value`.
 - **Outputs**: missing referenced keys, invalid template substitution, evaluation errors.
-- **Contract Reads**: invalid `to`/placeholder, `saveAs` format, index out of range, arg evaluation/cast failures.
+- **Contract Reads**: invalid `to`/placeholder, `saveAs` format, index out of range, arg evaluation/cast failures, missing required `defaults` after read failure.
 
 ---
 
@@ -357,13 +355,15 @@ Execution = {
       "to": "${addr:TokenA}",
       "function": "balanceOf(address) returns (uint256)",
       "args": ["[User]"],
-      "saveAs": "BalanceA"
+      "saveAs": "BalanceA",
+      "defaults": 0
     },
     {
       "to": "${addr:Pair}",
       "function": "getReserves() returns (uint112,uint112,uint32)",
       "args": [],
-      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" }
+      "saveAs": { "0": "Reserve0", "1": "Reserve1", "2": "ReservesTs" },
+      "defaults": { "0": 0, "1": 0, "2": 0 }
     }
   ],
   "apiCalls": [
@@ -423,4 +423,3 @@ Execution = {
 ### Companion document
 
 For the expression language (operators, helpers, placeholder rewriting, timeouts, limits, scalar persistence rules, etc.), read **“XRC-137 Expression Evaluation — Developer Guide.”**
-
