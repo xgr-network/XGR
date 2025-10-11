@@ -104,7 +104,7 @@ A single wrapped DEK is encoded as:
   - All arrays must have equal length `N ≥ 1`.
   - **Value:** attach `Σ feeWei` for entries where `rights > 0` (sum of `quoteGrantCost(...)` per recipient).
   - **Revoke:** set `rights = 0` (no fee, grant becomes inert and will be swept later).
-  - The first writer for a new `rid` may be given `MANAGE` implicitly by policy (owner bootstrap).  
+  - The first writer for a new `rid` may be given `MANAGE` automatically for the first RID entry by policy (owner bootstrap).  **This first grant is permissionless** (see details below).
 
 ### Rights bitmask (uint8)
 - `READ = 1`, `WRITE = 2`, `MANAGE = 4`.  
@@ -147,6 +147,16 @@ This split lets you keep a stable, owner-bound secret for rule content while rot
    - Commit the **XGR1** blob to the XRC-137 contract (per that contract’s write method).
    - Upsert the owner’s grant for `rid` with `scope=1` via `upsertGrantsBatch` (arrays of length 1).
 
+> **RPC‑centric clarification (authoritative path):**  
+> While the cryptographic steps above describe the inner mechanics, **in practice you should use the JSON‑RPC** to perform the preparation for encrypted rules:
+>
+> 1. Call **`xgr_encryptXRC137({ address: ref, owner, json, grantExpireAt })`**.  
+>    This RPC performs the encryption, constructs the owner’s EncDEK for **scope=1**, computes/assigns the **RID**, and returns `{ rid, suite, blob, updateTx[] }` where each `updateTx` contains the grants contract call and the **fee** (value) derived from `quoteGrantCost`.
+> 2. Commit the returned **XGR1** `blob` to your **XRC‑137** contract using its write method for rules.  
+> 3. Either submit the returned `updateTx[]` as‑is, or invoke a helper (e.g., **`xgr_upsertGrant`**) to write the **first grant** for this **RID**.
+>
+> **Permissionless first grant:** The **first grant for a new RID** can be submitted **permissionlessly**. This is safe because the **RID is unique and not guessable/predictable** before the ciphertext exists; the contract may also bootstrap `MANAGE` to the first RID entry by policy. This enables unattended pipelines (e.g., your backend) to finalize the owner’s grant right after rule encryption without prior on-chain state.
+
 **Costing:**
 - Before sending, call `quoteGrantCost(rid, owner, expireAt)` and attach `feeWei` as `tx.value`.
 - If you are sending the grant and a separate engine operation together, budget gas/fees accordingly (see “Gas reimbursement”).
@@ -173,6 +183,14 @@ When a step runs on the engine for a rule with encryption enabled:
    - sends the grants upsert transaction (owner’s grant, `scope=2`), **then**
    - calls the precompile to wrap and execute the step with the computed `wrapGas`.
 
+> **RPC‑centric flow for log decryption:**  
+> Clients should not reconstruct steps manually. Instead:
+> 1. Discover encrypted log metadata via **`xgr_getEncryptedLogInfo({ txHash, owner })`** to obtain `{ rid, blob }` (and the rule contract address).  
+> 2. Fetch the EncDEK with **`getGrantByRID(rid, owner)`** on **XRC‑563** (or use a convenience endpoint like `xgr_getGrantsByRID`).  
+> 3. Unwrap the DEK with **scope=2** and decrypt the **XGR1** `blob`.  
+>
+> Engine‑side encryption, fee quoting, gas budgeting, and the **ordering** (grant TX → precompile call) are handled automatically by the engine. The client only needs to resolve `{ rid, blob }` and read the owner’s grant to decrypt.
+
 **Decrypt later:**
 - Read the owner’s `EncDEK` with `getGrantByRID(rid, owner)`.
 - Unwrap DEK with `scope=2`.
@@ -192,6 +210,7 @@ When a step runs on the engine for a rule with encryption enabled:
 3. Submit:
    - `upsertGrantsBatch(ref, rid, scope, [rcpt], [enc], [rights], [expireAt])`
    - Attach `value = quoteGrantCost(rid, rcpt, expireAt).feeWei`.
+   - Or call a helper RPC such as **`xgr_upsertGrant`** that performs quoting and submission for you.
 4. Recipient can now read:
    - `getGrantByRID(rid, rcpt)` → unwrap DEK → decrypt **XGR1**.
 
@@ -269,6 +288,12 @@ To ensure the engine is not left out-of-pocket, its wrapper **includes an extra 
 
 ## Practical recipes
 
+### Encrypt a rule using RPC (owner or backend)
+1. Call **`xgr_encryptXRC137({ address: ref, owner, json, grantExpireAt })`** → receive `{ rid, suite, blob, updateTx[] }`.
+2. Commit `blob` to **XRC‑137** (rule write).
+3. Submit `updateTx[]` to **XRC‑563** (or call **`xgr_upsertGrant`**) to write the **first owner grant** for this **RID** (permissionless, safe due to unpredictable RID).
+4. Verify with **`getGrantByRID(rid, owner)`** that the EncDEK is present.
+
 ### Decrypt a rule (owner)
 1. `meta = xgr_getXRC137Meta({ address: ref, owner, scope:"1" })`.
 2. `grant = getGrantByRID(meta.rid, owner)` on XRC-563.
@@ -307,6 +332,7 @@ To ensure the engine is not left out-of-pocket, its wrapper **includes an extra 
 - **“fee underpaid”** on `upsertGrantsBatch` means `value` didn’t cover the price from `quoteGrantCost`. Quote **per recipient** and sum for batches.
 - **Fail-closed engine wrapper**: If any budget check fails (including `MAX_WRAP_GAS`), neither grants nor precompile are executed — avoiding inconsistent side-effects.
 - **Read-key mismatch**: Unwrap will raise an AES-GCM authentication failure if the local private key doesn’t match the on-chain public key (wrong seed/import).
+- **Permissionless first grant (safe by design):** The first upsert for a **new RID** does not require pre‑existing rights and can be sent by any party that knows the RID and the intended recipient. This is considered **safe** because RIDs are **unique and not predictable** prior to producing the ciphertext (the RID is bound to the encrypted content). Many deployments also rely on policy that assigns `MANAGE` to the first RID entry, enabling owner bootstrap without race‑conditions.
 
 ---
 
@@ -637,7 +663,7 @@ BASE64( 0x000102030405060708090a0b || 0xaabbcc...7788 || 0x0102030405060708090a0
 ```yaml
 ---
 doc_id: XGR-ENC-GRNTS
-version: 1.0.0
+version: 1.0.1
 status: STABLE
 updated: 2025-10-10
 contracts:
@@ -647,4 +673,5 @@ contracts:
 ```
 
 ## Changelog (seed)
+- **1.0.1** – add RPC-centric end-to-end flows and clarify **permissionless first grant** for a new RID (safe by design due to non-predictable RID).  
 - **1.0.0** – initial stable publication; single crypto suite (P-256/HKDF-SHA256/AES-GCM), two scopes (1=owner, 2=rid), grants registry as XRC-563, deterministic engine budgeting and ordering.
