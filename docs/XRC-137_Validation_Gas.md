@@ -26,7 +26,6 @@ The engine processes an XRC‑137 rule set as a pipeline:
 
 - **Predictive, not exact.** We do *not* run a heavy AST to count instruction cycles. Instead, we use **lightweight token counters** that correlate well with CPU work.
 - **Structure‑driven.** Each stage (payload, reads, APIs, rules, outcomes, optional execution) contributes an **additive** amount.
-- **Bounded.** We clamp the total into a corridor to avoid extremes from under/over‑counting.
 - **Separation of concerns.** This has **no coupling to EVM gas**. Think of it as a cost hint for the *validation/prepare* path in the engine.
 
 ---
@@ -75,7 +74,6 @@ The following constants are used by the heuristic in *v0.2* (tunable in code):
 | Execution per arg (count) | `gPerExecArg` | **700** |
 | Execution value (if present) | `gPerExecValue` | **800** |
 | Encrypted logs (branch) | `gPerEncryptLogs` | **2,000** |
-| Clamp min / max | `gMin`/`gMax` | **15,000** / **300,000** |
 
 > **Reminder:** This is **engine work only**. **EVM gas** for the on‑chain transaction is accounted for separately by the chain and is unaffected by Validation Gas.
 
@@ -291,7 +289,6 @@ If a branch sets `encryptLogs: true`, we add a small CPU surcharge `gPerEncryptL
 - Payload: `2 × 1,000 = 2,000` → **12,000**
 - Rules: `[AmountA] > 0` → `1,200 + 600 + 250 = 2,050` → **14,050**
 - Outcome: `"amount": "[AmountA]"` → `400 + 250 = 650` → **14,700**
-- Clamp min (15,000) → **15,000**
 
 ### B) Mid (with one contract read)
 
@@ -315,7 +312,6 @@ If a branch sets `encryptLogs: true`, we add a small CPU surcharge `gPerEncryptL
 - Rules: `2,050 + 2,300 = 4,350` → **17,350**
 - Read total: `6,000 + 600 + 250 + 400 + 250 = 7,500` → **24,850**
 - Outcome expr `"net"`: `400 + 2×250 + 600 + 600 = 2,100` → **26,950**
-- Clamp → **26,950**
 
 ### C) Advanced (API + regex + execution + encryptLogs)
 
@@ -370,7 +366,6 @@ If a branch sets `encryptLogs: true`, we add a small CPU surcharge `gPerEncryptL
   ⇒ **2,750** → **41,100**
 - Execution prep: `1,200 + (2×700) + (2×250) + 800 = 3,900` → **45,000**
 - Encrypted logs: `+2,000` → **47,000**
-- Clamp: within corridor → **47,000**
 
 > The on‑chain `transfer(...)` then consumes **EVM gas** independently from the 47,000 Validation Gas above.
 
@@ -440,7 +435,6 @@ ValidationGas =
 + (hasExecution ? gPerExecBase + #args×gPerExecArg + Σ_argComplexity + (hasValue ? gPerExecValue + valueComplexity : 0) : 0)
 + (encryptLogs ? gPerEncryptLogs : 0)
 
-→ clamp to [gMin, gMax]
 ```
 
 ---
