@@ -1,48 +1,87 @@
-# XRC‑137 Developer Guide (Unified Spec)
+# XRC‑137 Developer Guide (Unified)
 
-> **Audience:** Smart‑contract and backend engineers integrating with **XDaLa** / **XGRChain**.  
-> **Scope:** This document unifies the **XRC‑137 contract interface** and the **XRC‑137 JSON rule format** into a single, end‑to‑end specification. It preserves all prior information while restructuring it for developer flow.
-
----
-
-## 1. Purpose and mental model
-
-**XRC‑137** defines _how rules are published on‑chain_ and _how those rules are executed off‑chain/in‑engine_ against a payload, optional chain reads, optional API calls, and outcome branches. Think of it as a **Rules‑as‑Contract (RaC)** surface:
-
-- The **contract** is the **canonical publisher** of a single rule (as a string): either **plaintext JSON** or an **encrypted envelope**.  
-- The **engine** (XDaLa) **loads** the rule from the contract, optionally **decrypts** it, **evaluates** it deterministically, and **emits** a result (payload transform, execution spec, logs).
-
-This split keeps JSON **engine‑agnostic** and uses the contract as a **distribution/policy layer** (encryption defaults, auditability, versioning).
+**Audience:** engineers integrating with **XDaLa** / **XGRChain**.  
+**Goal:** a single, cohesive specification that defines the **on‑chain contract (XRC‑137)** and the **off‑chain JSON rule format**, plus the exact way engines consume both.
 
 ---
 
-## 2. Contract interface (functions & events)
+## 1. Overview
 
-Implementations may vary, but engines rely on the following **read surface** and commonly seen **events**.
+**XRC‑137** is the _Rules‑as‑Contract (RaC)_ standard for XGR/XDaLa. A rule is **published on‑chain** as a string and **executed by the engine** against an input payload to produce a deterministic outcome (transformed payload, optional execution spec, and logs).
 
-### 2.1 Read surface (canonical)
+- **Contract (publisher & policy)**: stores the canonical rule as **plaintext JSON** or as an **encrypted envelope** and exposes a small read surface for engines.
+- **Engine (consumer & executor)**: loads the rule from the contract, decrypts if needed, merges data from `contractReads`/`apiCalls`, evaluates `rules`, selects an outcome, and persists logs (optionally encrypted).
+
+This separation keeps JSON engine‑agnostic and contracts minimal yet auditable.
+
+---
+
+## 2. Contract: storage & data structures
+
+A minimal, interoperable storage layout looks like this (reference pattern):
 
 ```solidity
-/// @title IXRC137 — canonical read surface expected by engines
-interface IXRC137 {
-    /// Return the rule as string: plaintext JSON or XGR1 envelope (e.g. "XGR1.AESGCM.<rid>.<blob>").
-    function getRule() external view returns (string memory);
+pragma solidity ^0.8.21;
 
-    /// Aliases some contracts may expose. Engines probe these in order.
-    function rule() external view returns (string memory);
-    function getRuleJSON() external view returns (string memory);
-    function ruleJSON() external view returns (string memory);
+contract XRC137Storage {
+    /// @dev Canonical rule string: either plaintext JSON or an XGR1 envelope ("XGR1.<suite>.<rid>.<blob>").
+    string public ruleJson;
 
-    /// Encryption signal. Non‑zero `rid` means “encrypted”.
-    /// `suite` documents the crypto suite (e.g. "AESGCM").
-    function encrypted() external view returns (bytes32 rid, string memory suite);
+    /// @dev Encryption metadata. Non‑zero rid indicates the stored rule is encrypted.
+    struct EncInfo { bytes32 rid; string suite; }
+    EncInfo public encrypted;
+
+    /// @dev Minimal ownership for admin updates (implementations may differ).
+    address public owner;
 }
 ```
 
-**Loader order (first hit wins):** `getRule()` → `rule()` → `getRuleJSON()` → `ruleJSON()`.  
-If the returned string starts with `XGR1.`, the engine auto‑decrypts (owner grant / DEK) before parsing as JSON. If the JSON omits `address`, the engine injects the contract address for traceability.
+**Auto‑generated getters.**
+- `ruleJson()` → returns the rule string.
+- `encrypted()` → returns `(bytes32 rid, string suite)`.
+- `owner()` → returns the owner address.
 
-### 2.2 Reference events (typical, not required by engines)
+**Invariants.**
+- If `encrypted.rid == 0x0`, `ruleJson` MUST be plaintext JSON.
+- If `encrypted.rid != 0x0`, `ruleJson` MUST start with `XGR1.` and represent an encrypted envelope matching `encrypted.suite`.
+
+---
+
+## 3. Contract: public interface
+
+### 3.1 View getters (required read surface)
+
+Engines probe getters in this order (first hit wins):
+
+```solidity
+function getRule() external view returns (string memory);
+function rule() external view returns (string memory);
+function getRuleJSON() external view returns (string memory);
+function ruleJSON() external view returns (string memory);
+function encrypted() external view returns (bytes32 rid, string memory suite);
+```
+
+**Notes.**
+- At least one of the string getters SHOULD be implemented. Many contracts simply expose `string public ruleJson;` (giving `ruleJson()` automatically) and additionally implement one alias like `getRule()` that returns `ruleJson`.
+- Engines treat any returned string that starts with `XGR1.` as **encrypted content** and will attempt decryption (see §5).
+
+### 3.2 Mutating functions (reference shape)
+
+Implementations are free to choose names, but a practical, single‑call “upsert” is:
+
+```solidity
+/// @notice Upsert plaintext JSON (rid=0) or an encrypted XGR1 blob (rid!=0).
+function setRule(string calldata jsonOrXgr1, bytes32 rid, string calldata suite) external;
+```
+
+**Required behavior.**
+- If `rid == 0x0` → store `ruleJson=jsonOrXgr1`, **clear** `encrypted`.
+- If `rid != 0x0` → `jsonOrXgr1` MUST start with `XGR1.` → store `ruleJson=jsonOrXgr1` and set `encrypted={rid, suite}`.
+- Access control: `onlyOwner` (or equivalent).
+
+Some implementations may expose separate functions, e.g. `setPlaintext(string)`, `setEncrypted(string,bytes32,string)`, and `clearEncryption()`; engines do not depend on these names.
+
+### 3.3 Events (indexer/UI friendly)
 
 ```solidity
 event RuleUpdated(string newRule);
@@ -50,69 +89,39 @@ event EncryptedSet(bytes32 rid, string suite);
 event EncryptedCleared();
 ```
 
-These are useful for indexers/UIs. Engines do not require them for reads.
+---
 
-### 2.3 Minimal example
+## 4. Engine integration (how contracts are consumed)
 
-```solidity
-pragma solidity ^0.8.21;
-
-interface IXRC137 {
-    function getRule() external view returns (string memory);
-    function rule() external view returns (string memory);
-    function getRuleJSON() external view returns (string memory);
-    function ruleJSON() external view returns (string memory);
-    function encrypted() external view returns (bytes32 rid, string memory suite);
-}
-
-contract MyRule is IXRC137 {
-    string  private _rule;              // plaintext JSON or XGR1.<…> blob
-    bytes32 private _rid;               // 0x0 = plaintext; else encrypted
-    string  private _suite;             // e.g. "AESGCM"
-
-    constructor(string memory ruleJSONOrXGR1, bytes32 rid, string memory suite) {
-        _rule  = ruleJSONOrXGR1;
-        _rid   = rid;
-        _suite = suite;
-    }
-
-    function getRule() external view returns (string memory) { return _rule; }
-    function rule() external view returns (string memory) { return _rule; }
-    function getRuleJSON() external view returns (string memory) { return _rule; }
-    function ruleJSON() external view returns (string memory) { return _rule; }
-    function encrypted() external view returns (bytes32 rid, string memory suite) { return (_rid, _suite); }
-
-    // Optional admin helpers
-    function _setPlaintext(string memory json) internal { _rule = json; _rid = bytes32(0); _suite = ""; }
-    function _setEncrypted(string memory xgr1, bytes32 rid, string memory suite) internal { _rule = xgr1; _rid = rid; _suite = suite; }
-}
-```
+1. **Load**: call getters in order: `getRule()` → `rule()` → `getRuleJSON()` → `ruleJSON()`.  
+2. **Decrypt** (if needed): if the string starts with `XGR1.`, decrypt via session owner’s permit (DEK); parse JSON result.  
+3. **Default address**: if the JSON has no `address`, the engine injects the contract address.  
+4. **Merge inputs**: execute `contractReads` and `apiCalls`, merge into the inbound payload.  
+5. **Evaluate rules**: all expressions must be `true` (missing keys → expression `false`, no hard exception).  
+6. **Pick outcome**: `onValid` if all rules pass else `onInvalid`.  
+7. **Map payload**: copy (`"[Key]"`), template (no operators), or full expression (CEL).  
+8. **Execution spec**: if `execution.to` is empty or missing → **meta‑only** step (no inner call).  
+9. **Persist logs**: store `PayloadAll`, `APISaves`, `ContractSaves`; apply encryption policy (§7).
+10. **Estimate gas**: compute total + split heuristic for budgeting (§8).
 
 ---
 
-## 3. JSON rule format (developer reference)
+## 5. JSON rule format (developer reference)
 
-The following consolidates the JSON schema, keeping existing content intact while clarifying runtime semantics. The engine consumes this JSON after loading (and decrypting if needed).
+### 5.1 Concepts
 
-### 3.1 Structure at a glance
+- `payload`: input field declarations (`type`, `optional`, hints).  
+- `contractReads` / `apiCalls`: augmented inputs prior to rule evaluation.  
+- `rules`: boolean expressions; all must be `true`.  
+- `onValid` / `onInvalid`: outcome branches with `payload` mapping and optional `execution`, plus logging hints.
 
-- `payload`: input fields (type, optional, validation hints).
-- `contractReads`: on‑chain reads that merge into inputs.
-- `apiCalls`: off‑chain reads that merge into inputs.
-- `rules`: boolean expressions over the inputs (all must be true).
-- `onValid` / `onInvalid`:
-  - `payload`: output mapping (copy/template/expression).
-  - `execution`: optional call spec (to/function/args/gas/value/extras).
-  - `encryptLogs`, `logExpireDays`: branch‑level log policy.
-  - `waitMs`, `waitUntilMs`: timing hints.
+**Requiredness.** `optional:false` enforces existence **and non‑emptiness**; missing required keys mark the step **invalid** and set `missingRequired` meta.  
+**Evaluation order.** Reads → APIs → rules → outcome build.  
+**Mapping.** `"[Key]"` → copy; template without operators → substitution; otherwise **CEL evaluation**.
 
-> **Requiredness:** `optional:false` enforces **existence and non‑emptiness**. Missing required keys mark the step **invalid** and set `missingRequired` meta.  
-> **Evaluation order:** `contractReads` → `apiCalls` → `rules` → outcome build.  
-> **Outcome mapping:** exact `"[Key]"` → value copy; template w/o operators → substitution; otherwise **expression evaluation (CEL)**.
+### 5.2 Full JSON specification (verbatim; integrated)
 
-### 3.2 Full specification (verbatim content preserved)
-
-> The **entire previous JSON spec** is kept below verbatim to ensure no information is lost; it has been placed here so the developer can read it in flow before moving on to engine semantics.
+Below is the full JSON reference you ship today — preserved **without loss** and placed here so developers read it in context:
 
 ---
 
@@ -577,83 +586,70 @@ For the expression language (operators, helpers, placeholder rewriting, timeouts
 
 ---
 
-## 4. Engine runtime semantics (how the JSON is executed)
+## 6. ABI quick reference (for RPC/eth_call)
 
-1. **Rule loading.** Engine calls the contract getters in the order above. If a value starts with `XGR1.`, the engine **decrypts** via the session owner’s grants and parses JSON. If the JSON lacks `address`, the engine injects the contract’s address.
-2. **Merging inputs.** `contractReads` and `apiCalls` values are merged into the inbound payload. These merged keys are available to templates and expressions.
-3. **Rule evaluation.** All `rules` must evaluate to `true`. Missing keys → affected expression evaluates to `false` (no hard exception).
-4. **Outcome selection.** `onValid` if all rules are true, else `onInvalid`.
-5. **Payload mapping.** Copy/template/expression mapping applied as described. The final output payload is attached to the step result.
-6. **Execution spec.** If the selected outcome has `execution` with a non‑empty `to`, the engine returns a call spec. If omitted/empty, this is a **meta‑only** step (still can log data).
-7. **Persistence & logs.** The engine persists `PayloadAll`, `APISaves`, `ContractSaves` into the receipt. Logs may be **encrypted**:
-   - **Default**: derived from the contract’s `encrypted()` (`rid != 0x0` ⇒ encrypt).
-   - **Override**: per‑branch `encryptLogs` and `logExpireDays` override the default.
-   - **Fail‑closed**: missing owner/read key ⇒ no plaintext logs; step marked error path.
-8. **Validation gas (heuristic).** Additive estimate over pipeline (payload/rules/reads/APIs/outcome/execution), plus a **split** for _common_, _onValid_, _onInvalid_ used by precompiles for budgeting. The heuristic is structure‑driven and unclamped (complex rules may exceed 300k).
+| Signature | Returns | Notes |
+|---|---|---|
+| `getRule()` | `string` | Primary getter (JSON or XGR1 envelope). |
+| `rule()` | `string` | Alias. |
+| `getRuleJSON()` | `string` | Alias. |
+| `ruleJSON()` | `string` | Alias. |
+| `encrypted()` | `(bytes32 rid, string suite)` | `rid!=0x0` ⇒ encrypted by default. |
+| `ruleJson()` | `string` | Auto‑getter if `string public ruleJson;` is present. |
+| `owner()` | `address` | Auto‑getter if `address public owner;` is present. |
+
+> Engines compute `keccak256(<signature>)` and send the first 4 bytes as the function selector when using `eth_call`.
 
 ---
 
-## 5. Developer workflow & examples
+## 7. Log persistence & encryption policy
 
-1. **Author the rule** as JSON (section 3).  
-2. **Publish** via XRC‑137:
-   - plaintext: set the JSON string
-   - encrypted: set `XGR1.<suite>.<rid>.<blob>`, and ensure `encrypted().rid` reflects non‑zero
-3. **Integrate in the engine**:
-   - supply payload
-   - (optional) enable contract/API reads
-   - evaluate and consume the resulting payload/execution spec
-4. **Observe** events (`RuleUpdated`, `EncryptedSet`, `EncryptedCleared`) in your indexer/UI.
+- **Default**: if `encrypted().rid != 0x0`, the engine treats the rule as **sensitive** and encrypts the log bundle by default.  
+- **Branch overrides**: `onValid.encryptLogs` / `onInvalid.encryptLogs` and `logExpireDays` override defaults per branch.  
+- **Fail‑closed**: if no owner/read key is available, clear‑text logs are not emitted; the step is flagged as an error path.
 
-### 5.1 Minimal JSON example (valid path with payload transform)
+Encryption suite (engine‑side): ECDH P‑256 + HKDF‑SHA256 → AES‑GCM (_XGR v2_).
+
+---
+
+## 8. ValidationGas (structure‑driven heuristic)
+
+The engine calculates an **additive** estimate across pipeline stages and also a **split** for _common_, _onValid_, _onInvalid_ to help precompiles budget accurately. The heuristic counts operators/functions/placeholders/regex hints and is **unclamped** (complex rules may exceed 300k).
+
+---
+
+## 9. End‑to‑end minimal example
+
+**Rule JSON**
 
 ```json
 {
   "payload": {
     "AmountA": { "type": "number", "optional": false }
   },
-  "rules": [
-    "[AmountA] > 0"
-  ],
+  "rules": [ "[AmountA] > 0" ],
   "onValid": {
     "payload": {
       "memo": "valid-path",
-      "AmountA": "[AmountA]-10"
+      "AmountA": "[AmountA] - 10"
     }
   },
   "onInvalid": {}
 }
 ```
 
----
+**Contract storage**  
+- `ruleJson`: the JSON above (plaintext)  
+- `encrypted.rid`: `0x00…00` (plaintext) → default log policy: not encrypted
 
-## 6. ABI quick reference
-
-| Signature | Purpose | Returns |
-|---|---|---|
-| `getRule()` | Primary getter (string: JSON or XGR1 envelope) | `string` |
-| `rule()` | Alias getter | `string` |
-| `getRuleJSON()` | Alias getter | `string` |
-| `ruleJSON()` | Alias getter | `string` |
-| `encrypted()` | Encryption state (non‑zero `rid` ⇒ encrypted) | `(bytes32 rid, string suite)` |
-
-**Typical events:** `RuleUpdated(string)`, `EncryptedSet(bytes32,string)`, `EncryptedCleared()`.
+**Engine result (valid input)**  
+- Output payload: `{ "memo": "valid-path", "AmountA": <input-10> }`  
+- Execution: none (meta‑only)  
+- Logs: default policy unless branch overrides set
 
 ---
 
-## 7. Compatibility & notes
-
-- Engines only require the **read surface**; admin/storage is up to the implementor.
-- If you already expose `string public ruleJson;` and `EncInfo public encrypted;`, you automatically get `ruleJson()` and `encrypted()`.
-- For maximum compatibility, expose all four getters (order above).
-
----
-
-## Appendix — Original JSON spec (verbatim, unchanged)
-
-To guarantee that **no information is lost**, the previous JSON specification is included here verbatim.
-
----
+## Appendix — JSON reference (verbatim, unchanged)
 
 # XRC-137 — Technical Specification
 
