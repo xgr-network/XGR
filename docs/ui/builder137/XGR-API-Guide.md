@@ -1,6 +1,6 @@
 # XGR API Calls (UI Guide)
 
-This guide explains how to **configure HTTP API calls** in the **XRC-137 Builder** UI so they work 1:1 with the engine (runner & parser). It covers what each field does, how placeholders work, **validation rules**, and provides copy‑paste **examples**. Wherever helpful, we include **screenshot placeholders** like `![](pictures/ui/builder137/apis-panel-main.png)` that your `docs.html` can replace later.
+This guide explains how to **configure HTTP API calls** in the **XRC-137 Builder** UI so they work 1:1 with the engine (runner & parser). It covers what each field does, how placeholders work, **validation rules**, and provides copy‑paste **examples**. Wherever helpful, we include **screenshot placeholders** like `![](https://github.com/xgr-network/XGR/blob/main/pictures/ui/builder137/apis-panel-main.png)` that your `docs.html` can replace later.
 
 ---
 
