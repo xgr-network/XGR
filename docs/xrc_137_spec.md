@@ -345,8 +345,14 @@ ContractRead = {
   "to": "0x...",
   "function": "balanceOf(address) returns (uint256)",
   "args": ["<ExprOrLiteral>", ...],
-  "saveAs": "Alias" | { "0": "Key0", "1": "Key1", "...": "..." },
-  "defaults": <scalar> | { "0": <fallback0>, "1": <fallback1>, "Key0": <fallbackForKey0>, ... }
+  "saveAs": "Alias" | { "0": "Key0", "1": "Key1", "...": "..." ,
+  "rpc": "https://…", // optional; EVM-compatible RPC endpoint override for this read
+},
+  "defaults": <scalar> | { "0": <fallback0>, "1": <fallback1>, "Key0": <fallbackForKey0>, ... ,
+  "rpc": "https://…", // optional; EVM-compatible RPC endpoint override for this read
+}
+,
+  "rpc": "https://…", // optional; EVM-compatible RPC endpoint override for this read
 }
 ```
 
@@ -381,7 +387,10 @@ ContractRead = {
 
 ### 4.4 Example (reads only)
 
-```json
+```
+
+> **Note:** `rpc` must point to an **EVM-compatible** chain endpoint (HTTPS). If omitted, the engine default RPC is used.
+json
 {
   "contractReads": [
     {
@@ -403,7 +412,6 @@ ContractRead = {
 ```
 
 ---
-
 ## 5) HTTP API Calls (fetch-only, JSON)
 
 ```json
