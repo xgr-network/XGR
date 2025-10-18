@@ -1,6 +1,6 @@
 # XGR API Calls (UI Guide)
 
-This guide explains how to **configure HTTP API calls** in the **XRC-137 Builder** UI so they work 1:1 with the engine (runner & parser). It covers what each field does, how placeholders work, **validation rules**, and provides copy‑paste **examples**. Wherever helpful, we include **screenshot placeholders** like `![](https://github.com/xgr-network/XGR/blob/main/pictures/ui/builder137/apis-panel-main.png)` that your `docs.html` can replace later.
+This guide explains how to **configure HTTP API calls** in the **XRC-137 Builder** UI so they work 1:1 with the engine (runner & parser). It covers what each field does, how placeholders work, **validation rules**, and provides copy‑paste **examples**. Wherever helpful, we include **screenshot placeholders** like `[PNG: apis-panel-main.png]` that your `docs.html` can replace later.
 
 ---
 
@@ -13,7 +13,7 @@ An API Call fetches **JSON** from an external endpoint and stores fields from th
 - **Stateless & deterministic** (see limits below)
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-panel-main.png) — the APIs panel listing with “Add API Call” button and one configured row.
+- [PNG: ![](pictures/ui/builder137/apis-panel-main.png)] — the APIs panel listing with “Add API Call” button and one configured row.
 
 ---
 
@@ -33,7 +33,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 | **Defaults**   | object | no       | `alias → fallback`. Used if evaluation of the corresponding extract fails.                                 |
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-editor-modal.png) — the “Edit API Call” modal showing all fields and validation messages.
+- [PNG: apis-editor-modal.png] — the “Edit API Call” modal showing all fields and validation messages.
 
 ---
 
@@ -49,7 +49,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - **Body Template** is a **string**; if you author JSON, store it as a compact string (e.g. `"{\"id\":\"[User]\"}"`).
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-placeholders-help.png) — small tooltip popup explaining placeholder rules.
+- [PNG: apis-placeholders-help.png] — small tooltip popup explaining placeholder rules.
 
 ---
 
@@ -61,7 +61,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - If evaluation fails, the engine uses `defaults[alias]` (if present), otherwise the call **fails**.
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-extract-map.png) — table‑like editor mapping aliases to CEL expressions with inline validation.
+- [PNG: apis-extract-map.png] — table‑like editor mapping aliases to CEL expressions with inline validation.
 
 ---
 
@@ -75,7 +75,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - Content type: **JSON** only (object or array root)
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-limits-banner.png) — compact info box with the limits listed above.
+- [PNG: apis-limits-banner.png] — compact info box with the limits listed above.
 
 ---
 
@@ -90,7 +90,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - **Alias** matches regex and is unique; **expr** is non‑empty, may be globally unique if your policy requires.
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-validation-errors.png) — modal showing invalid alias and missing placeholder errors.
+- [PNG: apis-validation-errors.png] — modal showing invalid alias and missing placeholder errors.
 
 ---
 
@@ -131,7 +131,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 ```
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-examples-cards.png) — two cards with the examples and a “validated” badge.
+- [PNG: apis-examples-cards.png] — two cards with the examples and a “validated” badge.
 
 ---
 
@@ -143,7 +143,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - For staging vs. prod endpoints, use **payload‑controlled** placeholders (e.g. `[env.baseUrl]`).
 
 **PNG proposal**
-- ![](pictures/ui/builder137/apis-troubleshooting.png) — compact list of common validation messages.
+- [PNG: apis-troubleshooting.png] — compact list of common validation messages.
 
 ---
 
@@ -194,12 +194,12 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 Place a single line with the pattern below. Your `docs.html` will replace it with an actual image:
 
 ```
-![](pictures/ui/builder137/apis-panel-main.png)
+[PNG: apis-panel-main.png]
 ```
 
 You can use different names per section, for example:
 
 ```
-![](pictures/ui/builder137/reads-modal.png)
-![](pictures/ui/builder137/reads-args-validators.png)
+[PNG: reads-modal.png]
+[PNG: reads-args-validators.png]
 ```
