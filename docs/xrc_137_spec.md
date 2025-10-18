@@ -422,35 +422,36 @@ APICall = {
 **Determinism & limits**
 
 * Timeout per call **8 s**; **≤3 redirects**; **response ≤1 MB**; **TLS ≥1.2**; HTTP/1.1 enforced; IPv4 dial only; no proxy from env.
-* `contentType` must be `json`; array-root allowed.
-* Each `extractMap` entry is a short **CEL** expression over variable `resp`.
-* Extract results are **persisted automatically** if they are **scalar** (`string|number|bool|int`); reduce lists/objects in the expression when needed.
-* On evaluation failure, engine uses `defaults[alias]` if present; otherwise the call fails.
+* `contentType` must be **`json`**; array-root **allowed**.
+* Each `extractMap` entry is a short **CEL** expression over variable `resp` (the parsed JSON response).
+* Extract results are **persisted automatically** if they are **scalar** (`string | number | bool | int`); reduce lists/objects in the expression when needed.
+* On evaluation failure, engine uses `defaults[alias]` if present; otherwise the call **fails**.
 
 **Alias rules**
 
-* Regex: `^[A-Za-z][A-Za-z0-9._-]{0,63}$`; must not start with `_` or `sys.`; must be unique across all apiCalls in the rule.
+* Regex: `^[A-Za-z][A-Za-z0-9._-]{0,63}$`; must not start with `_` or `sys.`; must be **unique across all `apiCalls`** in the rule.
 
 ### 5.1 Placeholders in `urlTemplate` / `bodyTemplate`
 
-* Syntax: `[key]` references `inputs[key]`.
-* URL templates URL-encode placeholder values; body templates use raw serialization.
+* Syntax: `[key]` references `inputs[key]` (payload ∪ contractReads ∪ prior API extracts).
+* URL templates **URL-encode** placeholder values; body templates use **raw serialization**.
 * Escapes: `[[` → `[` and `]]` → `]`.
-* Missing placeholder key ⇒ error.
-* Complex/non-string values are JSON-serialized for body usage.
+* Missing placeholder key ⇒ **error**.
+* Complex / non-string values are JSON-serialized for body usage.
+* **Important:** `bodyTemplate` is always a **string** (template). If you author JSON, store it as a compact JSON string (e.g., `"{\"id\":\"[User]\"}"`).
 
 ### 5.2 APICall fields — parameter reference
 
-| Field          | Type   | Required | Constraints / Notes                                                                          |
-| -------------- | ------ | -------- | -------------------------------------------------------------------------------------------- |
-| `name`         | string | yes      | Identifier for logs and alias scoping. Unique per rule. 1–64 chars, regex above.             |
-| `method`       | string | yes      | One of `GET`, `POST`, `PUT`, `PATCH`. Use `GET` for idempotent reads.                        |
-| `urlTemplate`  | string | yes      | Absolute HTTPS URL recommended. May contain placeholders `[key]`. URL-escaped automatically. |
-| `headers`      | object | no       | String→string map. Avoid auth headers that change per run; prefer static headers.            |
-| `bodyTemplate` | string | no       | For non-GET methods. May include placeholders. Serialized as given (no URL-encoding).        |
-| `contentType`  | string | yes      | Must be `json`. Response body is parsed as JSON (object or array root).                      |
-| `extractMap`   | object | yes      | Map of `alias` → expression over `resp`. Result must be scalar to be persisted.              |
-| `defaults`     | object | no       | Fallback values per alias when the corresponding extract expression errors.                  |
+| Field          | Type   | Required | Constraints / Notes                                                                                          |
+| -------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `name`         | string | yes      | Identifier for logs and alias scoping. Unique per rule. 1–64 chars, regex above.                             |
+| `method`       | string | yes      | One of `GET`, `POST`, `PUT`, `PATCH`. Use `GET` for idempotent reads.                                        |
+| `urlTemplate`  | string | yes      | Absolute HTTPS URL recommended. May contain `[key]` placeholders. URL-escaped automatically.                 |
+| `headers`      | object | no       | String→string map. Avoid auth headers that change per run; prefer static headers.                            |
+| `bodyTemplate` | string | no       | For non-GET methods. **String template**; may include placeholders. Serialized as given (no URL-encoding).   |
+| `contentType`  | string | yes      | Must be **`json`**. Response body is parsed as JSON (object or array root).                                  |
+| `extractMap`   | object | yes      | **Map** of `alias` → CEL expression over `resp`. Result must be **scalar** to be persisted.                  |
+| `defaults`     | object | no       | Fallback values per alias when the corresponding extract expression errors.                                  |
 
 ### 5.3 Example extracts
 
@@ -463,9 +464,6 @@ APICall = {
   "defaults": {"q.best_px": 0}
 }
 ```
-
----
-
 ## 6) Rules (Boolean)
 
 * `rules` is an array of boolean expressions. All must evaluate to `true`.
