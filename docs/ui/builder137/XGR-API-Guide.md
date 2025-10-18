@@ -13,7 +13,7 @@ An API Call fetches **JSON** from an external endpoint and stores fields from th
 - **Stateless & deterministic** (see limits below)
 
 **PNG proposal**
-- [PNG: ![](pictures/ui/builder137/apis-panel-main.png)] — the APIs panel listing with “Add API Call” button and one configured row.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-panel-main.png) — the APIs panel listing with “Add API Call” button and one configured row.
 
 ---
 
