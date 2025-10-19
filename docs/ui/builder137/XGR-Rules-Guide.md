@@ -1,6 +1,6 @@
 # XGR Rules (UI Guide)
 
-This guide explains how to build **Rules** in the XRC‑137 Builder so they match the engine 1:1. It shows the row editor, the advanced textarea editor, placeholder usage, operators, validation, examples, and quick fixes. Screenshot placeholders like `![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-panel-main.png)` are included for your `docs.html` to replace later.
+This guide explains how to build **Rules** in the XRC-137 Builder so they match the engine 1:1. It shows the row editor, the advanced textarea editor, the **Rule Assistant** (snippets & helpers), placeholder usage, operators, validation, examples, and quick fixes.
 
 ---
 
@@ -8,13 +8,8 @@ This guide explains how to build **Rules** in the XRC‑137 Builder so they matc
 
 Rules are **boolean CEL expressions** evaluated after Contract Reads and API Calls. **All rules must be `true`** for the workflow to continue into the **onValid** branch; otherwise the **onInvalid** branch is taken.
 
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-panel-main.png)
-**What to show:** The Rules panel with at least two rows and the “+ Rule” button visible.
-  - Example rows:
-    • `[country] == "DE"`
-    • `[amount] >= 100`
-  - Size: ~1400×280 px (wide, low height).
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-panel-main.png) — The Rules panel with at least two rows and the “+ Rule” button visible. Example rows: `[country] == "DE"`, `[amount] >= 100`.
 
 ---
 
@@ -23,16 +18,13 @@ Rules are **boolean CEL expressions** evaluated after Contract Reads and API Cal
 ### 2.1 Row editor (guided)
 Use the three inputs in a row:
 1) **Left**: a placeholder or a literal (e.g. `[country]` or `42`)
-2) **Operator**: `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `startsWith`, `endsWith`
+2) **Operator**: `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `startsWith`, `endsWith`, `matches`, `in`
 3) **Right**: a placeholder or a literal (e.g. `"DE"` or `[minAge]`)
 
 The row editor composes a valid CEL expression for you.
 
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-row-editor.png)
-**What to show:** Close-up of a single rule row (left input, operator dropdown, right input).
-  - Example: left `[country]`, operator `==`, right `"DE"`.
-  - Size: ~1200×160 px.
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-row-editor.png) — Close-up of a single rule row (left input, operator dropdown, right input). Example: left `[country]`, operator `==`, right `"DE"`.
 
 ### 2.2 Advanced editor (free text)
 Click the **pencil** icon to open a textarea and type a **full CEL expression** directly, e.g.
@@ -41,15 +33,42 @@ Click the **pencil** icon to open a textarea and type a **full CEL expression** 
 ```
 Click **OK** to apply.
 
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-advanced-editor.png)
-**What to show:** The textarea modal for free-form CEL entry with **OK** and **Cancel** visible.
-  - Example text inside: `[amount] >= 100 && ([country] == "DE" || [country] == "AT")`
-  - Size: ~900×500 px.
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-advanced-editor.png) — The textarea modal for free-form CEL entry with **OK** and **Cancel** visible.
 
 ---
 
-## 3) Placeholders `[key]`
+## 3) Rule Assistant (snippets & helpers)
+
+Open the advanced editor and click **Assist** to launch the **Rule Assistant**. The assistant:
+- is **draggable** (grab the header and move),
+- inserts **snippets at the caret** into the textarea,
+- documents available **operators**, **helpers**, and **ready-made patterns**,
+- reminds you to use `[[` and `]]` inside string literals to render `[` and `]`.
+
+**String operators**
+- `contains()`, `startsWith()`, `endsWith()`, `matches()`, `in [list]`
+
+**List & math helpers**
+- `max()`, `min()`, `sum()`, `avg()`, `join()`, `unique()`
+
+**Common patterns (one-click snippets)**
+- **Threshold** → e.g. `[amount] >= 100`
+- **Country in list** → e.g. `[country] in ["DE","AT","CH"]`
+- **API + price** → e.g. `[q.price] > 0` and `[q.symbol] == "XGR"`
+- **VIP tag** → e.g. `[tags].contains("vip")`
+
+**Keyboard tips**
+- Start typing `[` in the textarea to trigger **placeholder suggestions**; picking one replaces only the **current token** (from the last `[` to the caret).
+- Use **Enter** to confirm a suggestion, **Esc** to close.
+
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-assistant-modal.png) — The assistant modal (operators, helpers, patterns) with footer **Close** button.  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-assistant-snippet-insert.png) — Caret in the textarea → click `contains()` → snippet inserted at the caret.
+
+---
+
+## 4) Placeholders `[key]`
 
 You can reference any input produced earlier in the pipeline:
 
@@ -59,18 +78,12 @@ You can reference any input produced earlier in the pipeline:
 
 **Escapes:** use `[[` for `[` and `]]` for `]` inside string literals.
 
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-placeholder-help.png)
-**What to show:** A small info popover explaining the three placeholder sources:
-  1) Payload at runtime
-  2) Contract Reads (saveAs)
-  3) API extracts
-  - Optionally list 2–3 example keys.
-  - Size: ~700×380 px.
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-placeholder-help.png) — Info popover explaining the three placeholder sources (2–3 example keys).
 
 ---
 
-## 4) Operators & examples
+## 5) Operators & examples
 
 | Operator      | Meaning                         | Example                                  |
 |---------------|----------------------------------|-------------------------------------------|
@@ -80,120 +93,59 @@ You can reference any input produced earlier in the pipeline:
 | `contains`    | substring check                  | `[iban].contains("DE")`                   |
 | `startsWith`  | string prefix                    | `[iban].startsWith("DE")`                 |
 | `endsWith`    | string suffix                    | `[iban].endsWith("00")`                   |
+| `matches`     | RE2 regex match                  | `[iban].matches("^DE\\d{2}.*$")`      |
+| `in`          | membership in list               | `[country] in ["DE","AT","CH"]`           |
 | logical `&&` / `||` | AND / OR                   | `[country] == "DE" && [amount] >= 100`    |
 | negation `!`  | NOT                              | `!([blocked] == true)`                    |
 
-> The advanced editor accepts **any valid CEL** the engine supports (e.g. `in` on lists, numeric math, ternary `cond ? a : b`, etc.).
+> The advanced editor accepts **any valid CEL** the engine supports.
+
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-examples-cards.png) — Four example cards with small “validated” badges.
 
 ---
 
-## 5) Validation (what the UI enforces)
+## 6) Validation (what the UI enforces)
 
-- Every rule must evaluate to a **boolean** (the UI flags non-boolean expressions).
-- Unknown placeholders cause an error: `[key]` must exist in payload / reads / APIs.
-- String literals must be quoted `"..."`; numbers are plain (no quotes).  
-- The row editor prevents obvious mistakes (e.g. empty operator).  
-- The advanced editor still validates on close; errors are shown inline.
+- Every rule must evaluate to a **boolean**.  
+- Unknown placeholders cause an error.  
+- Strings quoted `"..."`; numbers plain.  
+- Row editor prevents empty operator; advanced editor validates on close.
 
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-validation-errors.png)
-**What to show:** Typical validation problems inside the editor.
-  - Example 1: “Unknown placeholder” — left field contains `[unknownKey]`, with an inline error message below.
-  - Example 2: “Non-boolean result” — expression missing a comparator (e.g., `[amount]` alone), with error shown.
-  - Size: ~1200×260 px.
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-validation-errors.png) — Example messages for “unknown placeholder” and “not boolean”.
 
 ---
 
-## 6) Examples
+## 7) Examples
 
-### 6.1 Simple equality
-```
-[country] == "DE"
-```
+- `[country] == "DE"`  
+- `[amount] >= 100`  
+- `[amount] >= 100 && ([country] == "DE" || [country] == "AT")`  
+- `[q.price] > 0 && [token.symbol] == "XGR"`
 
-### 6.2 Numeric threshold
-```
-[amount] >= 100
-```
-
-### 6.3 Combined conditions
-```
-[amount] >= 100 && ([country] == "DE" || [country] == "AT")
-```
-
-### 6.4 Using API extracts and read outputs
-```
-[q.price] > 0 && [token.symbol] == "XGR"
-```
-
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-examples-cards.png)
-**What to show:** 3–4 compact example “cards” of valid rules in one screenshot.
-  - Layout: a single image showing multiple small cards (side-by-side or stacked).
-  - Each card shows a short title and one-line rule:
-    1) *Simple equality* — `[country] == "DE"`
-    2) *Numeric threshold* — `[amount] >= 100`
-    3) *Combined conditions* — `[amount] >= 100 && ([country] == "DE" || [country] == "AT")`
-    4) *Using API & reads* — `[q.price] > 0 && [token.symbol] == "XGR"`
-  - Optional: a tiny checkmark icon in the corner of each card to indicate “valid” (purely for the doc image).
-  - Size: ~1200×500 px; dark theme background.
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-examples-cards.png) — Same image as above is fine.
 
 ---
 
-## 7) Common Errors & Quick Fixes
+## 8) Common Errors & Quick Fixes
 
-1) **`Unknown placeholder [key]`**  
-   **Cause:** The key doesn’t exist at rule time.  
-   **Fix:** Ensure the producing read/API precedes rules, or pass it in payload.
+- **Unknown placeholder** → ensure producer step precedes rules.  
+- **Expression not boolean** → compare explicitly or wrap with boolean op.  
+- **Missing quotes** → write `"DE"`, not `DE`.  
+- **Type mismatch** → numbers vs strings; convert or compare correctly.  
+- **Invalid operator for type** → use string helpers for strings, numeric ops for numbers.
 
-2) **`Expression is not boolean`**  
-   **Cause:** The expression returns number/string.  
-   **Fix:** Compare explicitly (e.g. `[amount] >= 0`) or wrap with a boolean operator.
-
-3) **`String literal missing quotes`**  
-   **Cause:** Wrote `DE` instead of `"DE"`.  
-   **Fix:** Quote string literals.
-
-4) **Type mismatch in numeric compare**  
-   **Cause:** Comparing string to number.  
-   **Fix:** Ensure both sides are numeric or cast accordingly.
-
-5) **Invalid operator for type**  
-   **Cause:** Using `contains` on a number.  
-   **Fix:** Use numeric operators or convert to string first.
-
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-troubleshooting.png)
-**What to show:** A two-column list: *Error* → *Quick fix*.
-  - Column 1 (Error): e.g. `Unknown placeholder [key]`, `Expression is not boolean`, `String literal missing quotes`.
-  - Column 2 (Fix): 1-line actionable tip (e.g. “ensure producing step precedes the rule”, “compare explicitly”, “quote strings with \"…\"”).
-  - Styling: lightly separated rows; **no** special green UI hint required (informational only).
-  - Size: ~1200×600 px.
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-troubleshooting.png) — Two-column list: *Error* → *Quick fix* (3–5 rows).
 
 ---
 
-## 8) Outcome & Next Steps
+## 9) Outcome & Next Steps
 
-- If **all rules** evaluate to `true` → **onValid** branch runs.  
-- Otherwise → **onInvalid** branch runs.  
-- In both branches, you can map a **payload** (top-level `payload`) and optionally schedule an **execution**.
+- All `true` → **onValid** branch runs; otherwise **onInvalid**.  
+- Both branches may build an output `payload` and optionally schedule an execution.
 
-**PNG proposal**
-- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-outcome-branches.png)
-**What to show:** A minimal flow diagram “Rules → onValid/onInvalid”.
-  - Boxes (left→right):
-    • *Inputs available* (Payload, Contract Reads, API extracts) →
-    • *Rules (all must be true)* → two arrows:
-      – green arrow to *onValid* (bullets under the box: `payload mapping`, `execution (optional)`, `encryptLogs`, `logExpireDays`)
-      – neutral/gray arrow to *onInvalid* (same bullets)
-  - Footer note in the image: “Rules run after Reads & APIs”.
-  - Size: ~1200×450 px.
-
----
-
-## How to reference screenshots in this guide
-
-Put a single line with the pattern below. Your `docs.html` will replace it with an image:
-```
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-panel-main.png)
-```
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/rules-outcome-branches.png) — Minimal flow diagram “Rules → onValid / onInvalid”.
