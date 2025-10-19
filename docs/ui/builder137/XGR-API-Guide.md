@@ -33,7 +33,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 | **Defaults**   | object | no       | `alias → fallback`. Used if evaluation of the corresponding extract fails.                                 |
 
 **PNG proposal**
-- [PNG: apis-editor-modal.png] — the “Edit API Call” modal showing all fields and validation messages.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-editor-modal.png) — the “Edit API Call” modal showing all fields and validation messages.
 
 ---
 
@@ -49,7 +49,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - **Body Template** is a **string**; if you author JSON, store it as a compact string (e.g. `"{\"id\":\"[User]\"}"`).
 
 **PNG proposal**
-- [PNG: apis-placeholders-help.png] — small tooltip popup explaining placeholder rules.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-placeholders-help.png) — small tooltip popup explaining placeholder rules.
 
 ---
 
@@ -61,7 +61,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - If evaluation fails, the engine uses `defaults[alias]` (if present), otherwise the call **fails**.
 
 **PNG proposal**
-- [PNG: apis-extract-map.png] — table‑like editor mapping aliases to CEL expressions with inline validation.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-extract-map.png) — table‑like editor mapping aliases to CEL expressions with inline validation.
 
 ---
 
@@ -75,7 +75,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - Content type: **JSON** only (object or array root)
 
 **PNG proposal**
-- [PNG: apis-limits-banner.png] — compact info box with the limits listed above.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-limits-banner.png) — compact info box with the limits listed above.
 
 ---
 
@@ -90,7 +90,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - **Alias** matches regex and is unique; **expr** is non‑empty, may be globally unique if your policy requires.
 
 **PNG proposal**
-- [PNG: apis-validation-errors.png] — modal showing invalid alias and missing placeholder errors.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-validation-errors.png) — modal showing invalid alias and missing placeholder errors.
 
 ---
 
@@ -131,7 +131,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 ```
 
 **PNG proposal**
-- [PNG: apis-examples-cards.png] — two cards with the examples and a “validated” badge.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-examples-cards.png) — two cards with the examples and a “validated” badge.
 
 ---
 
@@ -143,7 +143,7 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
 - For staging vs. prod endpoints, use **payload‑controlled** placeholders (e.g. `[env.baseUrl]`).
 
 **PNG proposal**
-- [PNG: apis-troubleshooting.png] — compact list of common validation messages.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-troubleshooting.png) — compact list of common validation messages.
 
 ---
 
@@ -188,18 +188,3 @@ Each API Call has these fields (the UI enforces this shape exactly as the engine
    **To fix:** Check URL, required params/headers, and credentials (prefer static tokens or payload-driven values).
 
 ---
-
-## How to reference screenshots in this guide
-
-Place a single line with the pattern below. Your `docs.html` will replace it with an actual image:
-
-```
-[PNG: apis-panel-main.png]
-```
-
-You can use different names per section, for example:
-
-```
-[PNG: reads-modal.png]
-[PNG: reads-args-validators.png]
-```
