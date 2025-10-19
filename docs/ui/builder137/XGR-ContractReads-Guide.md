@@ -1,6 +1,6 @@
 # XGR Contract Reads (UI Guide)
 
-This guide explains how to configure **on‑chain Contract Reads** in the **XRC‑137 Builder** UI in a way that exactly matches the engine (parser + reads executor). It covers **function signatures**, **args**, **saveAs**, **defaults**, optional **rpc**, and **validation**. Screenshot placeholders like `[PNG: reads-modal.png]` are included for your `docs.html` replacement step.
+This guide explains how to configure **on‑chain Contract Reads** in the **XRC‑137 Builder** UI in a way that exactly matches the engine (parser + reads executor). It covers **function signatures**, **args**, **saveAs**, **defaults**, optional **rpc**, and **validation**. Screenshot placeholders like `![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-modal.png)` are included for your `docs.html` replacement step.
 
 ---
 
@@ -9,7 +9,7 @@ This guide explains how to configure **on‑chain Contract Reads** in the **XRC�
 A Contract Read calls a **view/pure function** on an EVM‑compatible chain and maps the returned tuple into your rule inputs via **`saveAs`**. Reads run **before** API Calls, so their outputs are available as placeholders in APIs.
 
 **PNG proposal**
-- [PNG: reads-panel-main.png] — the Contract Reads panel with one configured row and “Add Read” button.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-panel-main.png) — the Contract Reads panel with one configured row and “Add Read” button.
 
 ---
 
@@ -25,7 +25,7 @@ A Contract Read calls a **view/pure function** on an EVM‑compatible chain and 
 | **RPC**        | string (HTTPS)         | no       | **Per‑read** RPC override; must target an **EVM‑compatible** chain endpoint.                      |
 
 **PNG proposal**
-- [PNG: reads-modal.png] — the “Edit Contract Read” modal with all fields and validation hints.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-modal.png) — the “Edit Contract Read” modal with all fields and validation hints.
 
 ---
 
@@ -38,7 +38,7 @@ A Contract Read calls a **view/pure function** on an EVM‑compatible chain and 
 - **No inputs?** Leave the **Input types** empty in the Signature Helper. The preview will show `myFn() returns (...)`. In JSON, provide `"args": []`.
 
 **PNG proposal**
-- [PNG: reads-signature-helper-no-inputs.png] — helper modal with empty inputs and correct preview.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-signature-helper-no-inputs.png) — helper modal with empty inputs and correct preview.
 - Literals must match ABI types. The UI validates strictly:
 
 **Integer** (`uint*`/`int*`)  
@@ -56,7 +56,7 @@ A Contract Read calls a **view/pure function** on an EVM‑compatible chain and 
 - Any string literal.
 
 **PNG proposal**
-- [PNG: reads-args-validators.png] — input fields with green/red statuses by type.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-args-validators.png) — input fields with green/red statuses by type.
 
 ---
 
@@ -67,7 +67,7 @@ A Contract Read calls a **view/pure function** on an EVM‑compatible chain and 
 - Aliases must match: `^[A-Za-z][A-Za-z0-9._-]{0,63}$` and be unique within the rule.
 
 **PNG proposal**
-- [PNG: reads-saveas.png] — table mapping tuple indices to aliases with “add target” button.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-saveas.png) — table mapping tuple indices to aliases with “add target” button.
 
 ---
 
@@ -84,7 +84,7 @@ A Contract Read calls a **view/pure function** on an EVM‑compatible chain and 
   - String/bytes → strings
 
 **PNG proposal**
-- [PNG: reads-defaults.png] — examples showing scalar vs. map defaults and type‑aware normalization.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-defaults.png) — examples showing scalar vs. map defaults and type‑aware normalization.
 
 ---
 
@@ -95,7 +95,7 @@ A Contract Read calls a **view/pure function** on an EVM‑compatible chain and 
 - If omitted, the engine’s default RPC is used.
 
 **PNG proposal**
-- [PNG: reads-rpc-field.png] — the RPC input with a small info tooltip “EVM‑compatible only”.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-rpc-field.png) — the RPC input with a small info tooltip “EVM‑compatible only”.
 
 ---
 
@@ -108,7 +108,7 @@ Where do placeholders get their values? From the merged inputs available at that
 3) Previously extracted API values (if any API calls precede this read — uncommon; usually reads come first)
 
 **PNG proposal**
-- [PNG: reads-placeholders-help.png] — tooltip showing the three sources of inputs.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-placeholders-help.png) — tooltip showing the three sources of inputs.
 
 ---
 
@@ -122,7 +122,7 @@ Where do placeholders get their values? From the merged inputs available at that
 - **RPC** optional string; HTTPS required in enterprise environments.
 
 **PNG proposal**
-- [PNG: reads-validation-errors.png] — errors for out‑of‑range integer, invalid bytes32, and duplicate alias.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-validation-errors.png) — errors for out‑of‑range integer, invalid bytes32, and duplicate alias.
 
 ---
 
@@ -152,7 +152,7 @@ Where do placeholders get their values? From the merged inputs available at that
 ```
 
 **PNG proposal**
-- [PNG: reads-examples-cards.png] — two cards with the JSON examples and a “validated” badge.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards.png) — two cards with the JSON examples and a “validated” badge.
 
 ---
 
@@ -164,7 +164,7 @@ Where do placeholders get their values? From the merged inputs available at that
 - If a read fails but you have defaults, only the **missing** outputs will take defaults.
 
 **PNG proposal**
-- [PNG: reads-troubleshooting.png] — typical validation hints for signatures and args.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-troubleshooting.png) — typical validation hints for signatures and args.
 
 
 ---
@@ -220,12 +220,12 @@ Where do placeholders get their values? From the merged inputs available at that
 Place a single line with the pattern below. Your `docs.html` will replace it with an actual image:
 
 ```
-[PNG: apis-panel-main.png]
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-panel-main.png)
 ```
 
 You can use different names per section, for example:
 
 ```
-[PNG: reads-modal.png]
-[PNG: reads-args-validators.png]
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-modal.png)
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-args-validators.png)
 ```

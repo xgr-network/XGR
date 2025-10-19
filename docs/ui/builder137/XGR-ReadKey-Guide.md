@@ -37,7 +37,7 @@ Open **Read-Key** from the Builder or via **Manage Read-Key** in dialogs.
 - **Permit (save)** badge + countdown: shows the short-lived authorization needed only for **local save** actions.
 
 **PNG proposal**  
-- [PNG: readkey-panel-create.png] — show the Read-Key Panel with seed display, password fields, and the “I saved the seed” button.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-create.png) — show the Read-Key Panel with seed display, password fields, and the “I saved the seed” button.  
   _What to capture:_ the seed area (blurred), password inputs, “I saved the seed”, and the **Permit (save)** badge.
 
 ### 2.2 Import a Read-Key
@@ -45,7 +45,7 @@ Open **Read-Key** from the Builder or via **Manage Read-Key** in dialogs.
 - **Import public key (advanced)**: paste a hex public key if you only want to replace the on-chain match for verification. (You’ll still need a private key locally to decrypt.)
 
 **PNG proposal**  
-- [PNG: readkey-panel-import.png] — show both import options side-by-side.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-import.png) — show both import options side-by-side.  
   _What to capture:_ seed import fields, public key import field, and the Permit (save) badge.
 
 ### 2.3 Delete & Re-create
@@ -64,7 +64,7 @@ The app compares:
 If **not verified (red)**: connect the correct wallet/account & network, or update your on-chain key.
 
 **PNG proposal**  
-- [PNG: verified-badge.png] — show the green **Read-Key verified** badge.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/verified-badge.png) — show the green **Read-Key verified** badge.  
   _What to capture:_ wallet status line and the verified badge next to it.
 
 ---
@@ -86,7 +86,7 @@ You decrypt in **Contract Manager (Load from chain)**, in **XRC-137 Builder**, o
 - The Decrypt button will first **fetch permit**, then **unlock from your password**, and finally **decrypt & load** the data.
 
 **PNG proposal**  
-- [PNG: decrypt-dialog.png] — show the Decrypt dialog with: wallet selector, **Read-Key verified**, **Permit (decrypt)** badge with countdown, password field, and **Authorize & Unlock**.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog.png) — show the Decrypt dialog with: wallet selector, **Read-Key verified**, **Permit (decrypt)** badge with countdown, password field, and **Authorize & Unlock**.  
   _What to capture:_ badges + countdowns and the main **Decrypt & Load** button.
 
 ---
@@ -106,7 +106,7 @@ You decrypt in **Contract Manager (Load from chain)**, in **XRC-137 Builder**, o
 - **Deploy**: sends transactions; expect your wallet to pop up several times.
 
 **PNG proposal**  
-- [PNG: 137-deploy.png] — show the Deploy panel with wallet connected and **RPC online**.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/137-deploy.png) — show the Deploy panel with wallet connected and **RPC online**.  
   _What to capture:_ chain dropdown, wallet dropdown, connect/disconnect, and status line.
 
 ### 5.2 Update Panel (encrypted update)
@@ -114,7 +114,7 @@ You decrypt in **Contract Manager (Load from chain)**, in **XRC-137 Builder**, o
 - Reads your on-chain public key to keep “Read-Key verified” status correct.
 
 **PNG proposal**  
-- [PNG: 137-update.png] — show the Update panel with a connected wallet and verified badge.
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/137-update.png) — show the Update panel with a connected wallet and verified badge.
 
 ---
 
@@ -133,7 +133,7 @@ You decrypt in **Contract Manager (Load from chain)**, in **XRC-137 Builder**, o
 - If your unlocked RAM key belongs to a different public key (stale), the app blocks decryption until you re-unlock for the current key.
 
 **PNG proposal**  
-- [PNG: 137-contractmanager-load.png] — show the Decrypt dialog mid-flow with a red message about missing local key (for documentation).
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/137-contractmanager-load.png) — show the Decrypt dialog mid-flow with a red message about missing local key (for documentation).
 
 ---
 
@@ -148,7 +148,7 @@ You decrypt in **Contract Manager (Load from chain)**, in **XRC-137 Builder**, o
 - Loads all rule entries for your contract; decryption may process multiple payloads during the **same 5-minute window** (you won’t be asked for your password or permit again while they’re valid).
 
 **PNG proposal**  
-- [PNG: 729-load-all.png] — show the list after a successful decryption batch.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/729-load-all.png) — show the list after a successful decryption batch.  
   _What to capture:_ loaded rules, success state, any inline status.
 
 ---
@@ -178,7 +178,7 @@ You decrypt in **Contract Manager (Load from chain)**, in **XRC-137 Builder**, o
   The status line shows a **red** “✗ RPC offline …” message. Fix the RPC or switch the chain and retry **Connect**.
 
 **PNG proposal**  
-- [PNG: troubleshooting-messages.png] — collage of red/green status lines.  
+- ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/troubleshooting-messages.png) — collage of red/green status lines.  
   _What to capture:_ “RPC offline…”, “Not verified”, “No local wrapped…”, and a green “Authorized & unlocked”.
 
 ---
