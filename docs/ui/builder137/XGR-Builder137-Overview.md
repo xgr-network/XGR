@@ -7,7 +7,7 @@ This page gives you a high-level tour of the **Builder 137** UI: what each secti
 ## What the page looks like
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-137main.png) — The Builder page with creation panels on the left (Payload, Contract Reads, APIs, Rules, Outputs, Validation, Preview) and the operational panels below (Wallet Connect, Compile, Deploy, Update). The vertical flow on the right shows **Wallet → Compile → Deploy → Update**.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-137-main.png) — The Builder page with creation panels on the left (Payload, Contract Reads, APIs, Rules, Outputs, Validation, Preview) and the operational panels below (Wallet Connect, Compile, Deploy, Update). The vertical flow on the right shows **Wallet → Compile → Deploy → Update**.
 
 ---
 
