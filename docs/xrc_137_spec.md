@@ -835,87 +835,106 @@ For the expression language (operators, helpers, placeholder rewriting, timeouts
 - Integrated full original JSON spec verbatim in §14; no original information removed.
 - Added code anchors from loader/parser/core to ground semantics.
 
-
 ---
 
-# XRC-137 — Addendum v0.2 (non‑breaking)
-**Date:** 2025-11-08 07:07:08 UTC
+# XRC-137 — Addendum v0.2 (non‑breaking extensions)
+**Date:** 2025-11-08 07:31:54 UTC
 
-This addendum **keeps the original document unchanged** and only adds clarifications and optional extensions. You can paste these sections after the original spec. No existing fields are removed.
+> This addendum **keeps the original document intact**. It adds (1) a backwards‑compatible
+> extension for **typed rules** and (2) **deterministic defaults** semantics for API calls and
+> contract reads. No sections are removed. Solidity parts (XRC-137.sol) remain valid and unchanged.
 
----
+## A) Rules — typed extension (backwards compatible)
+The original `rules` array (strings only) remains fully valid and unchanged. Authors may optionally
+use **typed rules** to express **abortStep** and **cancelSession** as explicit control actions.
+Engines that do not implement typed rules MUST treat objects as **validate** (safe default).
 
-
-## A) Rules — Backwards-compatible typed extension
-The original `rules` array remains valid as **array of strings** (CEL booleans, AND‑combined).  
-Optionally, a rule can be an **object** with a `type` field. Engines that do not implement typed actions MUST treat unknown types as **validate** (safe default).
-
-### Drop-in JSON Schema for `rules` (inline, no `$defs`)
-Use this exact block if you want to document both forms without external `$defs`:
+### A.1 JSON authoring
+You may mix legacy strings and typed objects in the same array:
 
 ```json
-"rules": {
-  "type": "array",
-  "items": {
-    "oneOf": [
-      { "type": "string" },
-      {
-        "type": "object",
-        "required": ["expression"],
-        "additionalProperties": false,
-        "properties": {
-          "expression": { "type": "string" },
-          "type": {
-            "type": "string",
-            "enum": ["validate", "abortStep", "cancelSession"],
-            "default": "validate"
-          }
+"rules": [
+  "[Amount] > 0",
+  { "expression": "[Amount] == 0", "type": "abortStep" },
+  { "expression": "[Memo] == 'KILL'", "type": "cancelSession" }
+]
+```
+
+**Semantics & precedence**
+- `validate` (legacy string or object with `type:"validate"`): contributes to the AND of all validate rules.
+- `abortStep`: if **any** such rule is `true` ⇒ **stop this step immediately** (no `continue`, no `spawn`, no inner `execution`).
+- `cancelSession`: if **any** such rule is `true` ⇒ **terminate the entire session** (same effect as RPC kill).
+- **Precedence:** `cancelSession` > `abortStep` > validate result (the boolean is still recorded for observability).
+- Missing keys in expressions evaluate to **false** (no exception).
+
+### A.2 JSON Schema snippet (keeps structure; uses `$defs`)
+_This snippet extends your existing schema. It preserves the original layout and only **adds** the
+typed form._
+
+```json
+{
+  "properties": {
+    "rules": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "#/$defs/RuleItem" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "RuleItem": {
+      "type": "object",
+      "required": ["expression"],
+      "additionalProperties": false,
+      "properties": {
+        "expression": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["validate", "abortStep", "cancelSession"],
+          "default": "validate"
         }
       }
-    ]
+    }
   }
 }
 ```
 
-### Semantics (when `type` is used)
-- `validate`: contributes to the AND of all validate rules.
-- `abortStep`: if **any** such rule is `true` ⇒ **stop this step immediately** (no `continue`, no `spawn`, no `execution`).
-- `cancelSession`: if **any** such rule is `true` ⇒ **terminate the entire session** (manager kill).
-- Precedence: `cancelSession` > `abortStep` > validate result (the boolean is still recorded for observability).
-- Missing keys in expressions evaluate to **false** (should not throw).
+> **Note:** Existing validators that do not know `RuleItem` will continue to accept
+> legacy string rules. Engines may ignore the `type` field and treat objects as `validate`
+> for forwards compatibility.
 
-**Legacy stays unchanged**: If you only use strings, behavior is exactly as before.
+## B) Deterministic defaults for API calls & contract reads
+To eliminate ambiguity and spurious retries, failures are handled as follows:
 
----
+### B.1 API calls (`apiCalls`)
+- On error (timeout, non‑2xx, non‑JSON, size limit, redirect limit, extract error):
+  - If **every alias** listed in `extractMap` has a **default** in `defaults` ⇒ write those defaults and continue;
+    the **rules** decide `onValid`/`onInvalid` or typed actions.
+  - If **any** alias lacks a default ⇒ **hard fail** of the step (deterministic).
+- Aliases must match: `^[A-Za-z][A-Za-z0-9._-]{0,63}$` and must **not** start with `_` or `sys.` (reserved).
+- Placeholders: `[Key]` in `urlTemplate` (URL‑escaped) and `bodyTemplate` (raw JSON‑serialized for non‑strings).
+  Use `[[` and `]]` to escape literal brackets.
 
-## B) Deterministic defaults for `apiCalls` and `contractReads`
-To remove ambiguity and eliminate implicit retries:
+### B.2 Contract reads (`contractReads`)
+- On error (RPC failure, revert, decode failure) or when a referenced tuple index is missing:
+  - If **every** saved index/name has a **default** in `defaults` ⇒ write those defaults and continue.
+  - If **any** expected value lacks a default ⇒ **hard fail** of the step.
+- **Scalar default** is allowed **only** when `saveAs` is a single string (index `0`); otherwise use object form
+  keyed by indices ("0", "1", …) or the names you map in `saveAs`.
 
-- If a call **fails** (timeout/status/decode/CEL-extract error for API; `eth_call`/decode error for reads):
-  - If **every expected alias/index** has a **default** ⇒ write defaults and continue; the **rules** decide valid/invalid/abort/cancel.
-  - If **any** expected alias/index **lacks a default** ⇒ **hard fail of the step** (deterministic).
-- **Scalar default** for reads is allowed **only** when `saveAs` is a single string (index `0`). Otherwise use an object keyed by indices or names.
-- No implicit engine retries. If authors want retries, they model them in their **rules** and **flows** (e.g., counters in payload).
+> **Engine policy:** No implicit retries. Authors model retries explicitly in rules (e.g., counters in payload).
 
----
+## C) Clarifications (unchanged behavior)
+- `waitUntilMs` takes precedence over `waitMs`; `0` means “no wait”.
+- If `execution.to` is empty or missing, the outcome is **meta‑only** (no inner EVM call).
+- Outcome payload mapping: `"[Key]"` copies the inbound key; pure placeholder templates substitute literally;
+  otherwise treat as an expression.
 
-## C) Outcomes & execution (unchanged; clarification)
-- `waitUntilMs` overrides `waitMs`. Defaults are `0` (no wait).
-- `payload` mapping: `"[Key]"` copies inbound; pure placeholder templates substitute literally; anything else is an expression.
-- Omit `execution` or leave `to==""` for **meta‑only** steps (no inner EVM call).
-
----
-
-## D) Solidity surface (reference, unchanged)
-A minimal `XRC-137.sol` exposes:
-- Canonical getters (`getRule`, `rule`, `getRuleJSON`, `ruleJSON`, or a public `ruleJson`) — engines **probe** in that order and use the first non‑empty string.
-- `encrypted()` → `(bytes32 rid, string suite)`; `rid != 0` indicates encrypted storage (XGR1 envelope).
-- `setRule(string jsonOrXgr1, bytes32 rid, string suite)`; emits `RuleUpdated`, `EncryptedSet/EncryptedCleared`. Enforces that non‑zero `rid` goes with a string starting `"XGR1."`.
-
----
-
-## E) Migration note
-This addendum is **non‑breaking**:
-- Existing rules arrays of strings continue to validate as before.
-- The `rules` object form is an **optional** authoring convenience; engines that do not implement typed actions will treat it as `validate` by default.
-- Defaults behavior for API/Reads is now explicit and deterministic, but matches the intended behavior of the original text.
+## D) Solidity surface (XRC‑137.sol) — unchanged
+The contract interface and behavior in the original document remain valid. Engines probe getters
+in order (`getRule`, `rule`, `getRuleJSON`, `ruleJSON`, then auto‑getter `ruleJson`) and use the first
+non‑empty string. If it starts with `XGR1.`, engines decrypt before parsing JSON. The tuple returned by
+`encrypted()` dictates the **default** log encryption policy (non‑zero `rid` ⇒ encrypted by default).
