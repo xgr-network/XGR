@@ -1,3 +1,412 @@
+# XRC-137 — Integrated Specification & Contract Reference (v0.2)
+**Date:** 2025-11-08 06:59:08 UTC
+**Audience:** Engine & Smart-Contract developers (XDaLa / XGRChain)
+**Principles:** lean & clean, deterministic behavior, latest-greatest, no hidden retries, maintainability.
+
+---
+
+
+## 1. Scope & Goals
+XRC-137 defines how rule logic is stored on-chain (Solidity contract) and how engines consume it (JSON spec, evaluation, outcomes, logging, and encryption). This document integrates the former draft(s) into a single authoritative spec—no sections omitted, prior German fragments translated, and ambiguities resolved.
+
+Two halves of XRC-137
+1) XRC-137.sol — a minimal on-chain container exposing canonical getters and an admin setter for the rule string (plaintext JSON or encrypted XGR1 envelope).
+2) XRC-137 JSON — the machine-readable rule format (payload, reads, APIs, rules, outcomes, execution). The engine loads, decrypts, evaluates, and executes it.
+
+---
+
+## 2. XRC-137.sol — Solidity Contract (Reference)
+Below is the normative surface; implementations may vary internally, but MUST preserve storage semantics and callable shape.
+
+### 2.1 Storage layout
+- string ruleJson; — canonical rule string. Either plaintext JSON or an XGR1 envelope ("XGR1.<suite>.<rid>.<base64>").
+- struct EncInfo { bytes32 rid; string suite; } — encryption metadata. rid == 0 implies plaintext; nonzero implies encrypted.
+- address owner; — admin.
+
+### 2.2 Interface (EIP-165 optional)
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+
+interface IXRC137 {
+    // Canonical rule retrieval (engines probe in this order)
+    function getRule() external view returns (string memory);
+    function rule() external view returns (string memory);
+    function getRuleJSON() external view returns (string memory);
+    function ruleJSON() external view returns (string memory);
+    function ruleJson() external view returns (string memory); // auto-getter if declared public
+
+    // Encryption meta; nonzero rid => encrypted rule
+    function encrypted() external view returns (bytes32 rid, string memory suite);
+
+    // Optional convenience
+    function owner() external view returns (address);
+
+    // Admin: store plaintext or XGR1 envelope + metadata
+    function setRule(string calldata jsonOrXgr1, bytes32 rid, string calldata suite) external;
+}
+```
+
+### 2.3 Minimal implementation (reference)
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.21;
+
+contract XRC137 is IXRC137 {
+    struct EncInfo { bytes32 rid; string suite; }
+
+    string  public override ruleJson;
+    EncInfo public override encrypted;
+    address public override owner;
+
+    event RuleUpdated(string newRule);
+    event EncryptedSet(bytes32 rid, string suite);
+    event EncryptedCleared();
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    error NotOwner();
+    error InvalidEnvelope();   // rid != 0 but rule does not start with "XGR1."
+    error EmptyRule();
+
+    constructor(string memory initialJson, bytes32 rid, string memory suite) {
+        owner = msg.sender;
+        _setRule(initialJson, rid, suite);
+    }
+
+    modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "zero");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    function getRule() external view returns (string memory) { return ruleJson; }
+    function rule() external view returns (string memory) { return ruleJson; }
+    function getRuleJSON() external view returns (string memory) { return ruleJson; }
+    function ruleJSON() external view returns (string memory) { return ruleJson; }
+
+    function setRule(string calldata jsonOrXgr1, bytes32 rid, string calldata suite) external onlyOwner {
+        _setRule(jsonOrXgr1, rid, suite);
+    }
+
+    function _setRule(string memory jsonOrXgr1, bytes32 rid, string memory suite) internal {
+        bytes memory b = bytes(jsonOrXgr1);
+        if (b.length == 0) revert EmptyRule();
+
+        if (rid == bytes32(0)) {
+            // plaintext
+            ruleJson = jsonOrXgr1;
+            if (encrypted.rid != bytes32(0)) {
+                encrypted = EncInfo(bytes32(0), "");
+                emit EncryptedCleared();
+            }
+        } else {
+            // encrypted: must look like an XGR1 envelope
+            bytes memory prefix = bytes("XGR1.");
+            if (b.length < prefix.length || keccak256(b[:prefix.length]) != keccak256(prefix)) {
+                revert InvalidEnvelope();
+            }
+            ruleJson = jsonOrXgr1;
+            encrypted = EncInfo(rid, suite);
+            emit EncryptedSet(rid, suite);
+        }
+        emit RuleUpdated(ruleJson);
+    }
+}
+```
+
+Notes
+- No external calls -> no reentrancy surface.
+- Upgradeability is optional; if used, keep storage slot order identical.
+- Gas of setter scales with ruleJson length only.
+- Engines MUST NOT rely on a single getter; they probe in order (see Section 3.1).
+
+---
+
+## 3. Engine <-> Contract Interaction
+### 3.1 Getter probing order
+Use the first non-empty string among: getRule() -> rule() -> getRuleJSON() -> ruleJSON() -> ruleJson().
+
+### 3.2 Decryption
+If the string starts with "XGR1.", treat it as an encrypted envelope. Decrypt (client-side) using the XGR model (AES-GCM-256 with a DEK, see Section 8).
+
+### 3.3 Address injection
+If the parsed JSON has no address, inject the contract address for traceability in logs and receipts.
+
+---
+
+## 4. XRC-137 JSON — Top-Level
+```jsonc
+{
+  "payload":       { "<Key>": { "type": "string|number|bool|array|object", "optional": false } },
+  "contractReads": [ /* ContractRead */ ],
+  "apiCalls":      [ /* APICall    */ ],
+  "rules":         [
+    "<CEL boolean>",
+    { "expression": "<CEL boolean>", "type": "validate|abortStep|cancelSession" }
+  ],
+  "onValid":       /* Outcome */,
+  "onInvalid":     /* Outcome */,
+  "address":       "0x...",
+  "version":       "0.2"
+}
+```
+Defaults
+- Missing optional fields => no wait, no execution, no encryption override.
+- Unknown fields must be ignored for forward compatibility.
+- Rules evaluate over inbound inputs (original payload + reads + APIs + applied defaults).
+
+A formal JSON Schema (Draft 2020-12) is included later (Section 11) for validation in toolchains.
+
+---
+
+## 5. Inputs (payload)
+type is descriptive; optional:false means key must exist and be non-empty pre-evaluation (empty string/array/map counts as missing). Missing required keys force the invalid branch without evaluating rules.
+
+---
+
+## 6. Contract Reads
+Example shape:
+```
+{
+  "to": "0x...",
+  "function": "balanceOf(address) returns (uint256)",
+  "args": ["<ExprOrLiteral>", "..."],
+  "saveAs": "Alias" | { "0": "Key0", "1": "Key1" },
+  "defaults": <scalar> | { "0": <fallback0>, "1": <fallback1>, "Key0": <fallbackForKey0> },
+  "rpc": "https://..."
+}
+```
+- Executed before API calls. Return treated as tuple.
+- saveAs: "Alias" maps index 0 to "Alias".
+- Deterministic defaults: If the read fails and all saved indices/keys have defaults -> use defaults and continue; otherwise terminal fail. Scalar defaults valid only when saveAs is a single string (index 0).
+- Each arg may be a placeholder/expression; must cast cleanly to ABI type.
+
+---
+
+## 7. HTTP API Calls (JSON)
+```
+{
+  "name": "u",
+  "method": "GET|POST|PUT|PATCH",
+  "urlTemplate": "https://.../endpoint?x=[Key]",
+  "headers": { "K": "V" },
+  "bodyTemplate": "...",
+  "contentType": "json",
+  "extractMap": { "Alias": "CEL over resp", "B": "resp.field" },
+  "defaults":   { "Alias": "ERROR", "B": 0 }
+}
+```
+- Deterministic client: IPv4 only, TLS >=1.2, HTTP/1.1, redirects <=3, 8s timeout/call, <=1MiB body.
+- extractMap items are CEL expressions over variable resp (parsed JSON). Scalars persist automatically.
+- On error (timeout/status/decode/extract): if every alias has a default -> write defaults; else terminal fail.
+- Aliases: ^[A-Za-z][A-Za-z0-9._-]{0,63}$, not starting with _ or sys., unique per rule.
+- Placeholders: [Key] (URL auto-escaped; body raw). Escapes: [[ => [, ]] => ].
+
+---
+
+## 8. Encryption (XGR1) & Grants
+Envelope ABNF
+XGR1 = "XGR1." SUITE "." RID "." BASE64
+- JSON encrypted with AES-GCM-256 using a random DEK; ciphertext packed in the envelope.
+- Contract encrypted.rid != 0 implies encrypted storage.
+- Logs: default encrypted if rule is encrypted; per-branch encryptLogs can override. logExpireDays default 365. Fail-closed when owner/read key is missing (no plaintext leakage).
+
+---
+
+## 9. Rules (Legacy & Typed)
+Legacy: rules: ["<CEL>", ...] => all are validate; AND-aggregate must be true.
+
+Typed extension (optional, backward-compatible):
+rules: [ "<CEL>", { "expression": "<CEL>", "type": "validate|abortStep|cancelSession" } ]
+
+- validate: contributes to AND-aggregate.
+- abortStep: if any true => stop step immediately (no continue/spawn/execution).
+- cancelSession: if any true => terminate session (manager kill).
+- Precedence: cancelSession > abortStep. The boolean result is still recorded for observability.
+- Missing keys inside a rule evaluate to false (do not throw).
+
+---
+
+## 10. Outcomes & Execution
+Outcome (onValid / onInvalid):
+```
+{
+  "waitMs": 0,
+  "waitUntilMs": 0,
+  "payload": { "memo": "valid", "X": "[X]" },
+  "execution": {
+    "to": "0x...",
+    "function": "set(uint256)",
+    "args": ["[X]"],
+    "value": "0",
+    "gas": { "limit": 150000 }
+  },
+  "encryptLogs": true,
+  "logExpireDays": 365
+}
+```
+- waitUntilMs overrides waitMs.
+- Payload mapping: "[Key]" copy; template with only placeholders = literal substitution; otherwise full expression.
+- If execution.to empty or execution omitted => meta-only (no inner EVM call).
+
+---
+
+## 11. Formal JSON Schema (Draft 2020-12)
+(Identical to the prior delivery; preserved for toolchains and CI validation.)
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xgr.network/schemas/xrc-137/v0.2.json",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type","optional"],
+        "properties": {
+          "type":      { "type":"string" },
+          "optional":  { "type":"boolean" }
+        }
+      }
+    },
+    "contractReads": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ContractRead" }
+    },
+    "apiCalls": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/APICall" }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "#/$defs/RuleItem" }
+        ]
+      }
+    },
+    "onValid":   { "$ref": "#/$defs/Outcome" },
+    "onInvalid": { "$ref": "#/$defs/Outcome" },
+    "address":   { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "version":   { "type": "string" }
+  },
+  "required": ["payload","rules"],
+  "$defs": {
+    "Outcome": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "waitMs":        { "type":"integer", "minimum":0 },
+        "waitUntilMs":   { "type":"integer", "minimum":0 },
+        "payload":       { "type":"object" },
+        "execution":     { "$ref": "#/$defs/Execution" },
+        "encryptLogs":   { "type":"boolean" },
+        "logExpireDays": { "type":"integer", "minimum":1 }
+      }
+    },
+    "Execution": {
+      "type": "object",
+      "properties": {
+        "to":       { "type":"string" },
+        "function": { "type":"string" },
+        "args":     { "type":"array", "items": { "type":["string","number","boolean","object","array"] } },
+        "value":    { "type":["string","number"] },
+        "gas":      {
+          "type":"object",
+          "properties": { "limit": { "type":"integer", "minimum": 21000 } }
+        },
+        "extras":   { "type":"object" }
+      },
+      "additionalProperties": true
+    },
+    "ContractRead": {
+      "type":"object",
+      "required":["to","function"],
+      "properties": {
+        "to":       { "type":"string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+        "function": { "type":"string" },
+        "args":     { "type":"array", "items": { "type":["string","number","boolean","object","array"] } },
+        "saveAs":   {
+          "oneOf": [
+            { "type":"string" },
+            {
+              "type":"object",
+              "additionalProperties": { "type":"string" }
+            }
+          ]
+        },
+        "defaults": {
+          "oneOf": [
+            { "type":["string","number","boolean","null"] },
+            {
+              "type":"object",
+              "additionalProperties": true
+            }
+          ]
+        },
+        "rpc": { "type":"string" }
+      }
+    },
+    "APICall": {
+      "type":"object",
+      "required":["name","urlTemplate","contentType"],
+      "properties": {
+        "name":         { "type":"string" },
+        "method":       { "type":"string", "enum":["GET","POST","PUT","PATCH"] },
+        "urlTemplate":  { "type":"string" },
+        "headers":      { "type":"object", "additionalProperties": { "type":"string" } },
+        "bodyTemplate": { "type":"string" },
+        "contentType":  { "type":"string", "const":"json" },
+        "extractMap":   { "type":"object", "additionalProperties": { "type":"string" } },
+        "defaults":     { "type":"object", "additionalProperties": true }
+      }
+    },
+    "RuleItem": {
+      "type":"object",
+      "required":["expression"],
+      "properties": {
+        "expression": { "type":"string" },
+        "type":       { "type":"string", "enum":["validate","abortStep","cancelSession"] }
+      }
+    }
+  }
+}
+```
+
+---
+
+## 12. Validation Gas Heuristic
+Decrypt 30k; required check 1k each; math ops 1k; comparisons 1k; string helpers 1.5k-3k; regex 4k-5k; saveData 1k/field. Totals are additive; split into common/onValid/onInvalid when needed.
+
+---
+
+## 13. Error Catalogue (selected, deterministic)
+- Placeholders: invalid syntax, missing key, unclosed bracket.
+- HTTP: non-2xx, non-JSON, decode error, timeout, redirects>3, >1MiB.
+- Extracts: empty expr, eval error without default, non-scalar save.
+- Reads: invalid to, bad saveAs, index OOB, arg cast, missing defaults after failure.
+- Rules: syntax/non-bool/timeout; unknown type => treat as validate.
+- Execution: invalid to, ABI mismatch, cast errors, negative value.
+- Outputs: missing referenced keys, invalid template, eval error.
+
+---
+
+## 14. Conformance Hints
+Author tests to assert: API/Read defaults coverage; typed-rule actions; meta-only outcomes; encryption override precedence; alias constraints; placeholder escaping. Engines should ship a runner.
+
+---
+
+## 15. Versioning & Migration
+This file is v0.2. Legacy rules (strings) remain valid. Typed rules are opt-in. Behavior for defaults and encryption is clarified and deterministic.
+
+---
+
+# Appendix A — Original source (verbatim)
 # XRC‑137 Developer Guide
 
 **Audience:** engineers building on **XDaLa / XGRChain**  
@@ -834,3 +1243,4 @@ For the expression language (operators, helpers, placeholder rewriting, timeouts
 - Unified structure with fixed, monotonic section numbering (01–21) to avoid list resets.
 - Integrated full original JSON spec verbatim in §14; no original information removed.
 - Added code anchors from loader/parser/core to ground semantics.
+
