@@ -9,15 +9,117 @@
 ## 0)
  Executive summary
 
-- **XRC‑729** is the *on‑chain registry interface* (and content‑addressable storage) for orchestrations. It is the **single source of truth** for what the engine is allowed to execute.
-- The **Session Manager** is the deterministic runtime layer between client RPC and the core engine. It
-  - creates session processes, schedules steps and applies **Join rules**,
-  - treats Join inputs as pure **`from`‑based expectations** (no labels anymore) with required `when` ∈ {`valid`,`invalid`,`any`},
-  - enforces **`waitOnJoin` policies** (`kill` | `drain`) via *Dispatch* and *Spawn* gates,
-  - promotes targets when **k‑of‑n** joins are satisfied and aborts targets early when they become **unfulfillable**,
-  - delivers producer results into a **Join Inbox** (per‑step payload map) and deterministically merges them into the target payload.
-- Orchestrations are registered as JSON strings in XRC‑729 and retrieved via `getOSTC(id)`. The engine parses them into an internal `Orchestration` structure and validates a canonical hash before execution.
-- The manager operates per `(owner, rootPid)` with a root actor and a sliding window of concurrent validations (lease tokens, claim mechanics).
+This section gives you a **mental model** of XRC‑729 and the Session Manager before we dive into types, JSON and Go code. It deliberately uses a mix of protocol terms and “story” language.
+
+### 0.1 What problem XRC‑729 solves
+
+Most real‑world workflows are not a single transaction. They are:
+
+- multi‑step (“do A, then B, then C”),
+- often parallel (“do B and C in parallel, wait for both, then D”),
+- dependent on validation results (“if KYC is invalid, go to manual review instead of payout”).
+
+XRC‑729 and the Session Manager together provide a **chain‑native orchestration layer** for such flows:
+
+- XRC‑729 stores **which orchestration exists** and what its JSON definition is.
+- The Session Manager decides **what to execute next for a given user/session** and maps validation results back into the orchestration graph.
+
+You can think of XRC‑729 as the **registry & blueprint store**, and the Session Manager as the **workflow engine** that interprets those blueprints.
+
+### 0.2 Core concepts at a glance
+
+At the logical level there are only a few building blocks:
+
+- **Orchestration** – a named, versionable blueprint. Technically: a JSON document (stored via XRC‑729) describing
+  - steps (which rule contract to call),
+  - what to spawn on `valid` / `invalid`,
+  - and optional join‑points.
+- **Session** – all work for one `(owner, rootPid)` pair. A user may have many sessions in parallel.
+- **Process** – a single “token” moving through the orchestration graph. Each process is
+  - at some step (`ResumeStep`),
+  - in a lifecycle state (`waiting`, `running`, `done`, `aborted`),
+  - optionally part of a join scope.
+- **Producer** – a process that can contribute its result into a join (has a `JoinGroupID`).
+- **Join target** – a special process that
+  - expects results from several producers (`JoinExpect[]`),
+  - has a join mode (any / all / k‑of‑n),
+  - and a `waitOnJoin` policy (`kill | drain`).
+- **Join Inbox** – a per‑target, per‑step map that collects delivered payload pieces, keyed by the producer’s step ID.
+
+If you only remember one thing: *the engine is just moving “process tokens” through a graph and optionally aggregating some of them in join targets*.
+
+### 0.3 XRC‑729 vs Session Manager: who does what?
+
+**XRC‑729 (on‑chain registry)**
+
+- Stores orchestration JSON and a canonical hash.
+- Provides read‑only views so the engine can fetch a definition by ID and verify it.
+- Does **not** execute anything itself; it is a registry, not a workflow engine.
+
+**Session Manager (runtime)**
+
+For each session `(owner, rootPid)` the manager:
+
+1. Creates the initial process at the orchestration’s entry step.
+2. Decides which processes may run (dispatch gate, wake‑up times, pause/kill).
+3. Calls the rule engine once per running process (`ValidateSingleStep`).
+4. Interprets the result:
+   - optional **join target** to create,
+   - zero or more **producers** to spawn as children.
+5. Routes producer results into join targets (delivery guard).
+6. Decides when a join is **satisfied** (k‑of‑n) or **unfulfillable** and promotes/aborts the target accordingly.
+7. Merges the join inbox into the target’s payload and continues execution from the target’s `ResumeStep`.
+
+In other words: **XRC‑729 defines the graph; the Session Manager moves tokens over that graph in a deterministic way.**
+
+### 0.4 Join semantics in one paragraph
+
+A join in this system is:
+
+> “Wait for a configurable subset of producer steps (by step ID), optionally filtered by result (`valid` / `invalid` / `any`). Once enough matching results have arrived (k‑of‑n), merge their payloads and continue at the join target step.”
+
+Important properties:
+
+- Joins are **step‑based**: they key by `node` (step ID), not by arbitrary labels.
+- Each join target:
+  - remembers which expected steps already delivered (`JoinInbox` / `JoinFromSeen`),
+  - tracks which expected steps failed permanently (`JoinFail`),
+  - uses reachability analysis to decide if missing steps can still be reached (`CanReachAny`).
+- `waitOnJoin = "kill"` means:
+  - once the join is decided (success or unfulfillable), no new producers for this join scope will be spawned,
+  - producers that are still waiting and could reach a missing expected step are aborted.
+- `waitOnJoin = "drain"` means:
+  - producers are allowed to continue independently after the join decision.
+
+### 0.5 Lifecycle overview (one request in 8 steps)
+
+From the outside, a single client call looks roughly like this:
+
+1. Client requests “start / wake up / continue session X”.
+2. Manager loads all relevant processes for `(owner, rootPid)` and determines which ones are eligible to run now (time + gates).
+3. For each promoted process, the engine calls the referenced rule contract once.
+4. After the call, the manager stores the result (payload, `valid` / `invalid`) on the process.
+5. Based on the orchestration JSON for the current step:
+   - it optionally creates a join target,
+   - it spawns zero or more producers (child processes).
+6. When a producer becomes terminal, the manager tries to deliver its result into a join target, respecting
+   - scope (`JoinGroupID` / `JoinFromGroupID`),
+   - step ID (`node`),
+   - and configured `when` filter.
+7. The join target evaluates whether its k‑of‑n condition is met or unfulfillable and, if so,
+   - merges its join inbox into its own payload,
+   - transitions to `waiting`/`running` or `aborted`,
+   - optionally kills remaining producers in scope (for `kill`).
+8. The updated session state is committed; the client sees high‑level status and, if needed, can call again to drive the next steps.
+
+### 0.6 How to read the rest of this document
+
+- If you design orchestrations → focus on **Section 3 (JSON)** and **Section 6 (examples)**.
+- If you implement or review the engine → focus on **Section 4 (manager semantics)**.
+- If you build tooling (UIs, debuggers, explorers) → combine
+  - the lifecycle from this section,
+  - the process/state fields described later,
+  - and the join semantics to produce human‑friendly views of running sessions.
 ## 1) Relationship: XRC‑729 ↔ Manager ↔ Core
 
 **XRC‑729 (on‑chain):**
