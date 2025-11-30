@@ -18,6 +18,10 @@ The engine processes an XRC‑137 rule set as a pipeline:
 6. **Optional execution preparation** (encode args/value; *actual* EVM call happens on-chain)
 7. **Persist/logs** (optionally with encrypted logs)
 
+Branch‑local delays are modeled via `waitSec` on `onValid` / `onInvalid`.
+They do not block the engine process itself, but they influence scheduling and
+Validation Gas linearly per spawned child and per started hour of delay.
+
 **Validation Gas** is a *single number* that summarizes how heavy this pipeline is expected to be **off‑chain / in the engine**. It is computed on the parsed representation (`ParsedXRC137`) by `CalculateGas(...)`.
 
 ---
@@ -75,6 +79,7 @@ The following constants are used by the heuristic in *v0.2* (tunable in code):
 | Execution per arg (count) | `gPerExecArg` | **700** |
 | Execution value (if present) | `gPerExecValue` | **800** |
 | Encrypted logs (branch) | `gPerEncryptLogs` | **2,000** |
+| Wait time per spawned child per started hour (`waitSec`) | `gWaitGasPerHourPerSpawn` | **200** |
 | Clamp min / max | `gMin`/`gMax` | **15,000** / **300,000** |
 
 > **Reminder:** This is **engine work only**. **EVM gas** for the on‑chain transaction is accounted for separately by the chain and is unaffected by Validation Gas.
@@ -267,7 +272,33 @@ This **does not** include the **on‑chain** cost of calling the EVM. Once the t
 
 **Execution prep total = 1,200 + 1,400 + 500 + 800 = 3,900**
 
-> The subsequent **on‑chain** `transfer(...)` consumes **EVM gas** which is **outside** of Validation Gas.
+### 10.1 Wait time (`waitSec`) and spawned children
+
+Each branch (`onValid` / `onInvalid`) may define a **wait time in seconds** via `waitSec`.
+This delay is used by the Session Manager to schedule when spawned children are allowed
+to run. Validation Gas includes a small surcharge for such delayed branches, proportional
+to both the delay and the number of child processes spawned from that branch.
+
+The heuristic is:
+
+```
+waitGas = ceil(waitSec / 3600) × gWaitGasPerHourPerSpawn × spawnCount
+```
+
+where:
+
+- `waitSec` is the per‑branch delay in **seconds** as defined in the XRC‑137 JSON.
+- `spawnCount` is the number of child edges on that branch in the orchestration
+  (e.g. `len(step.Spawn)` or `len(step.SpawnInvalid)` in Go).
+- `gWaitGasPerHourPerSpawn` is a small constant (see section 4).
+
+Consequences:
+
+- If `waitSec <= 0` or `spawnCount == 0`, the branch adds **no wait‑related gas**.
+- Longer waits and more spawned children increase Validation Gas, but only in a
+  **linear and predictable** way.
+- This models the fact that deferred work over long periods still has a coordination
+  and scheduling cost for the engine, without tying it to any specific wall‑clock block time.
 
 ---
 
@@ -378,7 +409,11 @@ If a branch sets `encryptLogs: true`, we add a small CPU surcharge `gPerEncryptL
 
 ## 13) What We Do **Not** Price
 
-- Sleep/delays (`waitMs`, `waitUntilMs`)
+- Pure business‑level waiting that is **not** expressed as `waitSec` in the rule
+  (for example: a user comes back tomorrow without any configured branch delay).
+  Branch‑local `waitSec` itself **is priced** via `gWaitGasPerHourPerSpawn` per
+  spawned child (see section 10.1).
+
 - Purely presentational fields
 - The on‑chain EVM cost of any transaction executed later (that is EVM gas, priced by the chain)
 - Anything not directly exercised by the engine during validation/preparation
@@ -438,6 +473,7 @@ ValidationGas =
                   + (isExpr ? (gPerOutcomeExpr + ops×gPerOp + funcs×gPerFunc
                                + (hasRegex ? gRegexSurcharge : 0)) : 0) ]
 + (hasExecution ? gPerExecBase + #args×gPerExecArg + Σ_argComplexity + (hasValue ? gPerExecValue + valueComplexity : 0) : 0)
++ Σ_waitBranches [ ceil(waitSec/3600) × gWaitGasPerHourPerSpawn × spawnCount ]
 + (encryptLogs ? gPerEncryptLogs : 0)
 
 → clamp to [gMin, gMax]
