@@ -37,36 +37,15 @@ contract XRC137Storage {
 
 
 ## 03. View getters (engines probe in this order)
-
 ```solidity
 function getRule() external view returns (string memory);
-function rule() external view returns (string memory);
-function getRuleJSON() external view returns (string memory);
-function ruleJSON() external view returns (string memory);
-// Auto‑getter if `string public ruleJson;` is present
-function ruleJson() external view returns (string memory);
-// Encryption metadata (tuple)
-function encrypted() external view returns (bytes32 rid, string memory suite);
-// Optional
-function owner() external view returns (address);
+function ruleJson() external view returns (string memory); // auto‑getter from `string public ruleJson`
+function encrypted() external view returns (bytes32 rid, string memory suite); // auto‑getter from `EncInfo public encrypted`
+function isEncrypted() external view returns (bool);
+function getNameXRC() external view returns (string memory);
 ```
 
-**Engine loader behavior**
-- Call the string getters **in order** and use the first non‑empty result.
-- If the returned string starts with `XGR1.`, **decrypt** (see §07) before parsing JSON.
-- If the JSON lacks an `address`, **inject** the contract address (traceability).
-
-
-**Reference (loader snippet):**
-```go
-sigs := []string{
-		"getRule()",
-		"rule()",
-		"getRuleJSON()",
-		"ruleJSON()",
-```
-
-
+**Compatibility note:** Earlier drafts listed aliases like `rule()`, `getRuleJSON()`, or `ruleJSON()`. The **current** contract does **not** implement these aliases; engines should rely on `getRule()` and/or the auto‑getter `ruleJson()`.
 ## 04. Admin/mutating surface (reference shape)
 
 ```solidity
@@ -98,8 +77,8 @@ type InputField struct {
 
 ```go
 OnValid struct {
-			WaitMs        int64                  `json:"waitSec,omitempty"`
-			WaitUntilMs   int64                  `json:"waitSec,omitempty"`
+			WaitSec        int64                  `json:"`waitSec`,omitempty"`
+			WaitUntilMs   int64                  `json:"`waitSec`,omitempty"`
 			Payload       map[string]interface{} `json:"payload,omitempty"`
 			EncryptLogs   *bool                  `json:"encryptLogs,omitempty"`
 			LogExpireDays *int                   `json:"logExpireDays,omitempty"`
@@ -113,8 +92,8 @@ OnValid struct {
 			} `json:"execution,omitempty"`
 		} `json:"onValid"`
 		OnInvalid struct {
-			WaitMs        int64                  `json:"waitSec,omitempty"`
-			WaitUntilMs   int64                  `json:"waitSec,omitempty"`
+			WaitSec        int64                  `json:"`waitSec`,omitempty"`
+			WaitUntilMs   int64                  `json:"`waitSec`,omitempty"`
 			Payload       map[string]interface{} `json:"payload,omitempty"`
 			EncryptLogs   *bool                  `json:"encryptLogs,omitempty"`
 			LogExpireDays *int                   `json:"logExpireDays,omitempty"`
@@ -438,7 +417,8 @@ APICall = {
 
 ```json
 Outcome = {
-  "waitSec": 0,
+  "`waitSec`": 0,
+  "`waitSec`": 0,
   "payload": { "<outKey>": "<TemplateOrExpr>" },
   "execution": Execution,
   "encryptLogs": true,
@@ -448,15 +428,25 @@ Outcome = {
 
 **Waiting**
 
-* `waitSec` (non-negative integer seconds) delays the branch relative to **now**.
-* `0` means “no wait”.
+* `waitSec` (epoch ms) takes precedence; else `waitSec` (relative).
+* Non-negative integers only. `0` means “no wait”.
+
+**Output payload mapping**
+
+* Exactly `"[Key]"` → direct copy from inputs.
+* Plain strings containing **only** placeholders and text (no operators) → literal placeholder substitution (no expression engine).
+* Otherwise → full expression evaluation (same environment as rules). **See companion Expression document** for semantics.
+
+**Meta-only outcomes**
+
+* If `execution` is omitted or has an empty `to`, no inner call is performed; outcome remains metadata-only (receipt still records payload and saves).
 
 ### 7.1 Outcome fields — parameter reference
 
 | Field           | Type               | Required | Notes                                                                              |
 | --------------- | ------------------ | -------- | ---------------------------------------------------------------------------------- |
-| `waitSec`        | integer ≥ 0        | no       | Relative delay before applying the outcome. Ignored if waitSec > 0.          |
-| waitSec   | integer (epoch ms) | no       | Absolute timestamp to apply the outcome. Overrides `waitSec`.                       |
+| `waitSec`        | integer ≥ 0        | no       | Relative delay before applying the outcome. Ignored if `waitSec` > 0.          |
+| `waitSec`   | integer (epoch ms) | no       | Absolute timestamp to apply the outcome. Overrides `waitSec`.                       |
 | `payload`       | object             | no       | Output keys to persist. Values can be template strings or expressions.             |
 | `execution`     | object             | no       | See §8. When omitted or `to==""`, the outcome is metadata-only.                    |
 | `encryptLogs`   | boolean            | no       | **Override** for log encryption in this branch. See §9.2 for defaults & semantics. |
@@ -469,7 +459,7 @@ Outcome = {
   Otherwise the engine uses the **default** derived from the contract’s `encrypted()` status.
   If `encrypted()` is not available or fails, the default is treated as **false**.
 * `logExpireDays` (if provided in the branch) must be ≥1. If omitted → **365**.
-* Overrides have **no effect** on the rule’s encryption-at-rest; sie betreffen nur die **Log-Persistenz** (see §9.2).
+* Overrides have **no effect** on the rule’s encryption-at-rest; sie betreffen nur die **Log-Persistenz** (siehe §9.2).
 
 ---
 
@@ -624,7 +614,7 @@ When a branch dictates encrypted logs (either by override or by default):
     "[BalanceA] >= [AmountA]"
   ],
   "onValid": {
-    "waitSec": 50000,
+    "`waitSec`": 50000,
     "encryptLogs": true,
     "logExpireDays": 30,
     "payload": {
@@ -642,7 +632,7 @@ When a branch dictates encrypted logs (either by override or by default):
     }
   },
   "onInvalid": {
-    "waitSec": 1000,
+    "`waitSec`": 1000,
     "encryptLogs": false,
     "payload": {"memo":"invalid-path","error":"Amount"}
   },
@@ -714,3 +704,120 @@ For the expression language (operators, helpers, placeholder rewriting, timeouts
 **Engine**: discovers XGR1 → decrypts via owner grant (scope‑1) → parses JSON → proceeds as in §06–§11. Logs encrypted by default unless branch overrides.
 
 
+
+## 20. Alignment with XGR Encryption & Grants (XRC‑563)
+
+- RID determines plaintext vs encrypted; **this document follows that rule**.
+- Scopes 1/2 and owner read‑key registry are reflected in the log policy and default behavior.
+- RPC helper flows (`xgr_encryptXRC137`, `xgr_getEncryptedLogInfo`) are consistent with the encryption guide.
+
+
+## 21. Doc change log (editorial)
+
+- Unified structure with fixed, monotonic section numbering (01–21) to avoid list resets.
+- Integrated full original JSON spec verbatim in §14; no original information removed.
+- Added code anchors from loader/parser/core to ground semantics.
+
+---
+
+# XRC-137 — Addendum v0.2 (non‑breaking extensions)
+**Date:** 2025-11-08 07:31:54 UTC
+
+> This addendum **keeps the original document intact**. It adds (1) a backwards‑compatible
+> extension for **typed rules** and (2) **deterministic defaults** semantics for API calls and
+> contract reads. No sections are removed. Solidity parts (XRC-137.sol) remain valid and unchanged.
+
+## A) Rules — typed extension (backwards compatible)
+The original `rules` array (strings only) remains fully valid and unchanged. Authors may optionally
+use **typed rules** to express **abortStep** and **cancelSession** as explicit control actions.
+Engines that do not implement typed rules MUST treat objects as **validate** (safe default).
+
+### A.1 JSON authoring
+You may mix legacy strings and typed objects in the same array:
+
+```json
+"rules": [
+  "[Amount] > 0",
+  { "expression": "[Amount] == 0", "type": "abortStep" },
+  { "expression": "[Memo] == 'KILL'", "type": "cancelSession" }
+]
+```
+
+**Semantics & precedence**
+- `validate` (legacy string or object with `type:"validate"`): contributes to the AND of all validate rules.
+- `abortStep`: if **any** such rule is `true` ⇒ **stop this step immediately** (no `continue`, no `spawn`, no inner `execution`).
+- `cancelSession`: if **any** such rule is `true` ⇒ **terminate the entire session** (same effect as RPC kill).
+- **Precedence:** `cancelSession` > `abortStep` > validate result (the boolean is still recorded for observability).
+- Missing keys in expressions evaluate to **false** (no exception).
+
+### A.2 JSON Schema snippet (keeps structure; uses `$defs`)
+_This snippet extends your existing schema. It preserves the original layout and only **adds** the
+typed form._
+
+```json
+{
+  "properties": {
+    "rules": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "#/$defs/RuleItem" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "RuleItem": {
+      "type": "object",
+      "required": ["expression"],
+      "additionalProperties": false,
+      "properties": {
+        "expression": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["validate", "abortStep", "cancelSession"],
+          "default": "validate"
+        }
+      }
+    }
+  }
+}
+```
+
+> **Note:** Existing validators that do not know `RuleItem` will continue to accept
+> legacy string rules. Engines may ignore the `type` field and treat objects as `validate`
+> for forwards compatibility.
+
+## B) Deterministic defaults for API calls & contract reads
+To eliminate ambiguity and spurious retries, failures are handled as follows:
+
+### B.1 API calls (`apiCalls`)
+- On error (timeout, non‑2xx, non‑JSON, size limit, redirect limit, extract error):
+  - If **every alias** listed in `extractMap` has a **default** in `defaults` ⇒ write those defaults and continue;
+    the **rules** decide `onValid`/`onInvalid` or typed actions.
+  - If **any** alias lacks a default ⇒ **hard fail** of the step (deterministic).
+- Aliases must match: `^[A-Za-z][A-Za-z0-9._-]{0,63}$` and must **not** start with `_` or `sys.` (reserved).
+- Placeholders: `[Key]` in `urlTemplate` (URL‑escaped) and `bodyTemplate` (raw JSON‑serialized for non‑strings).
+  Use `[[` and `]]` to escape literal brackets.
+
+### B.2 Contract reads (`contractReads`)
+- On error (RPC failure, revert, decode failure) or when a referenced tuple index is missing:
+  - If **every** saved index/name has a **default** in `defaults` ⇒ write those defaults and continue.
+  - If **any** expected value lacks a default ⇒ **hard fail** of the step.
+- **Scalar default** is allowed **only** when `saveAs` is a single string (index `0`); otherwise use object form
+  keyed by indices ("0", "1", …) or the names you map in `saveAs`.
+
+> **Engine policy:** No implicit retries. Authors model retries explicitly in rules (e.g., counters in payload).
+
+## C) Clarifications (unchanged behavior)
+- `waitSec` takes precedence over `waitSec`; `0` means “no wait”.
+- If `execution.to` is empty or missing, the outcome is **meta‑only** (no inner EVM call).
+- Outcome payload mapping: `"[Key]"` copies the inbound key; pure placeholder templates substitute literally;
+  otherwise treat as an expression.
+
+## D) Solidity surface (XRC‑137.sol) — unchanged
+The contract interface and behavior in the original document remain valid. Engines probe getters
+in order (`getRule`, `rule`, `getRuleJSON`, `ruleJSON`, then auto‑getter `ruleJson`) and use the first
+non‑empty string. If it starts with `XGR1.`, engines decrypt before parsing JSON. The tuple returned by
+`encrypted()` dictates the **default** log encryption policy (non‑zero `rid` ⇒ encrypted by default).
