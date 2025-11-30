@@ -6,18 +6,18 @@
 
 ---
 
-## 0) Executive summary
+## 0)
+ Executive summary
 
-- **XRC‑729** is the *on‑chain registry* (and content‑addressable index) for orchestration specifications. It persists step graphs (“orchestrations”) and their integrity hashes. It is the **source of truth** for what the engine may execute.
-- The **Session Manager** is the *deterministic runtime layer* between client RPC and the core engine. It:
-  - Creates session processes, schedules steps, applies **Join** rules (`label`, optional `from`, required `when` ∈ {`valid`,`invalid`,`any`}),
-  - Enforces **waitOnJoin** policies (`kill` | `drain`) via *Dispatch* and *Spawn* gates,
-  - Promotes targets when **k‑of‑n** joins are satisfied; aborts targets early when they become **unfulfillable**,
-  - Delivers producer results into a **Join Inbox** and merges outputs into target payloads deterministically.
-- **Design principles:** lean & auditable state machine, single place for policy, minimal persisted state, deterministic PIDs, backloops supported, and clear failure modes.
-
----
-
+- **XRC‑729** is the *on‑chain registry interface* (and content‑addressable storage) for orchestrations. It is the **single source of truth** for what the engine is allowed to execute.
+- The **Session Manager** is the deterministic runtime layer between client RPC and the core engine. It
+  - creates session processes, schedules steps and applies **Join rules**,
+  - treats Join inputs as pure **`from`‑based expectations** (no labels anymore) with required `when` ∈ {`valid`,`invalid`,`any`},
+  - enforces **`waitOnJoin` policies** (`kill` | `drain`) via *Dispatch* and *Spawn* gates,
+  - promotes targets when **k‑of‑n** joins are satisfied and aborts targets early when they become **unfulfillable**,
+  - delivers producer results into a **Join Inbox** (per‑step payload map) and deterministically merges them into the target payload.
+- Orchestrations are registered as JSON strings in XRC‑729 and retrieved via `getOSTC(id)`. The engine parses them into an internal `Orchestration` structure and validates a canonical hash before execution.
+- The manager operates per `(owner, rootPid)` with a root actor and a sliding window of concurrent validations (lease tokens, claim mechanics).
 ## 1) Relationship: XRC‑729 ↔ Manager ↔ Core
 
 **XRC‑729 (on‑chain):**
@@ -140,11 +140,13 @@ Notes: `ack` can be `queued | already_queued | paused | scheduled` depending on 
 
 ---
 
-## 3) XRC‑729 orchestration JSON (authoring model)
+## 3)
+ XRC‑729 orchestration JSON (authoring model)
 
-An orchestration is a **directed step graph** with declarative *follow‑ups*.
+An orchestration is a **directed step graph** with declarative follow‑up branches. The JSON stored in the XRC‑729 contract maps 1:1 to the `canvasOrch` type in Go.
 
 ### 3.1 Top‑level
+
 ```json
 {
   "id": "my_orchestration",
@@ -152,118 +154,308 @@ An orchestration is a **directed step graph** with declarative *follow‑ups*.
 }
 ```
 
+- `id`: free identifier (assigned by the authoring tool).
+- `structure`: map from `stepId` → step definition (see 3.2).
+
 ### 3.2 Step
+
 ```json
 {
   "rule": "${addr:CONTRACT_ALIAS}",
-  "payload": { /* schema hints, optional */ },
-  "onValid":  { "continue": Continue?, "spawn": Spawn[]? },
-  "onInvalid":{ "continue": Continue?, "spawn": Spawn[]? }
+  "onValid":  Branch?,
+  "onInvalid": Branch?
 }
 ```
 
-### 3.3 Continue (target)
+- `rule` (required) – reference to the XRC‑137 rule contract (e.g. via `${addr:…}` alias).
+- `onValid` – branch to execute when the rule returns `valid == true`.
+- `onInvalid` – branch to execute when the rule returns `valid == false`.
+
+Both branches are optional. A step without branches is a leaf without follow‑ups.
+
+### 3.3 Branch (spawns + join)
+
+The branch type (`Branch`) corresponds to `canvasBranch` in Go and contains only:
+
 ```json
 {
-  "stepId": "J1",
-  "join": [ JoinItem, … ],
-  "mode": { "kind": "all|any", "k": 2 },
-  "waitOnJoin": "kill|drain"
+  "spawns": [ "B1", "C1" ],
+  "join": {
+    "joinid": "J1",
+    "mode": "any",
+    "waitonjoin": "kill",
+    "from": [
+      { "node": "B1", "when": "valid" },
+      { "node": "C1", "when": "any" }
+    ]
+  }
 }
 ```
-- When `join` is absent → immediate continue to `stepId`.
-- When `join` is present → `stepId` becomes a **Join Target** (initially `waiting`) that will **promote** to `running` only when k‑of‑n expectations are met.
 
-### 3.4 Spawn (producers)
-```json
-{ "label": "b", "stepId": "B1" }
-```
-Each spawn becomes a *producer* bound to the target created by the sibling Continue (if any).
+- `spawns` – list of step IDs to start as **producers**.
+- `join` – optional **join target**:
+  - `joinid` – step ID of the target that will aggregate producer outputs.
+  - `mode` – join mode (`"any"`, `"all"` or object, see 3.6).
+  - `waitonjoin` – policy `kill|drain` (see 3.7).
+  - `from[]` – list of expected producer steps (see 3.5).
 
-### 3.5 Join item
+**Important:**
+
+- There is **no `continue` structure anymore**. The join target is specified exclusively via `join.joinid`.
+- All producers are declared via `spawns[]` and are implicitly linked to the join target of the same branch (if present).
+
+### 3.4 Spawns (producers)
+
 ```json
-{ "label": "b", "from": "B1", "when": "valid|invalid|any" }
+"spawns": [ "B1", "C1", "D1" ]
 ```
-Semantics:
-- **label** — name that binds producers to expectations.
-- **from** *(optional)* — restricts acceptable *originating step*; otherwise any step can deliver under the label.
-- **when** *(required)* — matches the producer’s *evaluation* outcome (`valid`/`invalid`) — **not** its terminal status.
+
+Each entry is a **step ID**:
+
+- For every entry the manager creates a new process record (producer).
+- All producers of the same branch together form the **join scope** of that branch.
+
+Internally this scope is marked via `JoinGroupID` / `JoinFromGroupID` on target and producers; the JSON does not need to care about these fields.
+
+### 3.5 Join item (`from`)
+
+Join items are configured via `from[]` and are **purely step‑based**:
+
+```json
+{
+  "node": "B1",
+  "when": "valid"
+}
+```
+
+- `node` (required) – step ID of an expected producer.
+- `when` – `"valid" | "invalid" | "any" | "both"`:
+  - `""` or `"both"` is normalized to `"any"` internally.
+  - `"any"` accepts both `valid` and `invalid` results.
+  - `"valid"` / `"invalid"` filter accordingly.
+
+There are **no `label` fields anymore**. Each join contribution is identified solely by the step ID (`node`).
 
 ### 3.6 Mode
+
+`mode` controls how many expected contributions must arrive before the join is considered satisfied. It supports two forms (string or object).
+
+**String form**
+
 ```json
-{ "kind": "all|any", "k": 2 }
+"any"
 ```
-- `any` ⇒ `k=1` if not specified.
-- `all` ⇒ `k=n` (number of listed `join` items) if not specified.
-- Explicit `k` overrides both – general **k‑of‑n**.
 
-### 3.7 Policy: `waitOnJoin`
-- **kill** — when the join target promotes or closes, **stop all live producers** for that join (and block their further continues).
-- **drain** — let producers finish naturally; they can continue to unrelated steps.
+or
 
----
+```json
+"all"
+```
 
-## 4) Manager semantics (runtime)
+- `"any"` ⇒ `k = 1`
+- `"all"` ⇒ `k = n` (number of entries in `from[]`).
+
+**Object form (k‑of‑n)**
+
+```json
+{ "kofn": 2 }
+```
+
+or synonymously
+
+```json
+{ "k": 2 }
+```
+
+- `"kofn"` / `"k"` specify an explicit threshold `k`.
+- `1 ≤ k ≤ n` is validated at authoring time / in the parser.
+
+### 3.7 Policy: `waitonjoin`
+
+```json
+"waitonjoin": "kill"
+```
+
+- **`kill`** – once the join is decided (either satisfied or unfulfillable),
+  - the manager promotes the target and
+  - terminates waiting producers in the join scope that could still reach a missing expected step,
+  - blocks new spawns of producers in the same scope.
+- **`drain`** – producers may continue and progress to independent steps; spawns remain allowed.
+
+The `kill` / `drain` distinction only affects:
+
+- the dispatch gate (promotion of producers),
+- the spawn gate (creation of new producers),
+- optional kill behavior for still‑waiting producers after the join has completed.
+## 4)
+ Manager semantics (runtime)
 
 ### 4.1 Process lifecycle
-States: `waiting` → `running` → `done` (terminal) or `aborted` (terminal). `paused` is an external flag that prevents promotion.
 
-- **Promotion** = `waiting` → `running` when (i) `NextWakeAt` elapsed and (ii) **Dispatch Gate** allows it (see §4.3).
-- **Creation** of children occurs in response to a parent’s executed step (engine result): one **target** (from `continue`) and zero or more **producers** (from `spawn`). New children start as `waiting`.
-- **Delivery** occurs when a **producer** reaches a terminal state and the **Delivery Guard** allows writing into the target’s join inbox (see §4.4).
+States: `waiting` → `running` → `done` (terminal) or `aborted` (terminal). `paused` is an external flag and prevents promotion.
+
+- **Promotion** = `waiting` → `running` when  
+  1. `NextWakeAt` is reached, and  
+  2. the **dispatch gate** allows it (see 4.3).
+- **Creation** of children happens as a reaction to a `ValidateSingleStep` result:
+  - optional **join target** (from `res.Join`),
+  - 0..n **producers** (from `res.Spawns`).
+  New processes always start in state `waiting`.
+- **Delivery** happens when a producer transitions to a terminal state and the **delivery guard** allows sending a contribution to its join target (see 4.4).
+
+The validation itself (`ValidateSingleStep`) runs in worker goroutines; applying the results (spawn, delivery, promotion) happens sequentially in the root‑actor loop.
 
 ### 4.2 Roles
-- **Join target**: the process created by a `continue` that includes `join`. It has:
-  - `JoinExpect[]`, `JoinExactFrom{label→stepId}`, `JoinRequireWhen{label→when}`,
-  - `JoinK`, `JoinMode`, `JoinPolicy` (`kill|drain`),
-  - `JoinInbox{label→piece}`, `JoinFromSeen{label→stepId}`, `JoinFail{label→reason}`,
-  - `JoinClosed` flag once the join is closed (either by satisfaction or early abort).
-- **Producer**: a process created by a `spawn` and bound to a target with a `JoinLabel`.
 
-### 4.3 Gates (single point of policy)
-- **Dispatch Gate (promotion‑time):**
-  - Blocks join targets until their join is **closed** (by promotion decision) to avoid premature execution.
-  - For producers targeting a **closed** join:
-    - If policy is `kill` **and** producer’s label is part of the join, promotion is **blocked** and the producer is terminated (`aborted`).
-    - If policy is `drain`, promotion is **allowed** (no fake `done`).
-- **Spawn Gate (creation‑time):**
-  - If a spawn would create a producer for a **closed** join, and the label belongs to that join, the spawn is **skipped**.
+- **Join target** – process created from `res.Join`:
+  - `JoinExpect[]` – list of expected producer steps (step IDs).
+  - `JoinRequireWhen{stepId→when}` – optional filter per expected step: `"valid" | "invalid" | "any"`.
+  - `JoinK` – threshold `k` (k‑of‑n semantics).
+  - `JoinPolicy` – `"kill"` or `"drain"`.
+  - `JoinInbox{stepId→piece}` – delivered payload pieces per expected step.
+  - `JoinFromSeen{stepId→stepId}` – markers for which steps have actually delivered.
+  - `JoinFail{stepId→reason}` – documents expected steps that are definitively failed (e.g. `aborted`).
+  - `JoinClosed`, `JoinClosedAt` – status / timestamp of join completion.
+  - `JoinFromGroupID` – scope ID from which producers may deliver (internally generated).
+- **Producer** – process created from `res.Spawns`:
+  - `JoinGroupID` – scope ID referring to the join target this producer can contribute to.
+  - `LastEvalStep` / `LastStep` – step that was evaluated last (used as `fromStep`).
+  - `LastEvalValid` – boolean deriving the `when` (`valid` / `invalid`).
 
-> Together, the two gates ensure no further work is issued against a join that is already decided.
+Each producer belongs to at most one join scope (via `JoinGroupID`).
 
-### 4.4 Delivery Guard & Inbox merge
-- Delivery requires: same `rootPid`, expected `label`, and (if present) `from` match.
-- **`when`** is derived from *evaluation* (`valid/invalid`), not from terminal status.
-- On successful delivery: write `piece` into `JoinInbox[label]` and record `JoinFromSeen[label] = fromStep`.
-- On mismatch: record `JoinFail[label] = reason`.
-- When `count(inbox) ≥ k`, the target is **closed**, payloads are merged into `ResumePlain`, and promotion is scheduled.
+### 4.3 Gates: dispatch & spawn
 
-### 4.5 Unfulfillable detection
-A waiting, open join becomes **aborted** when its success becomes impossible.
+**Dispatch gate (promotion time)**
 
-**Algorithm sketch (per target):**
-1. Let `expect = [labels…]`, `got = count(labels delivered)`, `k = JoinK`.
-2. For each missing `label`:
-   - If there is a **live producer** (waiting/running) with that `JoinLabel` → still possible.
-   - Otherwise increase `impossibleCount`.
-3. If `got + (missing - impossibleCount) < k` → **abort** target and **close** join.
+Controls whether a `waiting` process may move to `running`.
 
-> This applies uniformly, independent of `any`/`all`/`k‑of‑n`, presence of `from`, and `kill/drain`.
+Rules:
+
+- Join targets are **not executed again before the join is closed**:
+  - As long as `len(JoinExpect) > 0 && !JoinClosed`, the target remains `waiting`.
+- Producers with `JoinGroupID`:
+  - If the corresponding join target is **closed** and `JoinPolicy == "kill"`,
+    - promotion is blocked, the producer is set to `aborted` and will not be started again.
+  - If the target is closed and `JoinPolicy == "drain"`,
+    - the producer may continue; the join decision has already been made.
+
+**Spawn gate (creation time)**
+
+Controls whether new producers are created at all.
+
+Rules:
+
+- Producers without `JoinGroupID` are never blocked.
+- Producers with `JoinGroupID`:
+  - If the corresponding join target is **closed** and `JoinPolicy == "kill"`, the spawn is skipped.
+  - With `drain` spawns are allowed.
+
+This guarantees that, once a join with policy `kill` has been decided, no new work is created for that join scope.
+
+### 4.4 Delivery guard & inbox merge
+
+**Delivery pre‑conditions**
+
+For a producer `p` and a join target `t`:
+
+1. `p.RootPid == t.RootPid`.
+2. `p.JoinGroupID == t.JoinFromGroupID` (producer belongs to the target’s scope).
+3. `p` is terminal (`Status == done|aborted`).
+
+The effective `fromStep` and `when` are determined as follows:
+
+- `fromStep` – prefer `p.LastEvalStep`, fallback to `p.LastStep`.
+- `when` – `"valid"` if `LastEvalValid == true`, otherwise `"invalid"`. If `LastEvalValid == nil`, the engine falls back to `"any"` semantics.
+
+**Failure cases**
+
+- If `p.Status == aborted` and `fromStep` is in `JoinExpect`, the manager records `JoinFail[fromStep] = "aborted"`. No payload is delivered, but the join is re‑evaluated.
+- If `fromStep` is **not** in `JoinExpect`, no delivery and no fail entry is recorded; the join is still re‑evaluated.
+
+**Successful delivery**
+
+If `fromStep` is in `JoinExpect` and `when` matches the configured condition (`JoinRequireWhen[fromStep] ∈ {"any", when}`):
+
+1. A payload piece `piece` is built:
+   - base is `p.ResumePlain` (or `{}`),
+   - meta fields `_from` and `_when` are added.
+2. `JoinInbox[fromStep] = piece` (if not already present).
+3. `JoinFromSeen[fromStep] = fromStep`.
+4. Any existing `JoinFail[fromStep]` entry is removed.
+5. The target is persisted and `maybePromoteJoinTarget` is invoked.
+
+Actual aggregation of pieces into the target’s `ResumePlain` happens **only on promotion** (see 4.7).
+
+### 4.5 Join promotion & unfulfillable detection
+
+`maybePromoteJoinTarget` decides whether a join target
+
+- should be promoted (join satisfied),
+- should abort early (join unfulfillable),
+- or should remain open.
+
+**Step 1 – Counters**
+
+- `expect = { stepId | stepId ∈ JoinExpect }`
+- `got = number of stepIds in JoinInbox ∩ expect`
+- `missing = expect \ JoinInbox`
+
+`k = JoinK`; if `k <= 0`, the engine sets `k = len(expect)`.
+
+**Step 2 – Potential (reachability)**
+
+For each missing `exp ∈ missing`:
+
+- Search all processes `s` in the same root with:
+  - `s.Status ∈ {waiting, running}`,
+  - `s.JoinGroupID == target.JoinFromGroupID` (same scope).
+- For each such producer `s`:
+  - If `s.ResumeStep == exp` or
+  - `CanReachAny(XRC729, OSTCId, s.ResumeStep → exp, OSTCHash) == true`,
+  - then `exp` is potentially satisfiable and added to `potSet`.
+
+**Step 3 – Decision**
+
+- If `got ≥ k` → join satisfied:
+  - payload merge (see 4.7),
+  - `JoinClosed = true`, `JoinClosedAt = now`.
+  - If the target has a `ResumeStep`:
+    - if `NextWakeAt > now` → target stays `waiting`,
+    - otherwise → target is promoted to `running`.
+  - With `JoinPolicy == "kill"` the manager calls `killRemaining` to terminate waiting producers in the scope that could still reach a missing `exp` (if any).
+- If `got + |potSet| < k` → join unfulfillable:
+  - target is set to `aborted`, `JoinClosed = true`, `JoinClosedAt = now`.
+  - With `JoinPolicy == "kill"` the manager again calls `killRemaining` for matching producers.
+- Otherwise the join stays **open**:
+  - neither status nor `JoinClosed` are changed.
 
 ### 4.6 Backloops
-- A producer may `continue` to *itself* (or to another producer) to try again. While any such producer remains **live**, the target is **not** considered unfulfillable.
-- `kill` policy does **not** interfere with backloops **before** the join is closed.
+
+Backloops (producers jumping back to their own or each other’s steps) are explicitly supported:
+
+- As long as there exists a producer in the scope that can reach a **missing** expected step `exp`
+  (`CanReachAny(…, s.ResumeStep → exp)`), `exp` is considered potentially satisfiable.
+- This prevents the join from being incorrectly classified as unfulfillable simply because the producer is not yet at `exp`.
+
+The `kill` policy only applies **after join completion** (see 4.5). Backloops before completion are not affected.
 
 ### 4.7 Payload merge semantics
-- Join pieces are merged into the target’s `ResumePlain` as a **flat, last‑write‑wins** map.
-- If a piece has the special shape `{ "data": {…} }` it is unwrapped so only `data`’s keys are merged.
+
+When a join is satisfied, all payload pieces from `JoinInbox` are merged into the target’s `ResumePlain`:
+
+- Each `piece` is a `map[string]any`.
+- Meta fields `_from` and `_when` are ignored.
+- All other keys are merged *flat* into the target (**last‑write‑wins**; later pieces overwrite earlier ones).
+
+There is no special handling for `{ "data": {…} }` shapes – merge semantics are intentionally simple.
 
 ### 4.8 Determinism and PIDs
-- PIDs are of the form `rootPid:iter`. `iter` increases monotonically per root.
-- **Threads:** a spawn starts a new thread (its `threadId = pid`), while a continue keeps the same thread.
 
----
+- PIDs have the form `"<rootPid>:<iter>"`. `iter` is monotonically allocated per root actor (`alloc()`).
+- `createUnique` ensures that, in case of collisions (e.g. multi‑node deployment), a new iteration/PID is rolled until the insert succeeds.
 
+This yields deterministic, monotonically increasing PIDs per root scope while safely handling contention.
 ## 5) XRC‑729 contract: conceptual functions & data
 
 > This section explains **what XRC‑729 provides functionally** — not source. Names are indicative; actual interfaces may vary per deployment. The goal is to clarify how the Manager *relies on* XRC‑729.
@@ -289,141 +481,215 @@ A waiting, open join becomes **aborted** when its success becomes impossible.
 
 ---
 
-## 6) End‑to‑end examples (JSON + expected behaviour)
+## 6)
+ End‑to‑end examples (JSON + expected behaviour)
 
-Each example shows the orchestration JSON snippet followed by expected runtime behaviour (narrative). These are **logic‑only** examples suitable for QA.
+Each example shows an excerpt of the orchestration JSON (authoring format from 3) and describes the expected runtime behaviour. The examples are **logic‑only** and suitable for QA tests.
 
-### 6.1 ANY with `drain`, single producer expected but fails
+### 6.1 ANY + `drain`, single producer expected, delivers wrong `when`
+
 **Orchestration**
+
 ```json
 {
-  "id": "my_orchestration",
+  "id": "OrderFlow_v1",
   "structure": {
     "A1": {
       "rule": "${addr:XRC137_A}",
       "onValid": {
-        "spawn": [ { "label": "bad", "stepId": "D1" } ],
-        "continue": {
-          "stepId": "J1",
-          "join": [ { "label": "bad", "when": "valid", "from": "D1" } ],
-          "mode": { "kind": "any" },
-          "waitOnJoin": "drain"
+        "spawns": [ "D1" ],
+        "join": {
+          "joinid": "J1",
+          "mode": "any",
+          "waitonjoin": "drain",
+          "from": [
+            { "node": "D1", "when": "valid" }
+          ]
         }
       }
     },
-    "D1": { "rule": "${addr:XRC137_D}", "onInvalid": { "spawn": [ { "label": "escape", "stepId": "E1" } ] } },
-    "E1": { "rule": "${addr:XRC137_E}", "onValid": { "continue": { "stepId": "Z1" } } },
-    "J1": { "rule": "${addr:XRC137_J}", "onValid": { "continue": { "stepId": "Z1" } } },
-    "Z1": { "rule": "${addr:XRC137_Z}" }
+    "D1": {
+      "rule": "${addr:XRC137_D}"
+    },
+    "J1": {
+      "rule": "${addr:XRC137_J}"
+    }
   }
 }
 ```
-**Expected:**
-- `D1` runs and evaluates **invalid**, so it does **not** deliver to `J1` (requires `valid`).
-- `E1` may run (spawned by `D1`’s invalid path), but is **not** part of the join and does not affect `J1`.
-- No other producers exist; join becomes **unfulfillable** ⇒ `J1` transitions to **aborted** (closed).
 
-### 6.2 ALL with nested producers; `B1` + `E1` required
+**Behaviour**
+
+- `A1` starts and returns `valid`.
+- Branch `onValid`:
+  - spawns a producer on `D1`,
+  - creates join target `J1` with `mode = "any"` (`k=1`), expecting a `valid` contribution from `D1`.
+- Assume `D1` returns `invalid`:
+  - delivery guard checks `when`:
+    - expected `"valid"`, got `"invalid"` → no entry in `JoinInbox["D1"]`.
+  - `got = 0`, `missing = {"D1"}`, `potSet` contains `D1` (producer can still reach its step, e.g. via backloop) → join remains open.
+- If `D1` eventually becomes `aborted`:
+  - `JoinFail["D1"] = "aborted"`,
+  - no producer in the scope can reach `D1` anymore → `potSet = ∅`,
+  - `got + |potSet| = 0 < k=1` → join becomes `aborted` (unfulfillable).
+
+Policy `drain` means that other producers (if present) would be allowed to continue; in this minimal example there are none.
+
+### 6.2 ALL + `kill`, two producers, one fails
+
 **Orchestration**
+
 ```json
 {
-  "id": "my_orchestration",
+  "id": "ParallelEnrichment_v1",
   "structure": {
     "A1": {
       "rule": "${addr:XRC137_A}",
       "onValid": {
-        "spawn": [ { "label": "b", "stepId": "B1" }, { "label": "c", "stepId": "C1" } ],
-        "continue": {
-          "stepId": "J1",
-          "join": [
-            { "label": "b", "when": "valid", "from": "B1" },
-            { "label": "e", "when": "valid", "from": "E1" }
-          ],
-          "mode": { "kind": "all" },
-          "waitOnJoin": "drain"
+        "spawns": [ "B1", "E1" ],
+        "join": {
+          "joinid": "J1",
+          "mode": "all",
+          "waitonjoin": "kill",
+          "from": [
+            { "node": "B1", "when": "any" },
+            { "node": "E1", "when": "valid" }
+          ]
         }
       }
     },
-    "B1": { "rule": "${addr:XRC137_B}", "onValid": { "continue": { "stepId": "Z1" } } },
-    "C1": { "rule": "${addr:XRC137_C}", "onValid": { "spawn": [ { "label": "d", "stepId": "D1" }, { "label": "e", "stepId": "E1" } ] } },
-    "D1": { "rule": "${addr:XRC137_D}", "onValid": { "continue": { "stepId": "Z1" } } },
-    "E1": { "rule": "${addr:XRC137_E}", "onValid": { "continue": { "stepId": "Z1" } } },
-    "J1": { "rule": "${addr:XRC137_J}", "onValid": { "continue": { "stepId": "Z1" } } },
-    "Z1": { "rule": "${addr:XRC137_Z}" }
+    "B1": { "rule": "${addr:XRC137_B}" },
+    "E1": { "rule": "${addr:XRC137_E}" },
+    "J1": { "rule": "${addr:XRC137_J}" }
   }
 }
 ```
-**Expected:**
-- `B1` delivers when **valid**.
-- `C1` spawns `E1`; `E1` delivers when **valid**.
-- `J1` promotes only when **both** deliveries are present; otherwise it stays open while `E1` (or any backloop) is live. If `E1` becomes impossible and no backloops remain, `J1` is **aborted**.
 
-### 6.3 K‑of‑N with `kill` and a backlooping producer
+**Behaviour**
+
+- `A1.valid` starts producers `B1` and `E1` and creates `J1`.
+- Join expects:
+  - any result from `B1` (`when = any`),
+  - a `valid` result from `E1`,
+  - `mode = "all"` → `k = 2`.
+- Scenario:
+  - `B1` finishes (`valid` or `invalid` – both are accepted) → `JoinInbox["B1"]` is filled.
+  - `E1` hits a hard failure and becomes `aborted`.
+- Consequence:
+  - `got = 1` (only `B1`), `missing = {"E1"}`.
+  - No producer in the scope can reach `E1` anymore (assuming no backloops) → `potSet = ∅`.
+  - `got + |potSet| = 1 < k = 2` → join becomes `aborted`.
+  - Policy `kill`:
+    - `killRemaining` terminates waiting producers in the scope that could still reach a missing `exp`.
+    - In this example no relevant producers remain after join abort.
+
+### 6.3 k‑of‑n with backloop, `kill`
+
 **Orchestration**
+
 ```json
 {
-  "id": "my_orchestration",
+  "id": "KofN_Backloop_v1",
   "structure": {
     "A1": {
       "rule": "${addr:XRC137_A}",
       "onValid": {
-        "spawn": [
-          { "label": "g", "stepId": "G1" },
-          { "label": "b", "stepId": "B1" },
-          { "label": "c", "stepId": "C1" }
-        ],
-        "continue": {
-          "stepId": "J1",
-          "join": [
-            { "label": "g", "when": "valid", "from": "G1" },
-            { "label": "b", "when": "valid", "from": "B1" },
-            { "label": "c", "when": "valid", "from": "C1" }
-          ],
+        "spawns": [ "B1" ],
+        "join": {
+          "joinid": "J1",
           "mode": { "k": 2 },
-          "waitOnJoin": "kill"
+          "waitonjoin": "kill",
+          "from": [
+            { "node": "B1", "when": "valid" },
+            { "node": "C1", "when": "valid" }
+          ]
         }
       }
     },
-    "G1": { "rule": "${addr:XRC137_G}", "onInvalid": { "continue": { "stepId": "G1" } } },
+    "B1": {
+      "rule": "${addr:XRC137_B}",
+      "onValid": {
+        "spawns": [ "C1" ]
+      }
+    },
+    "C1": {
+      "rule": "${addr:XRC137_C}",
+      "onValid": {
+        "spawns": [ "B1" ]
+      }
+    },
+    "J1": { "rule": "${addr:XRC137_J}" }
+  }
+}
+```
+
+*(Simplified: `B1` and `C1` form a backloop.)*
+
+**Behaviour**
+
+- `A1.valid`:
+  - spawns `B1`,
+  - creates join `J1` with `from = [B1,C1]`, `k=2`, `waitonjoin="kill"`.
+- `B1.valid`:
+  - delivers into `JoinInbox["B1"]`,
+  - spawns `C1`.
+- `C1.valid`:
+  - delivers into `JoinInbox["C1"]`,
+  - join now has `got = 2`, `k = 2` → satisfied.
+- Join promotion:
+  - `JoinClosed = true`, payload from `B1` and `C1` is merged into `J1.ResumePlain`,
+  - `J1` is set to `waiting` or `running` depending on `NextWakeAt`,
+  - policy `kill`:
+    - `killRemaining` terminates any waiting producers in the scope that could still reach a missing `exp`;
+    - here there are no missing `exp`, so no additional kill happens.
+
+The backloop does not affect the join result as long as the expected steps `B1` and `C1` are reached in any order.
+
+### 6.4 Filter on `when` (valid vs invalid)
+
+**Orchestration**
+
+```json
+{
+  "id": "WhenFilter_v1",
+  "structure": {
+    "A1": {
+      "rule": "${addr:XRC137_A}",
+      "onValid": {
+        "spawns": [ "B1", "C1" ],
+        "join": {
+          "joinid": "J1",
+          "mode": "any",
+          "waitonjoin": "drain",
+          "from": [
+            { "node": "B1", "when": "valid" },
+            { "node": "C1", "when": "invalid" }
+          ]
+        }
+      }
+    },
     "B1": { "rule": "${addr:XRC137_B}" },
     "C1": { "rule": "${addr:XRC137_C}" },
     "J1": { "rule": "${addr:XRC137_J}" }
   }
 }
 ```
-**Expected:**
-- `G1` may loop `invalid → invalid → valid`. While it loops, `J1` stays open (not unfulfillable).
-- Once any **two** labels deliver `valid`, `J1` closes and promotes. **`kill`** then terminates any still‑live producers bound to this join.
 
-### 6.4 `from` filtering
-```json
-{
-  "id": "my_orchestration",
-  "structure": {
-    "A1": {
-      "rule": "${addr:XRC137_A}",
-      "onValid": {
-        "spawn": [ { "label": "x", "stepId": "X1" } ],
-        "continue": {
-          "stepId": "J1",
-          "join": [ { "label": "x", "from": "X2", "when": "valid" } ],
-          "mode": { "kind": "any" },
-          "waitOnJoin": "drain"
-        }
-      }
-    },
-    "X1": { "rule": "${addr:XRC137_X}", "onValid": { "continue": { "stepId": "X2" } } },
-    "X2": { "rule": "${addr:XRC137_X2}" },
-    "J1": { "rule": "${addr:XRC137_J}" }
-  }
-}
-```
-**Expected:** Only a delivery **from** `X2` (not from `X1`) can satisfy label `x`.
+**Behaviour**
 
-> **More examples** should be added to the internal knowledge base mirroring your current test suite (e.g., `xrc729_deep_any_k1_kill__b1_vs_c2__happy`, backloop + unrelated spawns, etc.).
+- `A1.valid` starts `B1` and `C1`; join `J1` expects:
+  - a `valid` result from `B1`,
+  - an `invalid` result from `C1`,
+  - `mode = "any"` → `k=1`.
+- Scenario 1:
+  - `B1.valid` → `JoinInbox["B1"]` is filled, join is already satisfied (`got=1≥k`) even if `C1` later produces any result.
+- Scenario 2:
+  - `B1.invalid`, `C1.invalid`:
+    - contribution from `B1` is discarded because `when="valid"`,
+    - contribution from `C1` is accepted (`when="invalid"`),
+    - join is satisfied via `C1`.
 
----
-
+Policy `drain` allows both producers to continue independently of the join outcome or spawn further work.
 ## 7) Persistence model (auditability)
 
 - **proc_rt** (runtime view): the latest state per process.
