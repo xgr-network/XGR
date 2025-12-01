@@ -1,13 +1,13 @@
-# XGR Chain & XDaLa — Overview (corrected, enterprise tone)
+# XGR Chain & XDaLa — General Overview (v4, corrected + chain foundations)
 
 > **Purpose**  
-> Provide an executive yet technically accurate introduction to **XGR** (the EVM chain) and **XDaLa** (the rule‑ and process‑layer). This document explains *why* you use it, the *core specs* (XRC‑137 / XRC‑729 / XRC‑563), how the runtime behaves (sessions, wakes, joins), and links to deeper guides.
+> Provide an executive yet technically accurate introduction to **XGR** (the EVM chain) and **XDaLa** (the rule- and process-layer). This document explains **why** you use it, the **core specs** (XRC‑137 / XRC‑729 / XRC‑563), how the **runtime** behaves (sessions, wakes, joins), essential **chain foundations**, and links to deeper guides.
 
 ---
 
 ## 0) Why XDaLa (business value & when to use it)
 
-Complex processes are rarely a single transaction. They are **multi‑step**, sometimes **parallel**, depend on **external data**, and carry **privacy & compliance** requirements. On typical chains, teams glue this together with keepers, crons, queues, webhooks, and private databases — fragile to operate and hard to audit.
+Complex processes are rarely a single transaction. They are **multi‑step**, sometimes **parallel**, depend on **external data**, and carry **privacy & compliance** requirements. On typical chains, teams stitch this together with keepers, crons, queues, webhooks, and private databases — fragile to operate and hard to audit.
 
 **XDaLa** adds a **deterministic process layer** on a standard EVM chain so you can describe, run, and audit business flows end‑to‑end:
 
@@ -19,112 +19,147 @@ Complex processes are rarely a single transaction. They are **multi‑step**, so
 - **100% EVM‑compatible** — no custom tx types; wallets and SDKs continue to work.
 
 **Where it shines (illustrative use cases):**  
-- **ISO 20022 settlement**: Validate structured payment data off‑chain; encrypt rule & logs; orchestrate FX, AML, and settlement legs with joins; execute on‑chain transfers only when all pre‑conditions are valid.  
-- **Trading process**: Order checks → risk limits → venue selection (parallel quotes) → join on best quote → execute; retries via `waitSec`, no external schedulers.  
+- **ISO 20022 settlement**: Validate structured payment data; encrypt rule & logs; orchestrate FX, AML, and settlement with joins; execute on‑chain transfers only when pre‑conditions are valid.  
+- **Trading process**: Order checks → risk limits → venue quotes (parallel) → join best quote → execute; retries via `waitSec`, keine externen Scheduler.  
 - **Logistics workflow**: Shipment creation → parallel track & trace providers → join on k‑of‑n confirmations → customs clearance → release; sensitive logs encrypted per recipient.
 
-> **Figure 1 placeholder** — *“XDaLa at a glance”*: Session payload → **XRC‑137** rule (reads/APIs → expressions → outcomes `onValid`/`onInvalid` with `payload`/`waitSec`/optional `execution`) → **XRC‑729** orchestration (spawn/join policy) → receipts/logs (**XRC‑563** grants).
+> **Figure 1 (optional): XDaLa at a glance** — Session payload → **XRC‑137** rule (reads/APIs → expressions → outcomes `onValid` / `onInvalid` with `payload` / `waitSec` / optional `execution`) → **XRC‑729** orchestration (spawn/join policy) → receipts/logs (**XRC‑563** grants).  
+> You can embed the SVG we generated: `xgr_order_process_colored.svg`
 
 ---
 
-## 1) The specs at a glance (JSON as the contract)
+## 1) Chain foundations (XGR)
 
-- **XRC‑137 — Rule (one step, canonical JSON):** Declares inputs, optional **contractReads** and **apiCalls**, **validate expressions**, and two outcome branches **`onValid`**/**`onInvalid`** with `payload` mapping, **`waitSec`**, optional `execution`, and logging policy. **`onInvalid` is *not* failure**; it is the **alternate path** when the validate expressions evaluate to false. *Failure handling is separate* (see §3.4).  
+**Consensus & finality.** **IBFT** gives fast, deterministic finality with proposer rotation. Downstream systems do not need probabilistic reorg handling.
+
+**Execution.** **Standard EVM**; XDaLa is additive — we do **not** introduce new transaction formats. Outcomes may include a normal ABI call (“innerCall”).
+
+**RPC surface.** Ethereum JSON‑RPC plus a small, documented set of XDaLa endpoints for **session lifecycle**, **rule/orchestration metadata**, and **introspection**. Existing tools remain compatible.
+
+**State & receipts.** State is Merkleized; receipts/logs capture the **lifecycle** of XDaLa processes for audit and replay. Sensitive content can be encrypted (see XRC‑563).
+
+**Node roles.** Validators (governance + signing), Full Nodes (RPC, data services), Observers/Analytics (index receipts/XDaLa events).
+
+**Operational stance.** TLS at the edge; authentication and rate limits; documented state‑retention policy per SLA/audit (no blanket snapshot/pruning guidance here).
+
+---
+
+## 2) The specs at a glance (JSON as the contract)
+
+- **XRC‑137 — Rule (one step, canonical JSON)**  
+  Declares inputs, optional **contractReads** and **apiCalls**, **validate expressions**, and two outcome branches **`onValid`**/**`onInvalid`** with `payload` mapping, **`waitSec`**, optional `execution`, and logging policy. **`onInvalid` ist *nicht* Failure**; es ist der **alternative Business‑Pfad**, wenn die Validate‑Regeln false ergeben. *Failure handling ist separat* (siehe §4.4).  
   _Deep dive: `docs/xDaLa/xrc_137_spec.md`_
 
-- **XRC‑729 — Orchestration (graph, canonical JSON):** Declares the step graph (IDs), branch‑specific **spawns**, optional **joins** with mode **any/all/k‑of‑n**, and a **waitOnJoin** policy (`kill` or `drain`). Targets deterministically **merge** producer payloads.  
+- **XRC‑729 — Orchestration (graph, canonical JSON)**  
+  Deklariert den Step‑Graph (IDs), branch‑spezifische **spawns**, optionale **joins** mit Modus **any/all/k‑of‑n**, und die **waitOnJoin**‑Policy (`kill` oder `drain`). Targets **mergen** Producer‑Payloads deterministisch.  
   _Deep dive: `docs/xDaLa/xrc_729_orchestration_session_manager.md`_
 
-- **XRC‑563 — Grants (encryption & access, per‑artifact):** Each **rule (XRC‑137)** and each **log bundle** is an individual **artifact** with its **own RID (Resource Identifier)**. Grants are issued **per RID** *and* **by scope** (scope ∈ {`rule`, `log`}). Decryption requires that both **RID** *and* **scope** match; this governs who can read a specific rule or a specific log bundle.  
+- **XRC‑563 — Grants (encryption & access, per‑artifact)**  
+  Jedes **Rule‑Artefakt (XRC‑137)** und jedes **Log‑Artefakt** besitzt **einen eigenen RID (Resource Identifier)**. Grants werden **pro RID** und zusätzlich nach **Scope** (`rule` oder `log`) vergeben. Entschlüsselung erfordert **Match von RID und Scope**; so wird festgelegt, wer eine konkrete Regel bzw. ein konkretes Log lesen darf.  
   _Deep dive: `docs/xDaLa/xgr_encryptionGrants.md`_
 
-> **Why JSON?** Human‑readable, diff‑able artifacts support code review, CI/CD, and version pinning by hash. Both XRC‑137 and XRC‑729 are designed to be business‑legible and machine‑consumable.
+> **Why JSON?** Human‑readable, diff‑able artifacts improve reviews, CI, and change governance. **XRC‑137** und **XRC‑729** sind geschäftslesbar und maschinenverarbeitbar, versions‑gepinnt via Hash.
 
 ---
 
-## 2) Runtime model (sessions, wakes, joins)
+## 3) Runtime model (sessions, wakes, joins)
 
-### 2.1 Session Manager (instance‑based, asynchronous)
-Every `(owner, rootPid)` runs as its **own process tree**:
-- **Promote** processes when **wake time** is reached and dispatch rules allow it.
-- **Evaluate** the referenced **XRC‑137** exactly once per run: merge inputs (session payload + reads + APIs), compute `isValid`, then select **`onValid`** **or** **`onInvalid`**.
-- **Spawn** producer steps according to the chosen branch; **deliver** producer results into a per‑target **Join Inbox**; **close** joins when **any/all/k‑of‑n** is satisfied or becomes unfulfillable; **merge** payloads deterministically.
-- **Back‑pressure**: the manager uses a sliding window of concurrent validations so slow sessions do not block others.
+### 3.1 Session Manager (instance‑based, asynchronous)
+Jedes `(owner, rootPid)` läuft als **eigener Prozesstree**:
+- **Promote** Prozesse, wenn **wake time** erreicht ist und Dispatch‑Gates es erlauben.
+- **Evaluate** den referenzierten **XRC‑137** genau einmal je Run: Inputs mergen (Session‑Payload + Reads + APIs), `isValid` berechnen, dann **`onValid`** **oder** **`onInvalid`** wählen.
+- **Spawn** Producer‑Steps entsprechend Branch; **deliver** Producer‑Ergebnisse in das per‑Target **Join Inbox**; **close** Joins, wenn **any/all/k‑of‑n** erfüllt oder unerfüllbar ist; **merge** Payloads deterministisch.
+- **Back‑pressure**: Sliding Window für parallele Validierungen — ein „langsamer“ Nutzer blockiert andere nicht.
 
-### 2.2 Time semantics (`waitSec`)
-- Each branch may specify **`waitSec`** (relative seconds). The manager computes `wakeAt = now + waitSec`. Sleeping consumes **no** EVM gas; the process resumes without further signatures.
+### 3.2 Time semantics (`waitSec`)
+- Jede Branch kann **`waitSec`** (relative Sekunden) setzen. Der Manager berechnet `wakeAt = now + waitSec`. Schlafen kostet **kein** EVM‑Gas; Fortsetzung ohne weitere Signatur.
 
-### 2.3 Data fusion (inputs for expressions)
-- **Session payload** (client‑supplied), **contractReads** (typed ABI), and **apiCalls** (JSON) are merged into one input map. Validate expressions run over this map.
+### 3.3 Data fusion (inputs for expressions)
+- **Session‑Payload** (Client), **contractReads** (typisierte ABI‑Aufrufe), und **apiCalls** (JSON) werden zu einer **einheitlichen Input‑Map** gemerged; die Validate‑Expressions laufen darauf.
 
-### 2.4 Failure handling (separate from `onInvalid`)
-- **Typed rule actions** (e.g., `abortStep`, `cancelSession`) may be attached to a rule. They are evaluated **after** `isValid` and can **stop a step** or **cancel a session** without changing the **valid/invalid** decision.  
-- **Engine/runtime errors** (e.g., missing defaults where required) fail the step per engine policy.  
-- Neither case relies on or redefines **`onInvalid`**; **`onInvalid` remains the alternate “business branch”** when the validate expressions do not pass.
-
----
-
-## 3) End‑to‑end example (ISO 20022 settlement)
-
-1. **Rule (XRC‑137) “ValidateISO20022Payment”**  
-   - **Payload**: payment fields (payer/payee, amount, currency, refs).  
-   - **API**: sanction screening → `sanctionScore` (default 0).  
-   - **Read**: issuer limits → `limitWei` (default 0).  
-   - **Validate**: structural checks + `sanctionScore >= 80` + `amount <= limitWei`.  
-   - **onValid**: `payload` normalized; `waitSec: 0`; `execution`: call settlement contract.  
-   - **onInvalid**: `payload` contains reason; `waitSec: 1800` to park for manual remediation; **not a failure**.
-
-2. **Orchestration (XRC‑729) “PaymentFlow_v1”**  
-   - From `ValidateISO20022Payment` (valid): **spawn** `AMLCheck` and `FXQuote`; **join** at `PrepareSettlement` with **all(2/2)** and `waitOnJoin: kill`.  
-   - From `onInvalid`: **spawn** `NotifyPayer` (no join).  
-   - Join merges producer payloads and proceeds to settlement prep.
-
-3. **Grants (XRC‑563)**  
-   - **Rule** artifact and **log** artifacts are published **encrypted**.  
-   - Recipient banks receive **grants per RID** with **scope**=`rule` or `log` as appropriate.  
-   - Explorers display metadata; decrypting requires a matching grant.
-
-Result: a reproducible, auditable flow with deterministic joins and privacy by construction.
+### 3.4 Failure handling (separate from `onInvalid`)
+- **Typed rule actions** (z. B. `abortStep`, `cancelSession`) werden **nach** `isValid` bewertet und können einen **Step beenden** oder eine **Session abbrechen** — unabhängig vom gewählten Business‑Branch.  
+- **Engine/runtime errors** (z. B. fehlende Defaults, wo Pflicht) failen den Step gemäß Engine‑Policy.  
+- **Wichtig:** `onInvalid` bleibt **rein fachlich** der Alternativ‑Pfad; Failure ≠ `onInvalid`.
 
 ---
 
-## 4) Comparison (typical approach vs. XDaLa)
+## 4) End‑to‑end: **permanenter Order‑to‑Ship‑Prozess** (unendlicher Bestelleingang)
+
+**Ziel:** Ein **dauerhaft laufender** Prozess, der Bestellungen asynchron verarbeitet. **OrderIntake** wird durch neue Kundendaten **gewaked**, prüft diese, stößt Folge‑Schritte an — und **arming** gleichzeitig den **nächsten Intake** (sowohl bei `valid` als auch `invalid`).
+
+1. **O · OrderIntake (XRC‑137)**  
+   - **Inputs:** `orderId`, Kundendaten, Warenkorb.  
+   - **Validate:** Struktur/Kundenstatus plausibel?  
+   - **onValid:** spawn **PaymentCheck** und **StockAllocation**; **zusätzlich**: spawn **neuen O** und setze `waitSec=0` (bereits „wartend“ auf das nächste Wake).  
+   - **onInvalid:** spawn **NotifyCustomer**; **zusätzlich**: spawn **neuen O** und setze `waitSec=0`.  
+   - **LogTX (+ optional innerCall)**
+
+2. **P · PaymentCheck (XRC‑137)**  
+   - **ContractReads (EVM, beliebige Chain):** Zahlungseingang, Escrow‑Balance.  
+   - **API (PSP JSON):** Status/Chargeback‑Risiko (mit Defaults).  
+   - **onInvalid:** `waitSec=600` (Retry ohne neue Signatur).  
+   - **LogTX (+ optional innerCall)**
+
+3. **SA · StockAllocation (XRC‑137)**  
+   - **API (WMS/ERP):** Verfügbarkeit reservieren.  
+   - **onInvalid:** `waitSec=300` (Retry/Backorder).  
+   - **LogTX (+ optional innerCall)**
+
+4. **J1 · Join (mode: all(2/2), waitOnJoin=kill)**  
+   - Wartet auf P & SA; **merge** deren Payloads; fährt deterministisch fort.
+
+5. **S · Shipping (XRC‑137)**  
+   - **Execution:** `issueShipment(...)` (ABI‑Call).  
+   - **LogTX (+ optional innerCall)**
+
+**Eigenschaften:**  
+- **Unendlicher Intake**: O spawnt sich **immer** selbst neu und wartet auf das nächste Wake (nächster Auftrag).  
+- **Asynchron, gas‑sparend:** Wartezeiten (`waitSec`) kosten kein EVM‑Gas; Fortsetzung ohne neue Signatur.  
+- **Deterministische Joins:** all(2/2); frühzeitige Abbrüche, falls unerfüllbar.  
+- **Privacy by design:** Regeln + Logs pro Artefakt verschlüsselbar; Grants pro **RID & Scope**.
+
+> Hinweis: Das Diagramm „OrderPipeline_v1“ (farbig, mit Symbolen) liegt separat vor: `xgr_order_process_colored.svg` / `.png`.
+
+---
+
+## 5) Comparison (typical approach vs. XDaLa)
 
 | Challenge | Typical chain + schedulers | XDaLa on XGR |
 |---|---|---|
-| Alternate path vs. failure | Often conflated; “error path” hard‑coded | **`onInvalid` = alternate business path**; **failure handling separate** |
-| Parallelism & joins | Custom jobs; race conditions | First‑class **spawn/join** with **any/all/k‑of‑n** |
-| Waiting/timing | Crons, polling | **`waitSec`** + deterministic wake scheduling |
-| External data | Ad‑hoc connectors, hidden state | **Reads + APIs** merged into one input map |
-| Privacy | Ad‑hoc encryption, unclear scope | **Per‑artifact RID + scope** (`rule`/`log`) via XRC‑563 |
-| Auditability | Distributed logs | Receipts + log artifacts; hash‑pinned JSON |
-| Cost predictability | Opaque | **Validation Gas** (structural) + EVM gas (execution only) |
+| Alternate path vs. failure | Oft vermischt | **`onInvalid` = Business‑Pfad**, **Failure separat** |
+| Parallelism & joins | Eigene Jobs; Race Conditions | Native **spawn/join** mit **any/all/k‑of‑n** |
+| Waiting/timing | Crons, Polling | **`waitSec`** + deterministisches Wake |
+| External data | Ad‑hoc, Hidden State | **Reads + APIs** → eine Input‑Map |
+| Privacy | Uneinheitlich | **Pro‑Artefakt RID + Scope** (`rule`/`log`) |
+| Auditability | Verteilte Logs | Receipts + Log‑Artefakte; Hash‑pinned JSON |
+| Cost predictability | Opaque | **Validation Gas** (strukturell) + EVM (nur Execution) |
 
 ---
 
-## 5) Operations (concise launch guidance)
-- **Governance & validators**: maintain quorum; monitor signer participation; plan controlled membership changes.  
-- **RPC posture**: TLS at the edge; authentication; rate limits; monitor base and XDaLa RPC latency/error.  
-- **Privacy & retention**: treat grants/read keys as sensitive; set `logExpireDays` per policy.  
-- **Observability**: index receipts and lifecycle events; monitor Validation‑Gas distributions.  
-- **Backups**: orchestration JSON (by hash), encrypted rules, grants metadata; verify restores in staging.  
-- **State retention**: document pruning/snapshot policies per SLA/audit in your ops runbook (no blanket recommendation here).
+## 6) Operations (concise launch guidance)
+- **Governance/Validators:** Quorum pflegen; Signer‑Participation monitoren; Membership‑Changes geplant.  
+- **RPC posture:** TLS am Edge; Auth; Rate Limits; Latenz/Errors Base + XDaLa beobachten.  
+- **Privacy/Retention:** Grants/Read‑Keys wie Secrets behandeln; `logExpireDays` per Policy.  
+- **Observability:** Receipts + XDaLa‑Events indexieren; Validation‑Gas‑Verteilungen beobachten.  
+- **Backups:** Orchestration JSON (by hash), verschlüsselte Rules, Grants‑Metadaten; Restore‑Tests in Staging.  
+- **State retention:** Snapshot/Pruning per SLA/Audit dokumentieren (keine Pauschal‑Empfehlung hier).
 
 ---
 
-## 6) Key terms
-- **Session** — One running instance `(owner, rootPid)` of an orchestration.  
-- **Process** — A token executing a rule step (`waiting → running → done/aborted`).  
-- **Join target** — A step that aggregates producer results; mode **any/all/k‑of‑n**.  
-- **`onValid` / `onInvalid`** — Alternate **business** branches; **not** failure handling.  
-- **Failure handling** — Typed rule actions (`abortStep`, `cancelSession`) and engine/runtime errors; separate from branches.  
-- **RID (Resource Identifier)** — Unique identifier **per rule artifact and per log artifact**. Grants are issued **per RID** and **by scope** (`rule` or `log`). Decryption requires matching **RID** and **scope**.
+## 7) Key terms
+- **Session** — Laufende Instanz `(owner, rootPid)` einer Orchestration.  
+- **Process** — Token, das einen Rule‑Step ausführt (`waiting → running → done/aborted`).  
+- **Join target** — Aggregiert Producer‑Ergebnisse; Modus **any/all/k‑of‑n**.  
+- **`onValid` / `onInvalid`** — Alternative **Business‑Branches**; **nicht** Failure.  
+- **Failure handling** — Typed rule actions (`abortStep`, `cancelSession`) und Engine/Runtime‑Fehler; getrennt von Branches.  
+- **RID (Resource Identifier)** — Einzigartige Kennung **pro Rule‑Artefakt und pro Log‑Artefakt**. Grants sind **pro RID** und nach **Scope** (`rule`/`log`) vergeben. Entschlüsselung erfordert **Match** beider.
 
 ---
 
-## 7) Where to go next
+## 8) Where to go next
 - **Rules (XRC‑137)** — JSON anatomy, expressions, outcomes, logging, `waitSec`. → `docs/xDaLa/xrc_137_spec.md`  
 - **Orchestrations (XRC‑729)** — spawns, joins (any/all/k‑of‑n), `waitOnJoin`, delivery & merge semantics. → `docs/xDaLa/xrc_729_orchestration_session_manager.md`  
 - **Grants (XRC‑563)** — RID, scopes (`rule`/`log`), grants lifecycle. → `docs/xDaLa/xgr_encryptionGrants.md`  
-- **Validation Gas** — weights, wait surcharge, budgeting patterns. → `docs/xDaLa/XRC-137_Validation_Gas.md`  
+- **Validation Gas** — weights, wait surcharge, budgeting patterns. → `docs/xDaLa/XRC‑137_Validation_Gas.md`  
 - **Session transactions & RPC** — permits, budgets, lifecycle. → `docs/xDaLa/xDaLa_sessionTransaction.md`
