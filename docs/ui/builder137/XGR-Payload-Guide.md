@@ -18,7 +18,7 @@ This guide shows how to define **Payload fields** in the XRC‑137 Builder and h
 Each row has three controls:
 
 1) **Name** — the placeholder name you will use later as `[name]`  
-2) **Type** — one of `string`, `number`, `boolean` (for better UX and operator hints)  
+2) **Type** — one of `string`, `number`, `boolean`, `not set` (for better UX and operator hints)  
 3) **Optional** — if off, the engine requires this field at runtime (see section 6)
 
 **What you see**  
@@ -35,9 +35,9 @@ Each row has three controls:
 Payload keys are **case‑sensitive** and must be unique **by exact spelling**. The UI enforces a safe pattern and prevents accidental whitespace.
 
 **Allowed pattern**  
-`^[A-Za-z][A-Za-z0-9_]{0,127}$`  
+`^[A-Za-z][A-Za-z0-9]{0,127}$`  
 - must start with a letter  
-- letters, digits, underscore  
+- letters, digits 
 - max length 128
 
 **Duplicates**  
@@ -74,9 +74,6 @@ You can (and should) reuse payload keys across the builder:
 - **Contract Reads**: pass values or compare against aliases you saved.  
 - **Outcomes**: set output fields, e.g. `{"x2": "[amount] + 5"}`.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/payload-cross-usage.png) — Three small callouts in Rules, API, and Reads panels highlighting `[amount]` reused via autocomplete.
-
 ---
 
 ## 6) Required vs. Optional (runtime behavior)
@@ -89,21 +86,23 @@ At runtime the engine checks **required** payload fields:
 
 > This keeps flows robust: you can branch on missing inputs and respond accordingly.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/payload-required-note.png) — A small info box: *Required + empty → onInvalid branch*; Optional may be omitted.
-
 ---
 
 ## 7) Examples
 
 **A) Minimal payload**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/payload-minimal.png)
+
 ```json
-{
-  "payload": {
-    "name":   { "type": "string", "optional": false },
-    "amount": { "type": "number", "optional": true }
-  }
-}
+ "payload": {
+    "amount": {
+      "optional": true,
+      "type": "number"
+    },
+    "name": {
+      "optional": false,
+      "type": "string"
+    }
 ```
 
 **B) Using placeholders in Rules**  
@@ -127,13 +126,11 @@ At runtime the engine checks **required** payload fields:
 
 ## 8) Common mistakes & quick fixes
 
-- **Duplicate key** (exact same spelling) → remove one; only the first is exported.  
-- **Unknown placeholder** in Rules/API → ensure the producing step exists and comes earlier.  
-- **Type mismatch** → compare numbers to numbers, strings to strings (quote strings).  
-- **Empty required field** → provide a value or mark the field Optional and handle it in Rules.
+- **wrong name** (exact same spelling) → remove one; only the first is exported.
+For the Payload field, only the following characters are allowed: /^[A-Za-z][A-Za-z0-9]*$/; maximum length is 128.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/payload-troubleshooting.png) — Two-column list: *Error* → *Quick fix* (3–5 items).
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/payload-troubleshooting.png) 
 
 ---
 
@@ -145,5 +142,4 @@ With your payload defined and referenced via `[key]`, continue with:
 - Configuring **API extracts** and **Contract Reads** aliases  
 - Building **onValid / onInvalid** outcomes
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/payload-next-steps.png) — Mini flow: *Payload → Rules/API/Reads → Outcome*.
+
