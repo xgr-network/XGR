@@ -7,7 +7,7 @@ This page gives you a high-level tour of the **Builder 137** UI: what each secti
 ## What the page looks like
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-137-main.png) — The Builder page with creation panels on the left (Payload, Contract Reads, APIs, Rules, Outputs, Validation, Preview) and the operational panels below (Wallet Connect, Compile, Deploy, Update). The vertical flow on the right shows **Wallet → Compile → Deploy → Update**.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-137-main.png) — The Builder page with creation panels on the left (Payload, Contract Reads, APIs, Rules, Outputs, Validation, Preview) and the operational panels below (Wallet Connect, Compile, Deploy, Update). The vertical flow on the right shows **Wallet → Deploy → Update**.
 
 ---
 
@@ -16,11 +16,10 @@ This page gives you a high-level tour of the **Builder 137** UI: what each secti
 Builder 137 guides you through these steps in order:
 
 1. **Wallet** — connect a browser wallet (e.g., MetaMask) and select a chain.  
-2. **Compile** — build artifacts via XGR’s managed Hardhat service.  
-3. **Deploy** — deploy the wrapper contract (plain or encrypted).  
-4. **Update** — push rule changes to an existing contract (plain or encrypted).
+2. **Deploy** — deploy the wrapper contract (plain or encrypted).  
+3. **Update** — push rule changes to an existing contract (plain or encrypted).
 
-The flow highlights the **next active** step and places a **check mark** after each successful action. If **Validation** finds errors, **Compile** is disabled until you fix them.
+The flow highlights the **next active** step and places a **check mark** after each successful action. If **Validation** finds errors.
 
 > Detailed guides:  
 > • Wallet → `XGR-Wallet-Connect-Guide.md`  
