@@ -38,15 +38,6 @@ Calls a **view/pure** function on an **EVM-compatible** chain and maps the retur
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-signature-helper-no-inputs.png) — Helper modal with empty inputs and `fn() returns (...)` preview.
 
-**Validation by type**
-- Integer (`uint*/int*`) — decimal strings; range-checked; very large ints as strings.  
-- Address — `0x` + 40 hex.  
-- Bytes32 — `0x` + 64 hex.  
-- String/bytes — string literals.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-args-validators.png) — Inputs with green/red per type.
-
 ---
 
 ## 4) Mapping results with `saveAs`
@@ -98,7 +89,7 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
 - **To field:** The UI intentionally remains free-form to support Dev/Test placeholders. At **execution time**, the engine enforces: in **Production** the resolved `to` must be a valid `0x` + 40-hex address; in **Dev/Test** a placeholder/expression is accepted.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-validation-errors.png) — Example errors for invalid bytes32, duplicate alias, etc.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-validation-errors.png) — Example errors for duplicate alias, etc.
 
 ---
 
@@ -114,11 +105,13 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
   "defaults": ""
 }
 ```
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards-1.png) — One example card with a “validated” badge.
 
 **Multiple returns (string, uint64), saveAs map + typed defaults**
 ```json
 {
-  "to": "[MyPayloadKey]",
+  "to": "0x1111111111111111111111111111111111111111",
   "function": "getData(string,bytes32) returns (string,uint64)",
   "args": ["[user.input]", "0x0000000000000000000000000000000000000000000000000000000000000000"],
   "saveAs": { "0": "name", "1": "version" },
@@ -128,7 +121,7 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
 ```
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards.png) — Two example cards with a “validated” badge.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards-2.png) — One example card with a “validated” badge.
 
 ---
 
@@ -138,3 +131,4 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
 - Use placeholders to avoid hard-coded literals.  
 - Very large ints: keep defaults as strings (engine can parse).  
 - With defaults, only missing outputs fall back.
+
