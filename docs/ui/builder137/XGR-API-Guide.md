@@ -64,9 +64,6 @@ An API Call fetches **JSON** and stores fields from that JSON into your rule’s
 - Timeout: **8 s**; ≤ **3** redirects; ≤ **1 MB** response  
 - TLS ≥ 1.2; HTTP/1.1; IPv4; no env proxies
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-limits-banner.png) — Compact box listing the limits above.
-
 ---
 
 ## 6) Validation (what the UI enforces)
@@ -89,15 +86,16 @@ An API Call fetches **JSON** and stores fields from that JSON into your rule’s
 {
   "name": "Quote",
   "method": "GET",
-  "urlTemplate": "https://api.example.com/q?symbol=[payload.symbol]",
+  "urlTemplate": "https://api.example.com/q?symbol=[payloadSymbol]",
   "contentType": "json",
   "extractMap": {
-    "q.price": "resp.last.value",
-    "q.symbol": "resp.last.symbol"
+    "qPrice": "resp.last.value",
+    "qSymbol": "resp.last.symbol"
   },
-  "defaults": { "q.price": 0 }
+  "defaults": { "qPrice": 0 }
 }
 ```
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-examples-cards-1.png) — One example card with a “validated” badge.
 
 ### 7.2 POST with JSON body template
 ```json
@@ -106,18 +104,18 @@ An API Call fetches **JSON** and stores fields from that JSON into your rule’s
   "method": "POST",
   "urlTemplate": "https://api.example.com/lookup",
   "headers": { "Content-Type": "application/json" },
-  "bodyTemplate": "{\"id\":\"[contract.targetId]\"}",
+  "bodyTemplate": "{\"id\":\"[contractTargetId]\"}",
   "contentType": "json",
   "extractMap": {
-    "user.name": "resp.user.name",
-    "user.active": "resp.user.active"
+    "userName": "resp.user.name",
+    "userActive": "resp.user.active"
   },
-  "defaults": { "user.active": false }
+  "defaults": { "userActive": false }
 }
 ```
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-examples-cards.png) — Two example cards with a “validated” badge.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-examples-cards-2.png) — One example card with a “validated” badge.
 
 ---
 
@@ -126,7 +124,5 @@ An API Call fetches **JSON** and stores fields from that JSON into your rule’s
 - Unknown placeholder? Ensure it’s in payload, reads, or a prior API.  
 - Keep Body Template compact (single-line JSON string).  
 - Avoid time-varying auth headers.  
-- Use payload-controlled `[env.*]` to switch endpoints per environment.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/apis-troubleshooting.png) — Compact list of common messages with one-line fixes.
+
