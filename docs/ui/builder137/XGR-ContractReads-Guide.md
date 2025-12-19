@@ -15,14 +15,14 @@ Calls a **view/pure** function on an **EVM-compatible** chain and maps the retur
 
 ## 2) Fields in the UI (engine-aligned)
 
-| Field        | Required | Notes                                                                 |
-|--------------|----------|-----------------------------------------------------------------------|
-| **To**       | yes      | 0x…40-hex contract address.                                          |
-| **Function** | yes      | `name(type1,type2,…) returns (ret1,ret2,…)`.                         |
-| **Args**     | yes      | Array; one value per input type; placeholders allowed.               |
-| **saveAs**   | yes      | String for index `0` **or** map `{ "0": "A", "1": "B" }`.            |
-| **Defaults** | no       | Scalar or map by indices/aliases.                                    |
-| **RPC**      | no       | HTTPS endpoint; **EVM-compatible only**.                             |
+| Field        | Required | Notes                                                                                             |
+|--------------|----------|---------------------------------------------------------------------------------------------------|
+| **To**       | yes      | **Dev/Test:** address **or** placeholder/expression (e.g. `[MyPayloadKey]` or `'some-literal'`). **Production:** must be a valid `0x` + 40-hex address. |
+| **Function** | yes      | `name(type1,type2,…) returns (ret1,ret2,…)`.                                                      |
+| **Args**     | yes      | Array; one value per input type; placeholders allowed.                                            |
+| **saveAs**   | yes      | String for index `0` **or** map `{ "0": "A", "1": "B" }`.                                         |
+| **Defaults** | no       | Scalar or map by indices/aliases.                                                                 |
+| **RPC**      | no       | HTTPS endpoint; **EVM-compatible only**.                                                          |
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-modal.png) — “Edit Contract Read” modal with all fields and validation hints.
@@ -53,7 +53,7 @@ Calls a **view/pure** function on an **EVM-compatible** chain and maps the retur
 
 - Single return: `saveAs` string (alias) for index `0`.  
 - Multiple returns: map of index→alias.  
-- Alias regex: `^[A-Za-z][A-Za-z0-9._-]{0,63}$` unique within the rule.
+- **Alias regex (UI & engine):** `^[A-Za-z][A-Za-z0-9]*$` (letters & digits only; must be unique within the rule).
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-saveas.png) — Table mapping tuple indices to aliases.
@@ -91,10 +91,11 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
 
 ## 8) Validation (what the UI enforces)
 
-- Valid `to` address; full function signature; args length matches ABI.  
+- Full function signature; args length matches ABI.  
 - `saveAs` present; alias regex; no duplicate indices/aliases.  
 - Defaults optional; shape checked.  
-- RPC optional; HTTPS + EVM-compatible in enterprise.
+- RPC optional; HTTPS + EVM-compatible in enterprise.  
+- **To field:** The UI intentionally remains free-form to support Dev/Test placeholders. At **execution time**, the engine enforces: in **Production** the resolved `to` must be a valid `0x` + 40-hex address; in **Dev/Test** a placeholder/expression is accepted.
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-validation-errors.png) — Example errors for invalid bytes32, duplicate alias, etc.
@@ -117,7 +118,7 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
 **Multiple returns (string, uint64), saveAs map + typed defaults**
 ```json
 {
-  "to": "0x2222222222222222222222222222222222222222",
+  "to": "[MyPayloadKey]",
   "function": "getData(string,bytes32) returns (string,uint64)",
   "args": ["[user.input]", "0x0000000000000000000000000000000000000000000000000000000000000000"],
   "saveAs": { "0": "name", "1": "version" },
@@ -137,6 +138,3 @@ Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
 - Use placeholders to avoid hard-coded literals.  
 - Very large ints: keep defaults as strings (engine can parse).  
 - With defaults, only missing outputs fall back.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-troubleshooting.png) — Typical hints for signatures and args with short fixes.
