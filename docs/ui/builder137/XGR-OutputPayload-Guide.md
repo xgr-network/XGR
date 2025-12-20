@@ -30,9 +30,9 @@ Click a row to open the editor modal for the **Value**. Type `[` to use autocomp
 ## 3) Naming rules for output keys (case‑sensitive)
 
 - Output keys are **case‑sensitive** and must be unique **by exact spelling** inside the same branch.  
-- Recommended pattern: `^[A-Za-z][A-Za-z0-9_]{0,127}$`  
+- Recommended pattern: `^[A-Za-z][A-Za-z0-9]*$`  
 - **Avoid** square brackets in the **key**: a key like `"[Score]"` is **not** evaluated as a placeholder; it will be written literally.  
-- **Hint behavior**: If you typed `[` to pick a suggestion for the **key**, the UI shows a small yellow info line **under the row for 5s**: *“Picked from [ … ] suggestion — keys are stored without brackets (this is just a hint).”*
+- **Hint behavior**: If you typed `[` to pick a suggestion for the **key**, the UI shows a small yellow info line **under the row for 10s**: *“Picked from [ … ] suggestion — keys are stored without brackets (this is just a hint).”*
 
 **Duplicates**  
 If you add the **same spelling** twice, a note appears **under the row**: **“duplicate output key — last wins”** (the later row overwrites the earlier one when building the JSON).
@@ -104,7 +104,7 @@ Each branch supports optional controls:
 ```json
 "onValid": {
   "payload": {
-    "userId": "[user.id]",
+    "userId": "[userId]",
     "amountPlus5": "[amount] + 5",
     "label": "ok"
   },
@@ -143,7 +143,7 @@ Each branch supports optional controls:
 - Output **values** must be string/number/boolean; placeholders must be **known** (produced earlier).  
 - Unknown placeholder in Value → error.  
 - Keys that look like `[Name]` show a **warning** (not evaluated as placeholder).  
-- If you picked a key via `[` suggestion, a yellow info line appears **for 5s** (no action required).  
+- If you picked a key via `[` suggestion, a yellow info line appears **for 10s** (no action required).  
 - Duplicated keys show a **note** (“last wins”).
 
 **What you see**  
