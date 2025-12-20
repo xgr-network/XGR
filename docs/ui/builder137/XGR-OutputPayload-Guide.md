@@ -155,4 +155,40 @@ With output fields defined, you can:
 - Chain into **execution** (if configured),
 - Inspect results in your logs (optionally encrypted).
 
+---
 
+## 11) Manage Log Grants (onValid / onInvalid)
+
+When **Encrypt logs** is enabled for a branch, you can manage who may decrypt the branch’s output logs via **Manage Log Grants**.
+
+### How to open### Top-level expiry & Owner grant (what happens when you toggle **Encrypt logs**)
+
+- Turning on **Encrypt logs** for a branch creates a **top‑level retention (expiry)** for that branch (Years/Days).  
+- The system also ensures an **Owner grant** (implicit) that is valid for exactly this retention window.  
+- As long as the owner grant is valid, the owner can decrypt the branch’s output logs.
+
+Use **Manage Log Grants** to add **additional grants** (team/service addresses, etc.).  
+Per‑grant extra expiry is **added on top of** the top‑level retention; it does not replace it.
+
+
+In **Outputs → onValid / onInvalid**, enable **Encrypt logs**. A button **“Manage Log Grants”** appears below. Click it to open the grants editor.
+
+### What a grant contains
+Each grant row defines:
+- **Address** — Ethereum‑style address (`0x` + 40 hex)  
+- **Rights** — `READ (1)`, `WRITE (2)`, `MANAGE (4)`  
+- **Per‑grant extra expiry** — additional retention for this single grant  
+  - Enter **Years** + **Days**, or pick a **Date** (UTC midnight).
+
+> The per‑grant extra expiry is added **on top of** the global log retention you configured for the branch.
+
+### Tabs
+The editor has two tabs: **onValid** and **onInvalid**. You can define separate grants per branch.
+
+### Save behavior
+Changes apply after **Save** in the editor. Rows are normalized: addresses lowercased, rights validated, negative values clamped to 0.
+
+### Tips
+- If you encrypt the contract (Deploy/Update), consider encrypting your **output logs** as well.  
+- You can estimate storage cost via **Cost** (wallet + RPC required).  
+- The owner grant aligns with the branch retention; as long as it’s valid, the logs can be decrypted with it.
