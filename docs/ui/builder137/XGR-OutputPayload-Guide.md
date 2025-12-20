@@ -25,6 +25,7 @@ Click a row to open the editor modal for the **Value**. Type `[` to use autocomp
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-row-editor.png) — A single output row with *Name* and *Value*; the modal shows helper text and suggestions for `[ ... ]`.
 
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-row-editor-2.png) — A single output row with *Name* and *Value*; the modal shows helper text and suggestions for `[ ... ]`.
 ---
 
 ## 3) Naming rules for output keys (case‑sensitive)
@@ -64,7 +65,7 @@ You can enter the right side (Value) in three forms:
 - To show `[` or `]` inside a string, escape with `[[` and `]]`.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-value-modes.png) — Three mini cards: *Literal*, *Template*, *Expression* with short examples.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-value-modes.png) — Some mini cards: *Literal*, *Template*, *Expression* with short examples.
 
 ---
 
@@ -78,23 +79,17 @@ The same autocomplete sources as elsewhere apply:
 
 All placeholder names are **case‑sensitive** across the builder.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-autocomplete.png) — Typing `[` opens a suggestion list with Payload, Reads, and API aliases.
-
 ---
 
 ## 6) Branch options (timing & execution) — **gas limit only**
 
 Each branch supports optional controls:
 
-- **waitMs** — delay the branch execution by N milliseconds.  
-- **execution** — schedule a follow-up action (if enabled in your project).  
-- **encryptLogs / logExpireDays** (if enabled) — protect logs and set retention.
+- **waitMs** — delay the branch execution by N milliseconds for the next process.  
+- **execution** — schedule a follow-up action.  
+- **encryptLogs / logExpireDays** (if enabled) — protect logs and set retention time.
 
-> **Note:** The **Execution** box now supports **gas limit only**. The previous **limitExpression** field and the “Advanced” toggle have been **removed**. Enter a positive integer gas limit when needed. Execution contract address must be a proper 0x… (EIP‑55).
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-branch-options.png) — Small header area with *waitMs*, *execution*, and *encryptLogs* toggles; the Execution box shows **Gas Limit** only.
+> **Note:** The **Execution** box supports **gas limit**. Enter a positive integer gas limit when needed. Execution contract address must be a proper 0x… (EIP‑55).
 
 ---
 
@@ -132,11 +127,6 @@ Each branch supports optional controls:
 }
 ```
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-examples.png) — Three example cards matching A–C above.
-
----
-
 ## 8) Validation (what the UI checks)
 
 - Output **keys** must be non-empty strings (case‑sensitive uniqueness recommended).  
@@ -145,9 +135,6 @@ Each branch supports optional controls:
 - Keys that look like `[Name]` show a **warning** (not evaluated as placeholder).  
 - If you picked a key via `[` suggestion, a yellow info line appears **for 10s** (no action required).  
 - Duplicated keys show a **note** (“last wins”).
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-validation.png) — Unknown placeholder error and the bracket‑key warning/info shown together.
 
 ---
 
@@ -159,9 +146,6 @@ Each branch supports optional controls:
 - **Duplicate keys** → keep only one; or let “last wins” intentionally and document it.  
 - **Bracket in key** → remove `[` `]` from the **key** (only needed in **values**).
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-troubleshooting.png) — Two-column list: *Problem* → *Quick fix*.
-
 ---
 
 ## 10) Next steps
@@ -171,5 +155,4 @@ With output fields defined, you can:
 - Chain into **execution** (if configured),
 - Inspect results in your logs (optionally encrypted).
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/output-next-steps.png) — Flow: *Reads/API → Rules → onValid/onInvalid (Output)*.
+
