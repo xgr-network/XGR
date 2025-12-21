@@ -33,9 +33,11 @@ or **XRC-729 Builder**
 
 **What you see (no wallet installed)**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-no-wallet.png)
+
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-no-wallet-2.png)
 **What you see (connected)**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-connected.png)
+
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-connected-2.png)
 ---
 
@@ -109,4 +111,5 @@ The right-side flow shows your progress and highlights the next active step.
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-flow.png) — Flow with the Wallet step highlighted as **active** when you land on the page.
+
 
