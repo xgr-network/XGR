@@ -28,15 +28,15 @@ This guide shows how to connect a browser wallet (e.g., **MetaMask**) to the XGR
 6. The status shows **Connected** with your address; use **Disconnect** to stop.
 
 **Next steps (builders)**  
-Go to **XRC-137 Builder** → https://app.xgr.network/builder/137  
-or **XRC-729 Builder** → https://app.xgr.network/builder/729
+Go to **XRC-137 Builder**  
+or **XRC-729 Builder**
 
 **What you see (no wallet installed)**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-no-wallet.png)
-
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-no-wallet-2.png)
 **What you see (connected)**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-connected.png)
-
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-connected-2.png)
 ---
 
 ## 3) Choose the chain (network)
@@ -104,8 +104,9 @@ _Last updated: 2025-10-19_
 
 ## Where Wallet Connect sits in the flow
 
-Wallet Connect is **step 1 of 4** (Wallet → Compile → Deploy → Update).  
+Wallet Connect is **step 1 of 4** (Wallet → Deploy → Update).  
 The right-side flow shows your progress and highlights the next active step.
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-flow.png) — Flow with the Wallet step highlighted as **active** when you land on the page.
+
