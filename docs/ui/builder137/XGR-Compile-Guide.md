@@ -1,67 +1,57 @@
 # XGR Compile — How to compile your contract
 
-This guide explains what the **Compile** panel does, how to run a compile, and what each output means. It also shows how the **4‑step flow** works (Wallet → Compile → Deploy → Update), so you always know **what’s next**.
+This guide explains what the **Compile** panel does, how to start a compilation, and what the individual outputs mean.
 
 ---
 
-## Where Compile sits in the flow
+## 1) Prerequisites
 
-The Builder UI guides you through these steps (right side icons): **Wallet → Compile → Deploy → Update**.  
-The next active step is highlighted; completed steps are marked with a check.
+- **Wallet connected** (first step in the flow) — otherwise Compile may be **blocked** by validation.  
+- A **valid model** (no blocking errors). The Compile button is disabled when validation finds blocking issues.
+
+---
+
+## 2) Start compilation
+
+Open the **Compile** panel and click **Compile**. During compilation you’ll see *Compiling…*. After success, the compact status indicator shows **✓ Compiled**.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-flow.png) — Flow with four steps; **Compile** is the second step. The line turns green as you complete steps.
-
----
-
-## 1) Requirements
-
-- **Wallet connected** (first step of the flow) — otherwise Compile may be **blocked** by validation.  
-- A **valid model** (no blocking errors). The Compile button is disabled if validation reports blocking issues.
-
----
-
-## 2) Run a compile
-
-Open the **Compile** panel and click **Compile**. While compiling you see *Compiling…*. After success the compact flag shows **✓ Compiled**.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/compile-panel.png) — Compile panel with the **Compile** button on the right and a compact **✓ Compiled** success flag on top once done.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/compile-panel.png) — Compile panel with the **Compile** button on the right and a compact **✓ Compiled** success indicator at the top once it’s finished.
 
 ---
 
 ## 3) Show details & outputs
 
-Use **Show details** to reveal the artifacts. You can **Copy** or **Download** each section.
+With **Show details**, you reveal the artifacts. You can **Copy** or **Download** each section.
 
-- **Model (JSON)** — the normalized builder configuration used for artifacts  
+- **Model (JSON)** — the normalized builder configuration used to generate the artifacts  
 - **Wrapper (Solidity)** — generated wrapper source for quick deploys/tests in EVM tools  
-- **ABI** — contract interface in JSON (for SDKs, frontends, scripts)  
+- **ABI** — contract interface as JSON (for SDKs, frontends, scripts)  
 - **Bytecode** — hex-encoded contract bytecode
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/compile-details.png) — Details view with four sections, each offering **Copy** and **Download** actions. The wrapper is rendered with Solidity syntax highlighting.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/compile-details.png) — Detail view with four sections, each with **Copy** and **Download**. The wrapper is rendered with Solidity syntax highlighting.
 
 ---
 
 ## 4) After compile: next steps
 
-- **Deploy** — 3rd step of the flow. Requires **Wallet connected** and **Compiled**.  
-- **Update Rule** — 4th step. Requires a **deployed address** and supports **encrypted** updates if your Read‑Key is verified.
+- **Deploy** — requires **wallet connected**; **Compiled** is not required.  
+- **Update Rule** — requires a **deployed address** and supports **encrypted** updates if your read key is verified.
 
-**Tip:** You can reopen **Show details** later to re‑copy or re‑download artifacts at any time.
+**Tip:** You can open **Show details** at any time later to copy or download artifacts again.
 
 ---
 
 ## Troubleshooting
 
-- **Compile button disabled** → fix validation errors in the Builder (payload, rules, reads, APIs).  
-- **No outputs in details** → compile again; outputs only appear after a successful compile.  
-- **Wrapper looks unstyled** → that is expected; the code preview uses a compact theme for readability.
+- **Compile button disabled** → fix validation errors in the builder (Payload, Rules, Reads, APIs).  
+- **No outputs in details** → compile again; outputs appear only after a successful compilation.  
+- **Wrapper looks unstyled** → expected; the code preview uses a compact theme for readability.
 
 ---
 
-## About the compiler (XGR Hardhat service)
+## About the compiler (XGR Hardhat Service)
 
 - The **Compile** action runs against XGR’s managed **Hardhat** service.  
 - Your model is converted to Solidity and compiled **server-side** (no on-chain transaction required).  
@@ -70,11 +60,8 @@ Use **Show details** to reveal the artifacts. You can **Copy** or **Download** e
 
 ### Security & privacy
 
-- Compile does **not** require your wallet to sign or spend gas; it only needs a connected wallet to validate the environment/chain.  
-- No private keys leave your browser. Only the generated **source/model** is sent to the compiler for artifact generation.  
-- Artifacts are kept **ephemeral** on the service side (stateless build job) and shown locally in the panel.
-
+- Compile requires **no** wallet signature and **no** gas; it only needs a connected wallet to validate the environment/chain.  
+- No private keys ever leave your browser. Only the generated **source/model** is sent to the compiler to produce artifacts.  
+- Artifacts are server-side **ephemeral** (stateless build job) and are displayed locally in the panel.
 
 ---
-
-_Last updated: 2025-10-19_
