@@ -1,93 +1,77 @@
-# XGR Update Rule — How to update an existing contract
+# XGR Update Rule — How to Update an Existing Contract
 
-This guide explains the **Update Rule** panel (step **4 of 4** in the flow: Wallet → Compile → Deploy → **Update**). You can update a contract that you’ve just deployed, one you opened from the **Contract Manager**, or overwrite a contract by pasting its on-chain address.
+This guide explains the **Update Rule** panel (step **3 of 3** in the flow: Wallet → Deploy → **Update**). You can update a contract you just deployed, one you opened via the **Contract Manager**, or overwrite an existing contract by pasting its on-chain address.
 
 ---
 
-## Where Update sits in the flow
+## Where Update Fits in the Flow
 
-The Builder shows your progress on the right: **Wallet → Compile → Deploy → Update**. Update becomes **active** once Wallet is connected, the model is **compiled**, and you’ve selected a **contract address** (from Deploy result or Contract Manager).
+The builder shows your progress on the right: **Wallet → Deploy → Update**. Update becomes **active** as soon as the wallet is connected and you have selected a **contract address** (from the deploy result or from the Contract Manager).
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-flow.png) — Flow with four steps; **Update** is highlighted when steps 1–3 are done or a contract address is provided.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-flow.png) — A three-step flow; **Update** is highlighted once steps 1–2 are done, or when a contract address has been provided.
 
 ---
 
-## 1) Requirements
+## 1) Prerequisites
 
 - **Wallet connected** (step 1)  
-- **Compiled** model (step 2)  
 - A **valid contract address** (`0x…`) to update
 
-If a requirement is missing, the Update button is disabled and a short hint is shown under the button.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel.png) — Update panel with **Update Rule** button (right), **Encrypt** toggle, **Expiry** inputs (if Encrypt is on), **Read‑Key** status/manager, and the **contract address** input.
+If a prerequisite is missing, the Update button is disabled and a short hint is shown below it.
 
 ---
 
-## 2) Plain vs. Encrypted update
+## 2) Plain vs. Encrypted Update
 
-You can write your rule **in plain** (no encryption) or **encrypted**:
+You can write your rule **plain** (without encryption) or **encrypted**:
 
-- **Plain update**: Sends the JSON rule directly to the contract (no grants, no encryption).  
-- **Encrypted update**: Toggle **Encrypt** before hitting **Update Rule**. The app runs a one‑click sequence:
-  1) **Prepare encryption** off‑chain (creates **RID**, **suite**, encrypted **blob**)  
-  2) **Commit owner grants** on‑chain (sends `updateTx[]`)  
-  3) **Persist** `blob/suite/rid` on your rule contract
+- **Plain update**: Sends the rule JSON directly to the contract (no grants, no encryption).  
+- **Encrypted update**: Enable **Encrypt** before clicking **Update Rule**. A one-click sequence runs:
+  1) **Prepare encryption** (off-chain; creates **RID**, **suite**, encrypted **blob**) → Permit required  
+  2) **Persist** `blob/suite/rid` to your rule contract → (on-chain; sends `persistTx[]`)  
 
-**Expiry** controls for how long your decryption right remains valid. In the UI you set *Years/Days* → this becomes an on‑chain **expireAt** in the Grants Registry. Until that time, a wallet with your verified **Read‑Key** can unwrap the key and decrypt. After **expiry**, the grant is **inactive** and apps/indexers will refuse decryption by policy (you can later extend with a new grant via Update).  
-See **Encryption & Grants** → https://xgr.network/docs.html#xrc563
+**Expiry** controls how long your decryption right remains valid. In the UI you set *Years/Days* → this becomes an on-chain **expireAt** in the grants registry. Until then, a wallet with your verified **Read-Key** can unwrap the key and decrypt. After the **expiry**, the grant is **inactive** and apps/indexers refuse decryption by policy (you can extend access later by updating again with a new grant).
 
 **What you see (Encrypt on)**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-encrypt-open.png) — Encryption enabled: **Read‑Key** pill, **Manage Read‑Key**, **Refresh**, **Expiry time** inputs, and a mini **Encrypted update** checklist that turns **✓** per step and shows live status.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-encrypt-open.png) — Encryption enabled: a **Read-Key** status pill, **Manage Read-Key**, **Refresh**, **Expiry time** inputs, and a mini **Encrypted update** checklist that marks each step with a **✓** and shows live status.
 
 ---
 
-## 3) Supported scenarios
+## 3) Supported Scenarios
 
 - **Plain → Plain**: Overwrite a plain contract with a new plain rule.  
-- **Plain → Encrypted**: Switch to encryption; pick **Expiry** and run the encrypted flow.  
-- **Encrypted → Encrypted**: Keep encryption; you can extend/shorten **Expiry**.  
-- **Encrypted → Plain**: Remove encryption by disabling **Encrypt** and sending a plain update (the old grant will not be used for reading the new plain content).
+- **Plain → Encrypted**: Switch to encryption; choose **Expiry** and run the encrypted flow.  
+- **Encrypted → Encrypted**: Keep encryption; you can extend or shorten **Expiry**.  
+- **Encrypted → Plain**: Remove encryption by disabling **Encrypt** and sending a plain update (the previous grant is no longer used to read the new plain content).
 
-> **Read‑Key required:** Encrypted updates require a **verified Read‑Key**. Use **Manage Read‑Key** to create/import and verify yours. If not verified, the button stays disabled.
+> **Read-Key required:** Encrypted updates require a **verified Read-Key**. Use **Manage Read-Key** to create/import and verify your key. If it is not verified, the button stays disabled.
 
 ---
 
-## 4) Results & Receipt
+## 4) Result & Receipt
 
-After sending, you’ll see:
+After sending, you will see:
 - **Tx** hash (with explorer link + copy)  
-- Optional **encrypted flow** ticks: prepare ✓, grants ✓, persist ✓  
+- Optional **encrypted flow** ticks: prepare ✓, persist ✓  
 - **Network** label  
-- A collapsible **Receipt** (raw JSON)
+- a collapsible **Receipt** (raw JSON)
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-result.png) — Result box showing the update **Tx** (and extra txs if encryption was used).  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-receipt.png) — Receipt details with the full JSON.
-
----
-
-## How it works (under the hood)
-
-- **Update flow** connects your wallet, encodes `updateRule(json)` and sends the transaction; waits for the receipt.  
-- **Encrypted update** reuses the same encryption pipeline as encrypted deploy: off‑chain prepare → on‑chain grants → on‑chain persist; the panel lists `rid`, `hintTxHashes`, `persistHash` and a status `phase`.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-result.png) — Result box with the update **Tx** (and additional tx if encryption was used).  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/update-panel-receipt.png) — Receipt details showing the full JSON.
 
 ---
 
 ## FAQ
 
-**Can I update a contract I imported from Contract Manager?**  
-Yes. Paste or import the **deployed address**; the Update panel will use it.
+**Can I update a contract I imported from the Contract Manager?**  
+Yes. Paste or import the deployed address; the Update panel will use that address.
 
 **Do I have to use encryption?**  
-No. Leave **Encrypt** off to send a plain update. You can switch modes at any time.
+No. Leave **Encrypt** off to send a plain update. You can switch between modes at any time.
 
 **What happens after expiry?**  
-The owner grant becomes **inactive** on-chain, so clients refuse to decrypt by policy. Write a new grant (via encrypted Update) to extend access.  
-See **Encryption & Grants** → https://xgr.network/docs.html#xrc563
+The owner grant becomes on-chain **inactive**, so clients refuse decryption by policy. Write a new grant (via an encrypted update) to extend access.
 
 ---
-
-_Last updated: 2025-10-19_
