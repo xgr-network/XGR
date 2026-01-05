@@ -97,6 +97,13 @@ contract XGRPublicSale is Ownable {
     event SaleToggled(bool active);
     event XGRWithdrawn(address indexed to, uint256 amount);
 
+    /// @dev Summary event for gas-efficient maintenance that rolls many empty windows
+    /// in a single admin call (without per-window events).
+    /// fromIndex = tranche index at function entry,
+    /// toIndex   = tranche index after processing.
+    event TranchesFastForwarded(
+        uint256 indexed fromIndex, uint256 indexed toIndex, uint256 windowsProcessed, uint256 oldPrice, uint256 newPrice);
+
     // ---- Lifecycle ----
 
     constructor() {
@@ -176,6 +183,53 @@ contract XGRPublicSale is Ownable {
             emit TrancheRolled(trancheStart, trancheStart + TRANCHE_DURATION, currentPrice, currentTranche);
         }
         return currentTranche != before;
+    }
+
+    // ---- Admin maintenance: monitoring & compact roll-forward ----
+    /// @notice Number of fully elapsed tranche windows since the stored trancheStart.
+    /// @dev Read-only helper for monitoring/UI to see how far storage lags behind "now".
+    /// 0 means we are still inside the stored active window; >=1 means storage is behind.
+    function pendingWindows() external view returns (uint256) {
+        if (block.timestamp <= trancheStart) return 0;
+        uint256 diff = block.timestamp - trancheStart;
+        return diff / TRANCHE_DURATION; // floor
+    }
+
+    /// @notice Gas-efficient admin fast-forward: persistently roll many empty windows up to `maxWindows`.
+    /// @dev onlyOwner. Finalizes the currently stored window once (emits TrancheFinalized),
+    /// then applies additional empty windows (msold=0, t*=0) without per-window events.
+    /// Emits a single TranchesFastForwarded summary event at the end.
+    /// @return processed Number of windows actually advanced.
+    function fastForward(uint256 maxWindows) external onlyOwner returns (uint256 processed) {
+        require(maxWindows > 0, "maxWindows=0");
+        // Strong safety: do nothing unless at least one full window has elapsed.
+        // Prevents touching/“finalizing” an active (not-yet-closed) time window.
+        require(block.timestamp >= trancheStart + TRANCHE_DURATION, "active window; nothing to fast-forward");
+
+        uint256 startIndex = currentTranche;
+        uint256 oldP = currentPrice;
+
+        while (processed < maxWindows && block.timestamp >= trancheStart + TRANCHE_DURATION) {
+            if (processed == 0) {
+                // Finalize the actually stored window (may have non-zero msold / t*)
+                _finalizeCurrentTranche();
+            } else {
+                // Subsequent windows are guaranteed empty in storage (msold=0; t*=0)
+                currentPrice = _computeNextPrice(currentPrice, 0, trancheStart, 0);
+            }
+
+            // Advance one stored window
+            trancheStart        += TRANCHE_DURATION;
+            currentTranche      += 1;
+            tokensSoldInTranche  = 0;
+            soldOutTimestamp     = 0;
+
+            unchecked { processed += 1; }
+        }
+
+        if (processed > 0) {
+            emit TranchesFastForwarded(startIndex, currentTranche, processed, oldP, currentPrice);
+        }
     }
 
     // ---- Stateless view API (virtual "rolled" view) ----
