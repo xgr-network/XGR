@@ -1,165 +1,226 @@
-# XGR Chain & XDaLa — General Overview (v4, corrected + chain foundations)
+# XGR & XDaLa — The Missing Layer for Deterministic On-Chain Processes
 
-> **Purpose**  
-> Provide an executive yet technically accurate introduction to **XGR** (the EVM chain) and **XDaLa** (the rule- and process-layer). This document explains **why** you use it, the **core specs** (XRC‑137 / XRC‑729 / XRC‑563), how the **runtime** behaves (sessions, wakes, joins), essential **chain foundations**, and links to deeper guides.
-
----
-
-## 0) Why XDaLa (business value & when to use it)
-
-Complex processes are rarely a single transaction. They are **multi‑step**, sometimes **parallel**, depend on **external data**, and carry **privacy & compliance** requirements. On typical chains, teams stitch this together with keepers, crons, queues, webhooks, and private databases — fragile to operate and hard to audit.
-
-**XDaLa** adds a **deterministic process layer** on a standard EVM chain so you can describe, run, and audit business flows end‑to‑end:
-
-- **Deterministic orchestration** of parallel/conditional steps with **joins (any/all/k‑of‑n)** and **time** via `waitSec`.
-- **Asynchronous, instance‑based sessions** (one process tree per session) with deterministic wake scheduling and back‑pressure.
-- **External data inputs** (contract reads + HTTP APIs) merged into a single input map for rules.
-- **Governed privacy** with per‑artifact encryption and grants (XRC‑563).
-- **Budgetable validation** (structural Validation Gas) separate from EVM gas.
-- **100% EVM‑compatible** — no custom tx types; wallets and SDKs continue to work.
-
-**Where it shines (illustrative use cases):**  
-- **ISO 20022 settlement**: Validate structured payment data; encrypt rule & logs; orchestrate FX, AML, and settlement with joins; execute on‑chain transfers only when pre‑conditions are valid.  
-- **Trading process**: Order checks → risk limits → venue quotes (parallel) → join best quote → execute; retries via `waitSec`, keine externen Scheduler.  
-- **Logistics workflow**: Shipment creation → parallel track & trace providers → join on k‑of‑n confirmations → customs clearance → release; sensitive logs encrypted per recipient.
-
-> **Figure 1 (optional): XDaLa at a glance** — Session payload → **XRC‑137** rule (reads/APIs → expressions → outcomes `onValid` / `onInvalid` with `payload` / `waitSec` / optional `execution`) → **XRC‑729** orchestration (spawn/join policy) → receipts/logs (**XRC‑563** grants).  
-> You can embed the SVG we generated: `xgr_order_process_colored.svg`
+> **One-liner**  
+> **XGR** is a fully EVM-compatible chain. **XDaLa** is its differentiator: a deterministic process layer that turns multi-step workflows into first-class, auditable on-chain sessions.
 
 ---
 
-## 1) Chain foundations (XGR)
+## TL;DR (Why you should care)
 
-**Consensus & finality.** **IBFT** gives fast, deterministic finality with proposer rotation. Downstream systems do not need probabilistic reorg handling.
+Smart contracts are powerful — but most real-world flows are **not** single-call problems. They are **multi-step**, **asynchronous**, sometimes **parallel**, often **time-dependent**, and they frequently depend on **external signals** or **selective privacy**.
 
-**Execution.** **Standard EVM**; XDaLa is additive — we do **not** introduce new transaction formats. Outcomes may include a normal ABI call (“innerCall”).
+Today, teams glue this together with off-chain schedulers, queues, databases, keepers, and custom services. That works — but it’s fragile, hard to audit end-to-end, and the “truth” is split across systems.
 
-**RPC surface.** Ethereum JSON‑RPC plus a small, documented set of XDaLa endpoints for **session lifecycle**, **rule/orchestration metadata**, and **introspection**. Existing tools remain compatible.
-
-**State & receipts.** State is Merkleized; receipts/logs capture the **lifecycle** of XDaLa processes for audit and replay. Sensitive content can be encrypted (see XRC‑563).
-
-**Node roles.** Validators (governance + signing), Full Nodes (RPC, data services), Observers/Analytics (index receipts/XDaLa events).
-
-**Operational stance.** TLS at the edge; authentication and rate limits; documented state‑retention policy per SLA/audit (no blanket snapshot/pruning guidance here).
+**XDaLa collapses this complexity into a deterministic, on-chain process model — without breaking EVM compatibility.**
 
 ---
 
-## 2) The specs at a glance (JSON as the contract)
+## 1) The core problem: chains stop where real processes begin
 
-- **XRC‑137 — Rule (one step, canonical JSON)**  
-  Declares inputs, optional **contractReads** and **apiCalls**, **validate expressions**, and two outcome branches **`onValid`**/**`onInvalid`** with `payload` mapping, **`waitSec`**, optional `execution`, and logging policy. **`onInvalid` ist *nicht* Failure**; es ist der **alternative Business‑Pfad**, wenn die Validate‑Regeln false ergeben. *Failure handling ist separat* (siehe §4.4).  
-  _Deep dive: `docs/xDaLa/xrc_137_spec.md`_
+A transaction is an atomic state transition.  
+A business process is a **graph**:
 
-- **XRC‑729 — Orchestration (graph, canonical JSON)**  
-  Deklariert den Step‑Graph (IDs), branch‑spezifische **spawns**, optionale **joins** mit Modus **any/all/k‑of‑n**, und die **waitOnJoin**‑Policy (`kill` oder `drain`). Targets **mergen** Producer‑Payloads deterministisch.  
-  _Deep dive: `docs/xDaLa/xrc_729_orchestration_session_manager.md`_
+- conditional branching
+- retries and waiting
+- parallel work streams
+- joins (quorum, best-of, all-of)
+- external reads (on-chain + off-chain)
+- selective visibility and compliance constraints
 
-- **XRC‑563 — Grants (encryption & access, per‑artifact)**  
-  Jedes **Rule‑Artefakt (XRC‑137)** und jedes **Log‑Artefakt** besitzt **einen eigenen RID (Resource Identifier)**. Grants werden **pro RID** und zusätzlich nach **Scope** (`rule` oder `log`) vergeben. Entschlüsselung erfordert **Match von RID und Scope**; so wird festgelegt, wer eine konkrete Regel bzw. ein konkretes Log lesen darf.  
-  _Deep dive: `docs/xDaLa/xgr_encryptionGrants.md`_
+On typical chains, that “process graph” is implemented *outside* the chain. You get:
+- off-chain state machines
+- implicit orchestration logic
+- race conditions
+- partial auditability
+- brittle ops
 
-> **Why JSON?** Human‑readable, diff‑able artifacts improve reviews, CI, and change governance. **XRC‑137** und **XRC‑729** sind geschäftslesbar und maschinenverarbeitbar, versions‑gepinnt via Hash.
-
----
-
-## 3) Runtime model (sessions, wakes, joins)
-
-### 3.1 Session Manager (instance‑based, asynchronous)
-Jedes `(owner, rootPid)` läuft als **eigener Prozesstree**:
-- **Promote** Prozesse, wenn **wake time** erreicht ist und Dispatch‑Gates es erlauben.
-- **Evaluate** den referenzierten **XRC‑137** genau einmal je Run: Inputs mergen (Session‑Payload + Reads + APIs), `isValid` berechnen, dann **`onValid`** **oder** **`onInvalid`** wählen.
-- **Spawn** Producer‑Steps entsprechend Branch; **deliver** Producer‑Ergebnisse in das per‑Target **Join Inbox**; **close** Joins, wenn **any/all/k‑of‑n** erfüllt oder unerfüllbar ist; **merge** Payloads deterministisch.
-- **Back‑pressure**: Sliding Window für parallele Validierungen — ein „langsamer“ Nutzer blockiert andere nicht.
-
-### 3.2 Time semantics (`waitSec`)
-- Jede Branch kann **`waitSec`** (relative Sekunden) setzen. Der Manager berechnet `wakeAt = now + waitSec`. Schlafen kostet **kein** EVM‑Gas; Fortsetzung ohne weitere Signatur.
-
-### 3.3 Data fusion (inputs for expressions)
-- **Session‑Payload** (Client), **contractReads** (typisierte ABI‑Aufrufe), und **apiCalls** (JSON) werden zu einer **einheitlichen Input‑Map** gemerged; die Validate‑Expressions laufen darauf.
-
-### 3.4 Failure handling (separate from `onInvalid`)
-- **Typed rule actions** (z. B. `abortStep`, `cancelSession`) werden **nach** `isValid` bewertet und können einen **Step beenden** oder eine **Session abbrechen** — unabhängig vom gewählten Business‑Branch.  
-- **Engine/runtime errors** (z. B. fehlende Defaults, wo Pflicht) failen den Step gemäß Engine‑Policy.  
-- **Wichtig:** `onInvalid` bleibt **rein fachlich** der Alternativ‑Pfad; Failure ≠ `onInvalid`.
+**The blockchain sees fragments. The real process lives elsewhere.**
 
 ---
 
-## 4) End‑to‑end: **permanenter Order‑to‑Ship‑Prozess** (unendlicher Bestelleingang)
+## 2) What XDaLa introduces (in one sentence)
 
-**Ziel:** Ein **dauerhaft laufender** Prozess, der Bestellungen asynchron verarbeitet. **OrderIntake** wird durch neue Kundendaten **gewaked**, prüft diese, stößt Folge‑Schritte an — und **arming** gleichzeitig den **nächsten Intake** (sowohl bei `valid` als auch `invalid`).
+**XDaLa is a deterministic process engine on top of a standard EVM chain — so workflows can be described, executed, paused, resumed, joined, and audited as on-chain sessions.**
 
-1. **O · OrderIntake (XRC‑137)**  
-   - **Inputs:** `orderId`, Kundendaten, Warenkorb.  
-   - **Validate:** Struktur/Kundenstatus plausibel?  
-   - **onValid:** spawn **PaymentCheck** und **StockAllocation**; **zusätzlich**: spawn **neuen O** und setze `waitSec=0` (bereits „wartend“ auf das nächste Wake).  
-   - **onInvalid:** spawn **NotifyCustomer**; **zusätzlich**: spawn **neuen O** und setze `waitSec=0`.  
-   - **LogTX (+ optional innerCall)**
+Think less “call a contract”, more:
 
-2. **P · PaymentCheck (XRC‑137)**  
-   - **ContractReads (EVM, beliebige Chain):** Zahlungseingang, Escrow‑Balance.  
-   - **API (PSP JSON):** Status/Chargeback‑Risiko (mit Defaults).  
-   - **onInvalid:** `waitSec=600` (Retry ohne neue Signatur).  
-   - **LogTX (+ optional innerCall)**
-
-3. **SA · StockAllocation (XRC‑137)**  
-   - **API (WMS/ERP):** Verfügbarkeit reservieren.  
-   - **onInvalid:** `waitSec=300` (Retry/Backorder).  
-   - **LogTX (+ optional innerCall)**
-
-4. **J1 · Join (mode: all(2/2), waitOnJoin=kill)**  
-   - Wartet auf P & SA; **merge** deren Payloads; fährt deterministisch fort.
-
-5. **S · Shipping (XRC‑137)**  
-   - **Execution:** `issueShipment(...)` (ABI‑Call).  
-   - **LogTX (+ optional innerCall)**
-
-**Eigenschaften:**  
-- **Unendlicher Intake**: O spawnt sich **immer** selbst neu und wartet auf das nächste Wake (nächster Auftrag).  
-- **Asynchron, gas‑sparend:** Wartezeiten (`waitSec`) kosten kein EVM‑Gas; Fortsetzung ohne neue Signatur.  
-- **Deterministische Joins:** all(2/2); frühzeitige Abbrüche, falls unerfüllbar.  
-- **Privacy by design:** Regeln + Logs pro Artefakt verschlüsselbar; Grants pro **RID & Scope**.
-
-> Hinweis: Das Diagramm „OrderPipeline_v1“ (farbig, mit Symbolen) liegt separat vor: `xgr_order_process_colored.svg` / `.png`.
+> **advance a process**
 
 ---
 
-## 5) Comparison (typical approach vs. XDaLa)
+## 3) The mental model: Transaction vs Session
 
-| Challenge | Typical chain + schedulers | XDaLa on XGR |
-|---|---|---|
-| Alternate path vs. failure | Oft vermischt | **`onInvalid` = Business‑Pfad**, **Failure separat** |
-| Parallelism & joins | Eigene Jobs; Race Conditions | Native **spawn/join** mit **any/all/k‑of‑n** |
-| Waiting/timing | Crons, Polling | **`waitSec`** + deterministisches Wake |
-| External data | Ad‑hoc, Hidden State | **Reads + APIs** → eine Input‑Map |
-| Privacy | Uneinheitlich | **Pro‑Artefakt RID + Scope** (`rule`/`log`) |
-| Auditability | Verteilte Logs | Receipts + Log‑Artefakte; Hash‑pinned JSON |
-| Cost predictability | Opaque | **Validation Gas** (strukturell) + EVM (nur Execution) |
+### Traditional EVM
+`User → tx → contract → result`
 
----
+### With XDaLa
+`User → session → process tree → deterministic outcomes (+ optional inner EVM calls)`
 
-## 6) Operations (concise launch guidance)
-- **Governance/Validators:** Quorum pflegen; Signer‑Participation monitoren; Membership‑Changes geplant.  
-- **RPC posture:** TLS am Edge; Auth; Rate Limits; Latenz/Errors Base + XDaLa beobachten.  
-- **Privacy/Retention:** Grants/Read‑Keys wie Secrets behandeln; `logExpireDays` per Policy.  
-- **Observability:** Receipts + XDaLa‑Events indexieren; Validation‑Gas‑Verteilungen beobachten.  
-- **Backups:** Orchestration JSON (by hash), verschlüsselte Rules, Grants‑Metadaten; Restore‑Tests in Staging.  
-- **State retention:** Snapshot/Pruning per SLA/Audit dokumentieren (keine Pauschal‑Empfehlung hier).
+A **session** is a living execution context that can:
+- run now
+- **wait** and continue later (`waitSec`) without new orchestration glue
+- **spawn** parallel branches
+- **join** results deterministically (any / all / k-of-n)
+- incorporate external data (contract reads + HTTP APIs)
+- keep artifacts private through explicit grants/encryption
 
 ---
 
-## 7) Key terms
-- **Session** — Laufende Instanz `(owner, rootPid)` einer Orchestration.  
-- **Process** — Token, das einen Rule‑Step ausführt (`waiting → running → done/aborted`).  
-- **Join target** — Aggregiert Producer‑Ergebnisse; Modus **any/all/k‑of‑n**.  
-- **`onValid` / `onInvalid`** — Alternative **Business‑Branches**; **nicht** Failure.  
-- **Failure handling** — Typed rule actions (`abortStep`, `cancelSession`) und Engine/Runtime‑Fehler; getrennt von Branches.  
-- **RID (Resource Identifier)** — Einzigartige Kennung **pro Rule‑Artefakt und pro Log‑Artefakt**. Grants sind **pro RID** und nach **Scope** (`rule`/`log`) vergeben. Entschlüsselung erfordert **Match** beider.
+## 4) The three building blocks (XRCs)
+
+### 4.1 XRC-137 — Rule (one deterministic step)
+An **XRC-137 rule** defines *one step* of a process:
+
+- input schema (typed)
+- optional **contractReads** (EVM reads)
+- optional **apiCalls** (HTTP → extracted typed values)
+- boolean validation rules (expressions)
+- two explicit outcomes:
+  - `onValid`
+  - `onInvalid`
+
+**Key shift:**  
+`onInvalid` is *not failure*. It is your **alternative business branch**.
+
+Failures are separate and explicit (e.g., abort/cancel semantics and hard engine errors).
 
 ---
 
-## 8) Where to go next
-- **Rules (XRC‑137)** — JSON anatomy, expressions, outcomes, logging, `waitSec`. → `docs/xDaLa/xrc_137_spec.md`  
-- **Orchestrations (XRC‑729)** — spawns, joins (any/all/k‑of‑n), `waitOnJoin`, delivery & merge semantics. → `docs/xDaLa/xrc_729_orchestration_session_manager.md`  
-- **Grants (XRC‑563)** — RID, scopes (`rule`/`log`), grants lifecycle. → `docs/xDaLa/xgr_encryptionGrants.md`  
-- **Validation Gas** — weights, wait surcharge, budgeting patterns. → `docs/xDaLa/XRC‑137_Validation_Gas.md`  
-- **Session transactions & RPC** — permits, budgets, lifecycle. → `docs/xDaLa/xDaLa_sessionTransaction.md`
+### 4.2 XRC-729 — Orchestration (the process graph)
+An **orchestration** is a directed graph of step IDs:
+
+- spawns: run steps in parallel
+- joins: synchronize on outcomes (`any`, `all`, `k-of-n`)
+- wait policies on joins (`kill` or `drain`)
+- deterministic merging of producer payloads
+
+Orchestration is **on-chain, auditable, reproducible**.
+
+No hidden scheduler logic. No implicit control flow.
+
+---
+
+### 4.3 XRC-563 — Grants & privacy (per artifact)
+XDaLa treats rules and logs as **artifacts** with explicit access control:
+
+- every artifact has a **RID** (resource identifier)
+- grants are issued **per RID** and **per scope** (`rule` / `log`)
+- encryption is **granular**, not global
+- selective disclosure becomes a first-class protocol concept (e.g., “auditor can read logs, not rules”, or vice versa)
+
+---
+
+## 5) Runtime semantics: what actually happens
+
+### 5.1 Instance-based execution (sessions)
+Each `(owner, rootPid)` produces a process tree that is executed asynchronously by the session manager:
+
+- promote runnable processes (wake-time reached, dispatch gates ok)
+- evaluate exactly one XRC-137 step per run
+- pick `onValid` / `onInvalid`
+- optionally execute an inner ABI call (normal EVM call)
+- emit receipts + log artifacts (optionally encrypted)
+- spawn next processes and manage joins
+
+### 5.2 Time becomes native (`waitSec`)
+A step outcome can set `waitSec`:
+- the process is parked deterministically
+- it resumes later without cron jobs, keepers, or bespoke retry logic
+- waiting costs no EVM execution gas (only state/log semantics)
+
+### 5.3 Determinism is enforced (not hoped for)
+XDaLa’s design assumes adversarial conditions and enforces deterministic boundaries:
+- bounded expression complexity (hard caps)
+- deterministic evaluation behavior (soft-invalid vs hard error)
+- deterministic cost model (“Validation Gas”) separate from EVM gas
+
+Result: processes remain explainable, billable, and auditable.
+
+---
+
+## 6) Where this shines (use-case intuition)
+
+XDaLa is strongest wherever you currently need “off-chain orchestration glue”:
+
+- **Payments & settlement (e.g., ISO-style structured flows)**  
+  validate, enrich, encrypt artifacts, join approvals, then execute transfers.
+
+- **Trading / RFQ / risk**  
+  run quotes in parallel, join best-of, enforce limits, retry with deterministic waits.
+
+- **Logistics / supply chain**  
+  parallel track providers, join k-of-n confirmations, release assets once conditions are met.
+
+- **Enterprise automation**  
+  approvals, staged execution, auditable trails — without building a workflow engine off-chain.
+
+The recurring reaction you want from builders is:
+> “This is the missing layer between smart contracts and real processes.”
+
+---
+
+## 7) How to start (builder path)
+
+1. **Write a single XRC-137 rule**
+   - define 2–5 inputs
+   - one or two validation expressions
+   - simple `onValid` / `onInvalid` payload outputs
+
+2. **Run it standalone**
+   - observe outcome payloads
+   - inspect receipts/log artifacts
+
+3. **Add a second step via XRC-729**
+   - spawn it from `onValid` (or `onInvalid`)
+   - optionally add `waitSec` for retry
+
+4. **Add privacy**
+   - enable encryption on logs
+   - issue grants for a concrete RID/scope
+
+At that point you’ve already replaced:
+- a scheduler
+- a queue consumer
+- a small workflow service
+- and part of your audit log stack
+
+---
+
+## 8) XGR chain foundations (EVM-first, XDaLa additive)
+
+XGR is designed to be **100% EVM-compatible**:
+- standard transaction formats
+- standard tooling expectations
+- JSON-RPC compatibility, plus a small documented XDaLa extension surface
+
+**Testnet example snapshot (genesis-derived):**
+- `chainId: 1879`
+- IBFT-style PoA finality with a fixed block time (e.g., `blockTime: 2s` in the sample)
+- major EVM forks enabled from genesis (e.g., London at block 0 in the sample)
+- high block gas limit (e.g., `0x3938700` in the sample)
+
+These parameters can evolve across networks, but the principle stays stable:
+> **EVM stays standard. XDaLa adds deterministic process semantics on top.**
+
+---
+
+## 9) The bigger picture
+
+Ethereum made **code** executable on-chain.  
+XDaLa makes **processes** executable on-chain.
+
+Not scripts. Not cron jobs. Not keepers. Not glue services.
+
+**Processes.**
+
+---
+
+## Where to go next
+
+- **XRC-137 Rule Documents** — schema, API calls, contract reads, branches, execution
+- **Expressions & Templates** — evaluation, determinism, defaults, soft-invalid behavior
+- **XRC-729 Orchestration** — spawns, joins, scopes, delivery/merge rules
+- **XRC-563 Grants** — encryption, RID/scope, access lifecycle
+- **Validation Gas** — deterministic budgeting separate from EVM gas
+- **JSON-RPC Extensions** — session lifecycle + permits
+- **JSON-RPC Extensions** — session lifecycle + permits
