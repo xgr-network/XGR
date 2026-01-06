@@ -56,6 +56,7 @@ For most integrations, XGR behaves like any EIP-1559-compatible chain. This docu
 | Base fee at low load | Decreases toward zero | **Fixed at minimum** |
 | Base fee at normal load | Fluctuates around target | **Fixed at minimum** |
 | Price floor | None | **Network-governed minimum** |
+| Priority fee (tip) | Required (>0) for inclusion | **Zero by default** |
 | Price increase trigger | Above 50% block utilization | Above **80%** block utilization |
 | Maximum increase rate | +12.5% per block | **+25% per block** (above 80% only) |
 | Price decrease behavior | Gradual (-12.5% per block) | **Immediate** return to minimum |
@@ -139,23 +140,25 @@ Effective Gas Price = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
 Under normal network conditions:
 
 ```
-Effective Gas Price ≈ minBaseFee + tip
+Effective Gas Price = minBaseFee
 ```
+
+**Note:** XGR suggests `maxPriorityFeePerGas = 0` by default. Users pay exactly `baseFee` per gas unit.
 
 ### 4.2 Calculation examples
 
 The following examples use **hypothetical values** for illustration. Actual network parameters are governed on-chain.
 
-**Assumption for examples:** `minBaseFee = 100 Gwei`, `tip = 1 Gwei`
+**Assumption for examples:** `minBaseFee = 100 Gwei`
 
 | Operation | Typical Gas | Calculation | Example Cost |
 |-----------|-------------|-------------|--------------|
-| Native transfer | 21,000 | 21,000 × 101 Gwei | 2,121,000 Gwei |
-| ERC-20 transfer | ~65,000 | 65,000 × 101 Gwei | 6,565,000 Gwei |
-| ERC-20 approve | ~46,000 | 46,000 × 101 Gwei | 4,646,000 Gwei |
-| NFT transfer | ~85,000 | 85,000 × 101 Gwei | 8,585,000 Gwei |
-| Simple swap | ~150,000 | 150,000 × 101 Gwei | 15,150,000 Gwei |
-| Complex DeFi operation | ~300,000 | 300,000 × 101 Gwei | 30,300,000 Gwei |
+| Native transfer | 21,000 | 21,000 × 100 Gwei | 2,100,000 Gwei |
+| ERC-20 transfer | ~65,000 | 65,000 × 100 Gwei | 6,500,000 Gwei |
+| ERC-20 approve | ~46,000 | 46,000 × 100 Gwei | 4,600,000 Gwei |
+| NFT transfer | ~85,000 | 85,000 × 100 Gwei | 8,500,000 Gwei |
+| Simple swap | ~150,000 | 150,000 × 100 Gwei | 15,000,000 Gwei |
+| Complex DeFi operation | ~300,000 | 300,000 × 100 Gwei | 30,000,000 Gwei |
 
 **Note:** Gas consumption varies by contract implementation. Use `eth_estimateGas` for accurate estimates.
 
@@ -183,8 +186,8 @@ The following examples use **hypothetical values** for illustration. Actual netw
 
 | Endpoint | Returns | Description |
 |----------|---------|-------------|
-| `eth_gasPrice` | `baseFee + tip` | Suggested price for legacy transactions |
-| `eth_maxPriorityFeePerGas` | `tip` | Suggested priority fee (typically minimal) |
+| `eth_gasPrice` | `baseFee` | Suggested price for legacy transactions |
+| `eth_maxPriorityFeePerGas` | `0` | Priority fee (zero on XGR) |
 | `eth_feeHistory` | Historical data | Base fees, gas ratios, and reward percentiles |
 
 ### 5.2 Expected values under normal load
@@ -192,19 +195,19 @@ The following examples use **hypothetical values** for illustration. Actual netw
 | Field | Typical Value | Notes |
 |-------|---------------|-------|
 | `baseFeePerGas` (block header) | `minBaseFee` | Governed on-chain |
-| `eth_gasPrice` response | `minBaseFee + tip` | Ready-to-use for legacy TX |
-| `eth_maxPriorityFeePerGas` response | ~1 Gwei | Minimal tip sufficient |
+| `eth_gasPrice` response | `minBaseFee` | Ready-to-use for legacy TX |
+| `eth_maxPriorityFeePerGas` response | `0` | No tip required |
 | Suggested `maxFeePerGas` | ~2× baseFee | Buffer for compatibility |
 
 ### 5.3 The `maxFeePerGas` buffer
 
-Standard tooling typically suggests `maxFeePerGas = 2 × baseFee + tip` as a safety buffer. On XGR this buffer is often unnecessary due to price stability, but **does not cost extra**—users only pay the effective price.
+Standard tooling typically suggests `maxFeePerGas = 2 × baseFee` as a safety buffer. On XGR this buffer is often unnecessary due to price stability, but **does not cost extra**—users only pay the effective price.
 
 | You specify | Network baseFee | You pay |
 |-------------|-----------------|---------|
-| `maxFeePerGas = 200 Gwei` | 100 Gwei | ~101 Gwei (effective) |
-| `maxFeePerGas = 150 Gwei` | 100 Gwei | ~101 Gwei (effective) |
-| `maxFeePerGas = 110 Gwei` | 100 Gwei | ~101 Gwei (effective) |
+| `maxFeePerGas = 200 Gwei` | 100 Gwei | 100 Gwei (effective) |
+| `maxFeePerGas = 150 Gwei` | 100 Gwei | 100 Gwei (effective) |
+| `maxFeePerGas = 110 Gwei` | 100 Gwei | 100 Gwei (effective) |
 
 ---
 
@@ -212,17 +215,40 @@ Standard tooling typically suggests `maxFeePerGas = 2 × baseFee + tip` as a saf
 
 ### 6.1 Fee distribution
 
-Transaction fees are distributed to multiple recipients:
+Transaction fees are distributed using a **fixed formula**, independent of EIP-1559 tip mechanics:
 
-| Recipient | Approximate Share | Purpose |
-|-----------|-------------------|---------|
-| Block Validator | ~85% | Block production reward |
-| Community Treasury | ~15% | Network development and ecosystem |
-| Burn | Fixed small amount | Deflationary mechanism |
+```
+Total Fee = Gas Used × Gas Price
 
-**Note:** The donation percentage is configurable via the EngineRegistry contract.
+1. Burn (fixed):     1000 Gwei per transaction
+2. Remaining:        Total Fee − 1000 Gwei
+3. Treasury:         Remaining × donationPercent%
+4. Validator:        Remaining − Treasury
+```
 
-### 6.2 Fee transparency
+**Important:** The EIP-1559 `maxPriorityFeePerGas` field does **not** determine validator rewards on XGR. Fee distribution follows the fixed formula above regardless of tip values specified in transactions.
+
+### 6.2 Distribution parameters
+
+| Parameter | Default | Source | Adjustable |
+|-----------|---------|--------|------------|
+| Burn amount | 1000 Gwei | Protocol | No |
+| Donation percent | 15% | EngineRegistry | Yes (governance) |
+| Donation address | On-chain | EngineRegistry | Yes (governance) |
+
+### 6.3 Example distribution
+
+**Assumption:** `gasUsed = 21,000`, `gasPrice = 100 Gwei`, `donationPercent = 15%`
+
+| Step | Calculation | Amount |
+|------|-------------|--------|
+| Total fee | 21,000 × 100 Gwei | 2,100,000 Gwei |
+| Burn (fixed) | — | 1,000 Gwei |
+| Remaining | 2,100,000 − 1,000 | 2,099,000 Gwei |
+| Treasury (15%) | 2,099,000 × 0.15 | 314,850 Gwei |
+| Validator | 2,099,000 − 314,850 | 1,784,150 Gwei |
+
+### 6.4 Fee transparency
 
 Each transaction emits an event documenting the fee split:
 
@@ -310,7 +336,7 @@ A: Yes. All EIP-1559-compatible tooling works without modification.
 A: No breaking differences. The model is a superset of EIP-1559 with additional stability guarantees.
 
 **Q: How do priority fees (tips) work?**  
-A: Identically to standard EIP-1559. Tips affect transaction ordering within blocks. Minimal tips (~1 Gwei) are typically sufficient.
+A: XGR returns `maxPriorityFeePerGas = 0` by default. Unlike Ethereum mainnet, tips are not required for transaction inclusion. All transactions pay exactly `baseFee` per gas unit. If a non-zero tip is specified, it is accepted but does not affect transaction ordering.
 
 ---
 
@@ -328,21 +354,24 @@ A: Identically to standard EIP-1559. Tips affect transaction ordering within blo
 ### Calculation reference
 
 ```
-Effective Gas Price = min(maxFeePerGas, baseFee + tip)
+Effective Gas Price = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
 Transaction Cost = Gas Used × Effective Gas Price
 
-Under normal load:
+Under normal load (tip = 0):
   baseFee = minBaseFee (from EngineRegistry)
-  Effective Gas Price ≈ minBaseFee + tip
+  Effective Gas Price = minBaseFee
 ```
 
 ### Fee distribution reference
 
 ```
-Total Fee = Gas Used × Effective Gas Price
+Total Fee = Gas Used × Gas Price
 
-Distribution:
-  → Burn:      Fixed small amount
-  → Treasury:  (Total - Burn) × donationPercent%
-  → Validator: Remainder
+Distribution (fixed formula):
+  → Burn:      1000 Gwei (fixed per transaction)
+  → Remaining: Total Fee − 1000 Gwei
+  → Treasury:  Remaining × donationPercent%
+  → Validator: Remaining − Treasury
+
+Note: EIP-1559 tip values do NOT affect this distribution.
 ```
