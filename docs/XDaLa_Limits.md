@@ -1,4 +1,4 @@
-# XDaLa Hard Limits Specification (XRC-137 & XRC-729)
+# XDaLa Hard Limits Specification (XRC-137, XRC-729, CEL)
 
 ## 1. Scope and Rationale
 
@@ -6,213 +6,141 @@ This document specifies the **deterministic hard limits (“caps”)** enforced 
 
 - **XRC-137** (Rule / Validation Documents)
 - **XRC-729** (Orchestration / Process Graphs)
+- **CEL / Expression Evaluation** (runtime evaluator safety)
 
-These limits are **not configuration knobs** and **not rate limits**.  
-They are **hard, deterministic safety caps** enforced during parsing and preflight validation to ensure:
+These caps are **hard protocol constraints**. They are enforced **before execution** (parsing/preflight) or **during evaluator preparation** (checked AST), to ensure:
 
-- bounded CPU and memory usage
-- bounded database growth and log size
-- prevention of fan-out and graph explosion
-- predictable worst-case execution behavior
+- bounded CPU/memory usage
+- bounded fan-out and join cardinality
+- bounded log/receipt/database growth
+- deterministic worst-case behavior
 
-Any violation of these limits results in a **hard abort**.
+Any cap violation results in a **hard abort**.
 
 ---
 
 ## 2. Abort Semantics
 
 ### 2.1 XRC-729 (Orchestration)
-
-- Limits are enforced **before session start**
-- Violations cause an **early abort**
-- The JSON-RPC call (`xgr_validateDataTransfer`) fails immediately
-- **No process is enqueued**
-- **No session state is created**
+Caps are enforced **before session start**. Violations cause an **early abort**:
+- the JSON-RPC call fails immediately
+- **no process is enqueued**
+- **no session state is created**
 
 ### 2.2 XRC-137 (Rule Documents)
+Caps are enforced **when the rule document is read and parsed** during session execution.  
+Violations result in a **hard abort** (ErrTx semantics), not a soft validation outcome.
 
-- Limits are enforced **when the rule is loaded and parsed**
-- Violations result in a **hard transaction abort**
-- The session fails deterministically with an error
-- This maps to an **ErrTx / hard failure**, not a soft validation result
+### 2.3 CEL / Expression Evaluation
+Evaluator caps are enforced:
+- on raw expression length (pre-check)
+- on checked AST size (node count)
+- on input list/array sizes (deep traversal)
 
----
-
-## 3. Design Principles
-
-The limits follow four strict principles:
-
-1. **Deterministic**  
-   No dependence on runtime scheduling, node load, or timing.
-
-2. **Schema-Level Enforcement**  
-   Applied during parsing / preflight, not during execution.
-
-3. **Fail-Fast**  
-   Abort as early as possible to avoid partial state or side effects.
-
-4. **Economically Neutral**  
-   Limits are independent of gas price or sender balance.
+Violations abort rule evaluation deterministically. :contentReference[oaicite:1]{index=1}
 
 ---
 
-## 4. XRC-137 Limits (Rule Documents)
+## 3. XRC-137 Limits (Rule Documents)
 
-### 4.1 Document Size
+### 3.1 Document & Schema Caps
 
-| Limit | Description |
-|---|---|
-| `MaxXRC137Bytes` | Maximum size of the decrypted rule JSON |
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxXRC137Bytes` | Maximum size of the decrypted XRC-137 JSON blob | 131072 bytes (128 KB) |
+| `MaxPayloadFields` | Maximum declared payload input fields | 64 |
+| `MaxFieldNameLen` | Maximum payload/output field name length (ASCII identifier) | 64 chars |
+| `MaxRules` | Maximum number of rules in `rules[]` | 64 |
+| `MaxExprLen` | Maximum length of any rule expression string | 2048 chars |
 
-**Default:** `128 KB`
-
-Applies:
-- before JSON parsing
-- after decryption (if encrypted)
-
----
-
-### 4.2 Payload Definition
-
-| Limit | Description |
-|---|---|
-| `MaxPayloadFields` | Maximum number of declared payload input fields |
-| `MaxFieldNameLen` | Maximum length of a payload field name |
-
-**Defaults:**  
-- Fields: `64`  
-- Field name length: `64` characters
-
-Field names must be **ASCII identifiers**:  
-`[A-Z a-z 0-9 _ -]`
+Field names must be ASCII identifiers: `[A-Za-z0-9_-]`.
 
 ---
 
-### 4.3 Rules and Expressions
+### 3.2 API Caps
 
-| Limit | Description |
-|---|---|
-| `MaxRules` | Maximum number of rule entries |
-| `MaxExprLen` | Maximum length of a single expression string |
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxAPICalls` | Maximum number of `apiCalls[]` | 16 |
+| `MaxURLTemplateLen` | Maximum `urlTemplate` length | 2048 chars |
+| `MaxBodyTemplateLen` | Maximum `bodyTemplate` length | 8192 chars (8 KB) |
+| `MaxExtractMapEntries` | Maximum extract entries per `apiCalls[i].extractMap` | 64 |
+| `MaxStringValueLen` | Maximum length of any string literal/default in API extract context | 8192 chars (8 KB) |
 
-**Defaults:**  
-- Rules: `64`  
-- Expression length: `2048` characters
-
-Applies to:
-- string rules
-- object rules (`{ expression, type }`)
-- validation and decision rules
+Notes:
+- Each `extractMap` key is subject to `MaxFieldNameLen` and ASCII identifier rules.
+- Expression-like strings inside extract specs are subject to `MaxExprLen`.
 
 ---
 
-### 4.4 API Calls
+### 3.3 Contract Reads Caps
 
-| Limit | Description |
-|---|---|
-| `MaxAPICalls` | Maximum number of API calls |
-| `MaxURLTemplateLen` | Maximum URL template length |
-| `MaxBodyTemplateLen` | Maximum body template length |
-| `MaxExtractMapEntries` | Maximum extract map entries per call |
-
-**Defaults:**  
-- API calls: `16`  
-- URL template: `2048` chars  
-- Body template: `8 KB`  
-- Extract entries: `64`
-
-Each extract key:
-- must be an ASCII identifier
-- counts toward extract fan-out limits
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxContractReads` | Maximum number of `contractReads[]` | 16 |
+| `MaxContractReadSaveAs` | Maximum number of `saveAs` targets per contract read | 64 |
+| `MaxStringValueLen` | Maximum length of any string default in `saveAs` | 8192 chars (8 KB) |
 
 ---
 
-### 4.5 Contract Reads
+### 3.4 Branch Outcome Caps (`onValid` / `onInvalid`)
 
-| Limit | Description |
-|---|---|
-| `MaxContractReads` | Maximum number of contract reads |
-| `MaxContractReadSaveAs` | Maximum number of `saveAs` targets |
-
-**Defaults:**  
-- Reads: `16`  
-- Save targets: `64`
-
-Each `saveAs` key:
-- must be a valid ASCII identifier
-- is subject to payload and log caps downstream
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxOutcomeKeys` | Maximum number of keys in `onValid.payload` / `onInvalid.payload` | 64 |
+| `MaxGrants` | Maximum number of grants per branch | 16 |
+| `MaxExecArgs` | Maximum number of `execution.args[]` per branch | 16 |
+| `MaxStringValueLen` | Maximum length of any string payload value in branches | 8192 chars (8 KB) |
 
 ---
 
-### 4.6 Branch Outcomes (`onValid` / `onInvalid`)
+## 4. XRC-729 Limits (Orchestration)
 
-| Limit | Description |
-|---|---|
-| `MaxOutcomeKeys` | Maximum number of output payload keys |
-| `MaxGrants` | Maximum grants per branch |
-| `MaxExecArgs` | Maximum execution arguments |
-| `MaxStringValueLen` | Maximum length of any string value |
+### 4.1 Document Caps
 
-**Defaults:**  
-- Outcome keys: `64`  
-- Grants: `16`  
-- Execution args: `16`  
-- String value length: `8 KB`
-
-Applies to:
-- outcome payload values
-- defaults
-- execution argument values
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxOSTCBytes` | Maximum size of raw OSTC JSON returned by XRC-729 | 262144 bytes (256 KB) |
 
 ---
 
-## 5. XRC-729 Limits (Orchestration)
+### 4.2 Graph Caps
 
-### 5.1 Document Size
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxSteps` | Maximum number of steps in `structure` | 128 |
+| `MaxStepIdLen` | Maximum step id length (ASCII identifier) | 64 chars |
+| `MaxSpawnsPerBranch` | Maximum spawn edges per branch (`onValid.spawns`, `onInvalid.spawns`) | 32 |
+| `MaxJoinInputs` | Maximum join inputs per join (`join.from[]`) | 32 |
 
-| Limit | Description |
-|---|---|
-| `MaxOSTCBytes` | Maximum size of orchestration JSON |
-
-**Default:** `256 KB`
-
-Enforced before graph parsing.
-
----
-
-### 5.2 Steps and Graph Size
-
-| Limit | Description |
-|---|---|
-| `MaxSteps` | Maximum number of steps in the orchestration |
-| `MaxStepIdLen` | Maximum length of a step identifier |
-
-**Defaults:**  
-- Steps: `128`  
-- Step ID length: `64` characters
-
-All step IDs must be ASCII identifiers.
+Notes:
+- Step ids, spawn targets, join ids and join `from.node` MUST be ASCII identifiers.
+- Caps are applied during orchestration parsing; violations early-abort the RPC call.
 
 ---
 
-### 5.3 Spawns and Joins
+## 5. CEL / Expression Limits (Evaluator Safety)
 
-| Limit | Description |
-|---|---|
-| `MaxSpawnsPerBranch` | Maximum spawns per branch |
-| `MaxJoinInputs` | Maximum inputs into a join |
+These limits are enforced in the CEL evaluation layer and are independent from XRC schema parsing. :contentReference[oaicite:2]{index=2}
 
-**Defaults:**  
-- Spawns per branch: `32`  
-- Join inputs: `32`
-
-These caps prevent:
-- fan-out explosions
-- unbounded join cardinality
-- exponential process growth
+| Key | Description | Limit |
+|---|---|---:|
+| `MaxExprLen` | Maximum raw CEL source length (bytes) | 1024 |
+| `MaxAstNodes` | Maximum checked AST node count | 4096 |
+| `MaxListCap` | Maximum list/array size anywhere in input values (deep traversal) | 64 |
 
 ---
 
 ## 6. Error Semantics
 
-All limit violations return a deterministic error:
+Limit violations return deterministic errors (hard abort):
+
+- `ErrLimitsExceeded` (parser/preflight caps)
+- CEL layer errors (e.g. `ErrExprTooComplex`, `ErrListCapExceeded`) for evaluator caps :contentReference[oaicite:3]{index=3}
+
+Error messages include:
+- which cap was violated
+- observed value
+- maximum allowed value
+
+Example:
