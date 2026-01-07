@@ -35,7 +35,7 @@ contract XGRPublicSale is Ownable {
     uint256 public constant DELTA = 10_000 ether;
 
     // Tranche duration (default here: 60 minutes for testing; set to 30 days for production)
-    uint256 public constant TRANCHE_DURATION = 60 minutes;
+    uint256 public constant TRANCHE_DURATION = 30 days;
 
     // Fixed-point base (1e18 = 1.0)
     uint256 private constant ONE = 1e18;
@@ -95,7 +95,6 @@ contract XGRPublicSale is Ownable {
 
     event TrancheRolled(uint256 newStart, uint256 newEnd, uint256 newPrice, uint256 newIndex);
     event SaleToggled(bool active);
-    event XGRWithdrawn(address indexed to, uint256 amount);
 
     /// @dev Summary event for gas-efficient maintenance that rolls many empty windows
     /// in a single admin call (without per-window events).
@@ -159,19 +158,6 @@ contract XGRPublicSale is Ownable {
         require(success, "XGR transfer failed");
         emit TokensSold(currentTranche, buyer, xgrAmount, currentPrice);
         emit Payout(orderRef, buyer, xgrAmount, msg.sender);
-    }
-
-    /// @notice Withdraw native XGR from the contract (e.g., remaining balance).
-    /// @dev Does not affect Msold / pricing.
-    function withdrawXGR(address to, uint256 amount) external onlyOwner {
-        require(to != address(0), "Invalid to");
-        require(amount > 0, "Amount must be > 0");
-        require(address(this).balance >= amount, "Insufficient balance");
-
-        (bool success, ) = payable(to).call{value: amount}("");
-        require(success, "Withdraw failed");
-
-        emit XGRWithdrawn(to, amount);
     }
 
     /// @notice Persistently roll the stored state forward until `block.timestamp` is inside the active tranche.
