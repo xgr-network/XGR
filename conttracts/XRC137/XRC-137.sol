@@ -7,6 +7,13 @@ contract XRC137 {
     // --- Minimal ownership (no OZ) ---
     address public owner;
 
+    // --- Executors (optional ACL; does NOT affect rule mutability) ---
+   address[] private executorList;
+    mapping(address => uint256) private executorIndex; // 1-based; 0 == not present
+
+    event ExecutorAdded(address indexed executor);
+    event ExecutorRemoved(address indexed executor);
+
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
         _;
@@ -36,6 +43,41 @@ contract XRC137 {
         owner = msg.sender;
         ruleJson = _json;
         // encrypted.rid remains zero => plaintext by default
+   }
+
+    // --- Executor management (owner only) ---
+    function addExecutor(address exec) external onlyOwner {
+        require(exec != address(0), "zero addr");
+        require(exec != owner, "owner cannot be executor");
+        if (executorIndex[exec] != 0) {
+            return;
+        }
+        executorList.push(exec);
+        executorIndex[exec] = executorList.length; // 1-based
+        emit ExecutorAdded(exec);
+    }
+
+    function removeExecutor(address exec) external onlyOwner {
+        uint256 idx1b = executorIndex[exec];
+        if (idx1b == 0) {
+            return;
+        }
+
+        uint256 idx = idx1b - 1;
+        uint256 last = executorList.length - 1;
+        if (idx != last) {
+            address moved = executorList[last];
+            executorList[idx] = moved;
+            executorIndex[moved] = idx + 1;
+        }
+       executorList.pop();
+        delete executorIndex[exec];
+
+        emit ExecutorRemoved(exec);
+    }
+
+    function getExecutorList() external view returns (address[] memory) {
+        return executorList;
     }
 
     // --- Views ---

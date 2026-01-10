@@ -351,8 +351,8 @@ contract XGRPublicSale is Ownable {
     }
 
     /// @dev Price transition function:
-    ///      Case 1 (sold out):  P_{n+1} = P_n * (1 + m0 + (M - m0) * d * (P0 / P_n)^0.5)
-    ///      Case 2 (undersub):  P_{n+1} = max(P0; P_n * (1 - D * u * (P0 / P_n)^0.5)), u = 1 - s
+    ///      Case 1 (sold out):  P_{n+1} = P_n * (1 + m0 + (M - m0) * d * (P0 / P_n)^0.05)
+    ///      Case 2 (undersub):  P_{n+1} = max(P0; P_n * (1 - D * u * (P0 / P_n)^0.05)), u = 1 - s
     function _computeNextPrice(
         uint256 oldPrice,
         uint256 msold,
@@ -371,7 +371,7 @@ contract XGRPublicSale is Ownable {
             // d = (30 - steps) / 30
             uint256 d1e18 = ((TRANCHE_STEPS - steps) * ONE) / TRANCHE_STEPS;
 
-            // (P0 / P_n)^0.5
+            // (P0 / P_n)^0.05
             uint256 betaTerm = _betaTerm(oldPrice);
 
             // inc = m0 + (M - m0) * d * beta
@@ -386,7 +386,7 @@ contract XGRPublicSale is Ownable {
             if (s1e18 > ONE) s1e18 = ONE;
             uint256 u1e18 = ONE - s1e18;
 
-            // (P0 / P_n)^0.5
+            // (P0 / P_n)^0.05
             uint256 betaTerm = _betaTerm(oldPrice);
 
             // tmp = D * u * beta
@@ -405,20 +405,51 @@ contract XGRPublicSale is Ownable {
         return newPrice;
     }
 
-    /// @dev betaTerm = (P0 / P)^0.5 in 1e18 fixed-point.
+    /// @dev betaTerm = (P0 / P)^0.05 in 1e18 fixed-point.
+    ///      NOTE: 0.05 == 1/20, so this is the 20th-root of (P0 / P).
+    ///      We deliberately avoid `sqrt` (0.5 exponent) here, as that would be wrong.
     function _betaTerm(uint256 price) internal pure returns (uint256) {
-        // x = P0 * 1e36 / price; sqrt(x) → 1e18 scale
-        uint256 x = (P0 * ONE * ONE) / price;
-        return _sqrt(x);
+        // ratio = (P0 / price) in 1e18 fixed point.
+        // With the floor guard (P >= P0) enforced in _computeNextPrice, ratio <= 1e18.
+        uint256 ratio = (P0 * ONE) / price;
+        if (ratio >= ONE) return ONE;
+        return _root20Wad(ratio);
     }
 
-    /// @dev Integer sqrt (Babylonian method).
-    function _sqrt(uint256 x) internal pure returns (uint256) {
+    /// @dev 20th root for values in wad (1e18) with domain [0, 1e18].
+    ///      Uses a fixed-iteration binary search.
+    function _root20Wad(uint256 x) internal pure returns (uint256) {
         if (x == 0) return 0;
-        uint256 z = (x + 1) / 2;
-        uint256 y = x;
-        while (z < y) { y = z; z = (x / z + z) / 2; }
-        return y;
+
+        uint256 low = 0;
+        uint256 high = ONE;
+
+        // 64 iterations are sufficient to converge well below 1 wei at 1e18 scale.
+        for (uint256 i = 0; i < 64; i++) {
+            uint256 mid = (low + high) / 2;
+            uint256 midPow = _pow20Wad(mid);
+            if (midPow > x) {
+                high = mid;
+            } else {
+                low = mid;
+            }
+        }
+        return low;
+    }
+
+    /// @dev x^20 in wad (1e18) for x in [0, 1e18].
+    ///      Implemented via squaring to keep this cheap and overflow-safe.
+    function _pow20Wad(uint256 x) internal pure returns (uint256) {
+        // x^2
+        uint256 x2 = (x * x) / ONE;
+        // x^4
+        uint256 x4 = (x2 * x2) / ONE;
+        // x^8
+        uint256 x8 = (x4 * x4) / ONE;
+        // x^16
+        uint256 x16 = (x8 * x8) / ONE;
+        // x^20 = x^16 * x^4
+        return (x16 * x4) / ONE;
     }
 
     /// @notice Accept native XGR (funding the contract).

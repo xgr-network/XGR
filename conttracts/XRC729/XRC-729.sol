@@ -8,6 +8,13 @@ contract XRC729 {
     address public immutable owner;
     string public nameXRC = "XGR_XRC729";
 
+    // --- Executors (optional ACL; does NOT affect OSTC mutability) ---
+    address[] private executorList;
+    mapping(address => uint256) private executorIndex; // 1-based; 0 == not present
+
+    event ExecutorAdded(address indexed executor);
+    event ExecutorRemoved(address indexed executor);
+
     // ID -> JSON
     mapping(string => string) private ostcJSON;
 
@@ -27,6 +34,39 @@ contract XRC729 {
 
     constructor() {
         owner = msg.sender;
+   }
+    // --- Executor management (owner only) ---
+    function addExecutor(address exec) external onlyOwner {
+       require(exec != address(0), "XRC729: zero addr");
+       require(exec != owner, "XRC729: owner cannot be executor");
+       if (executorIndex[exec] != 0) {
+            return;
+        }
+        executorList.push(exec);
+        executorIndex[exec] = executorList.length; // 1-based
+        emit ExecutorAdded(exec);
+    }
+
+    function removeExecutor(address exec) external onlyOwner {
+        uint256 idx1b = executorIndex[exec];
+        if (idx1b == 0) {
+            return;
+        }
+
+        uint256 idx = idx1b - 1;
+        uint256 last = executorList.length - 1;
+        if (idx != last) {
+            address moved = executorList[last];
+            executorList[idx] = moved;
+            executorIndex[moved] = idx + 1;
+        }
+        executorList.pop();
+        delete executorIndex[exec];
+        emit ExecutorRemoved(exec);
+    }
+
+    function getExecutorList() external view returns (address[] memory) {
+        return executorList;
     }
 
     function _setOSTC(string memory id, string memory json) internal {
