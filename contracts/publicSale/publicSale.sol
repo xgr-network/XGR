@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import "./Ownable.sol";
+import "../shared/Ownable.sol";
 
 /// @title XGR Public Sale (native coin) with deterministic tranche pricing
 /// @notice Implements the whitepaper price rule on a rolling 30-day window (configurable).

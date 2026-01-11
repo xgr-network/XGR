@@ -1,1 +1,194 @@
-The public sale contract governs the ongoing monthly offering of the 17 million coins.
+# XGR Public Sale
+
+Smart contract for the XGR Network public token sale with deterministic tranche-based pricing.
+
+## Overview
+
+This contract implements the XGR whitepaper pricing model for the public sale of native XGR tokens. It uses a rolling 30-day tranche system where prices adjust automatically based on demand.
+
+```
+Fiat Payment (off-chain) → Owner/Operator verifies → sellTokens() → XGR to buyer
+```
+
+## Key Features
+
+- **Deterministic Pricing**: Price follows whitepaper formula based on sales volume and timing
+- **30-Day Tranches**: Each tranche offers 17M XGR with automatic price adjustment at rollover
+- **Stateless Views**: All read functions compute virtual "rolled" state without gas costs
+- **Dual Authorization**: Owner and optional payout operator can execute sales
+- **Gas-Efficient Maintenance**: Fast-forward function for catching up multiple empty tranches
+
+## Pricing Model
+
+### Parameters (from Whitepaper)
+
+| Parameter | Symbol | Value | Description |
+|-----------|--------|-------|-------------|
+| Tranche Size | M | 17,000,000 XGR | Tokens available per tranche |
+| Initial Price | P₀ | 0.000001 EUR | Starting price per XGR |
+| Base Growth | m₀ | 2% | Minimum price increase on sellout |
+| Max Growth | M | 900% | Maximum price increase factor |
+| Decay Factor | D | 30% | Price decrease on undersub |
+| De Minimis | δ | 10,000 XGR | Threshold for "sold out" status |
+| Duration | - | 30 days | Tranche window length |
+
+### Price Transition Rules
+
+**Case 1: Sold Out** (Msold ≥ M - δ)
+```
+P_{n+1} = P_n × (1 + m₀ + (M - m₀) × d × β)
+
+where:
+  d = time factor (0-1, earlier sellout = higher d)
+  β = (P₀/P_n)^0.05 (dampening term)
+```
+
+**Case 2: Undersubscribed** (Msold < M - δ)
+```
+P_{n+1} = max(P₀, P_n × (1 - D × u × β))
+
+where:
+  u = 1 - (Msold/M) (unsold ratio)
+  β = (P₀/P_n)^0.05 (dampening term)
+```
+
+## Usage
+
+### View Functions (Stateless)
+
+```solidity
+// Current price (EUR × 1e18 per XGR)
+uint256 price = sale.getCurrentPrice();
+
+// Tranche timing
+uint256 start = sale.getCurrentTrancheStart();
+uint256 end = sale.getCurrentTrancheEnd();
+
+// Remaining tokens in current tranche
+uint256 remaining = sale.remainingInTranche();
+
+// Preview next tranche price
+uint256 nextPrice = sale.previewNextPrice();
+
+// Check distribution status
+DistributionStatus memory status = sale.getDistributionStatus();
+```
+
+### Execute Sale (Owner/Operator)
+
+```solidity
+// Basic payout
+sale.sellTokens(buyerAddress, xgrAmount);
+
+// Payout with order reference (for off-chain correlation)
+sale.sellTokensWithRef(buyerAddress, xgrAmount, orderRef);
+```
+
+### Administration (Owner)
+
+```solidity
+// Toggle sale on/off
+sale.toggleSale(false);
+
+// Set payout operator
+sale.setPayoutOperator(operatorAddress);
+
+// Manually refresh tranche (anyone can call)
+sale.refreshTranche();
+
+// Fast-forward multiple empty tranches
+sale.fastForward(10); // Process up to 10 tranches
+```
+
+### Monitoring
+
+```solidity
+// How many tranches behind is the stored state?
+uint256 pending = sale.pendingWindows();
+```
+
+## Events
+
+| Event | Description |
+|-------|-------------|
+| `TokensSold` | Emitted for each sale with tranche, buyer, amount, price |
+| `Payout` | Sale receipt with optional order reference |
+| `TrancheFinalized` | Emitted when a tranche closes with final stats |
+| `TrancheRolled` | New tranche started |
+| `TranchesFastForwarded` | Summary event for batch tranche processing |
+| `SaleToggled` | Sale activated/deactivated |
+| `PayoutOperatorUpdated` | Operator address changed |
+
+## Architecture
+
+### State Management
+
+The contract uses minimal storage with lazy evaluation:
+
+| Storage Variable | Description |
+|------------------|-------------|
+| `currentPrice` | P_n of the stored tranche |
+| `trancheStart` | Timestamp when stored tranche began |
+| `currentTranche` | Index of stored tranche (0-based) |
+| `tokensSoldInTranche` | Msold in stored tranche |
+| `soldOutTimestamp` | t* when Msold first reached M - δ |
+
+All view functions compute a "virtual rolled" state without modifying storage, ensuring gas-free reads while maintaining accuracy.
+
+### Tranche Rollover
+
+```
+Time ──────────────────────────────────────────────────►
+
+Tranche 0          Tranche 1          Tranche 2
+├─────────────────┼─────────────────┼─────────────────┤
+│  17M XGR @ P₀   │  17M XGR @ P₁   │  17M XGR @ P₂   │
+│     30 days     │     30 days     │     30 days     │
+└─────────────────┴─────────────────┴─────────────────┘
+                  ▲                 ▲
+            Price adjusts     Price adjusts
+            based on sales    based on sales
+```
+
+## Security Considerations
+
+- **Access Control**: Only owner or designated operator can execute sales
+- **Tranche Limits**: Cannot exceed 17M XGR per tranche
+- **Balance Check**: Requires sufficient contract balance before payout
+- **Overflow Protection**: Uses Solidity 0.8+ built-in checks
+- **Reentrancy**: State updates before external calls
+- **Safety Counter**: Limits tranche catch-up to prevent gas exhaustion
+
+## Funding the Contract
+
+The contract must hold native XGR to pay out buyers:
+
+```solidity
+// Simply send XGR to the contract address
+(bool success, ) = payable(saleContractAddress).call{value: amount}("");
+```
+
+## Dependencies
+
+- `Ownable.sol` - Access control (OpenZeppelin standard)
+- `Context.sol` - Message context abstraction (OpenZeppelin standard)
+
+## Constants Reference
+
+```solidity
+TRANCHE_SIZE     = 17,000,000 XGR   // Tokens per tranche
+DELTA            = 10,000 XGR       // De minimis threshold
+TRANCHE_DURATION = 30 days          // Window length
+P0               = 1e12             // 0.000001 EUR (scaled)
+M0               = 0.02 × 1e18      // 2% base growth
+M_MAX            = 9.0 × 1e18       // 900% max growth
+D                = 0.30 × 1e18      // 30% decay factor
+```
+
+## License
+
+MIT
+
+---
+
+Part of the [XGR Network](https://xgr.network) infrastructure.
