@@ -1,134 +1,308 @@
 # XGR Contract Reads (UI Guide)
 
-This guide explains how to configure **on-chain Contract Reads** in the **XRC-137 Builder** UI so they match the engine (parser + reads executor).
+This guide explains how to configure **Contract Reads** in the **XRC-137 Builder** UI. Contract Reads call **view/pure** functions on EVM-compatible contracts and expose the returned values as reusable placeholders.
 
 ---
 
-## 1) What a Contract Read is
+## 1) What a Contract Read does
 
-Calls a **view/pure** function on an **EVM-compatible** chain and maps the returned tuple via **`saveAs`**. Reads typically run before API Calls.
+A Contract Read performs an on-chain call against a contract address (**To**) and a function signature (**Function**).  
+Returned values are stored via **Save As** and can be referenced later using placeholders like `[target]`.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-panel-main.png) — Contract Reads panel with one configured row and “Add Read” button.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-panel-main.png) — Contract Reads panel with one configured read and an “Add Read” button.
 
 ---
 
-## 2) Fields in the UI (engine-aligned)
+## 2) Fields in a Contract Read
 
-| Field        | Required | Notes                                                                                             |
-|--------------|----------|---------------------------------------------------------------------------------------------------|
-| **To**       | yes      | **Dev/Test:** address **or** placeholder/expression (e.g. `[MyPayloadKey]` or `'some-literal'`). **Production:** must be a valid `0x` + 40-hex address. |
-| **Function** | yes      | `name(type1,type2,…) returns (ret1,ret2,…)`.                                                      |
-| **Args**     | yes      | Array; one value per input type; placeholders allowed.                                            |
-| **saveAs**   | yes      | String for index `0` **or** map `{ "0": "A", "1": "B" }`.                                         |
-| **Defaults** | no       | Scalar or map by indices/aliases.                                                                 |
-| **RPC**      | no       | HTTPS endpoint; **EVM-compatible only**.                                                          |
+### To
+The target contract address to call.
+
+- Expected format: `0x` + 40 hex characters (EVM address)
+
+### Function
+The function signature for the read in this format:
+
+- `name(type1,type2,...)(ret1,ret2,...)`
+
+Examples:
+- `balanceOf(address)(uint256)`
+- `balanceOf(address,address)(uint256,int256)`
+
+### Args
+Arguments passed to the function. Each argument has:
+
+- `type` — the ABI input type (must match the function signature)
+- `value` — a literal or a placeholder like `[address]`
+
+### Save As
+Maps return tuple indices to named outputs. Each return index (e.g. `"0"`, `"1"`) defines:
+
+- `key` — the placeholder name you will use later (e.g. `[target]`)
+- `type` — the payload type for the stored output (used by the builder/engine)
+- `default` (optional) — used when the read does not produce a value for this output
+
+### RPC (optional)
+An optional RPC endpoint to use for this specific read.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-modal.png) — “Edit Contract Read” modal with all fields and validation hints.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-rpc-field.png) — RPC input field.
 
 ---
 
-## 3) Function signature & args
+## 3) Save As and per-output Defaults
 
-- Signature example: `myFn(address,bytes32) returns (string,uint64)`  
-- Args count must match inputs; placeholders `[key]` allowed.  
-- **No inputs?** Leave Input types empty in Signature Helper; JSON uses `"args": []`.
+Each return value is mapped by its **tuple index**.
+
+- Use `"0"` for the first return value, `"1"` for the second, etc.
+- `key` names are case-sensitive and must be unique by exact spelling.
+- `default` is optional and can be set per return value.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-signature-helper-no-inputs.png) — Helper modal with empty inputs and `fn() returns (...)` preview.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-saveas.png) — Save As mapping table.  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-defaults.png) — Default values per output.
 
 ---
 
-## 4) Mapping results with `saveAs`
+## 4) Placeholders
 
-- Single return: `saveAs` string (alias) for index `0`.  
-- Multiple returns: map of index→alias.  
-- **Alias regex (UI & engine):** `^[A-Za-z][A-Za-z0-9]*$` (letters & digits only; must be unique within the rule).
+You can use placeholders inside **Args** and later throughout the builder.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-saveas.png) — Table mapping tuple indices to aliases.
-
----
-
-## 5) Defaults (fallbacks)
-
-- Optional. Scalar (when `saveAs` is string for index `0`) or map by indices/aliases.  
-- UI normalizes JSON types: ints as numbers when safe, else strings; bool, hex, etc.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-defaults.png) — Examples of scalar vs map defaults with type-aware hints.
+- Payload fields become placeholders like `[address]`
+- Contract Read outputs become placeholders based on `saveAs.*.key` (e.g. `[target]`)
+- Other producers (e.g. API extracts) also appear in autocomplete where supported
 
 ---
 
-## 6) RPC (optional)
+## 5) JSON structure
 
-- HTTPS endpoint; **EVM-compatible** only.  
-- Omit to use engine default RPC.
+Contract Reads live at the root under `contractReads`:
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-rpc-field.png) — RPC input with info “EVM-compatible only”.
+- `contractReads` is an array of read objects
+- each read has `to`, `function`, `args`, optional `rpc`, and `saveAs`
 
----
+### A) Contract Reads panel example (single arg, single return)
 
-## 7) Placeholders `[key]` in args
-
-Sources: runtime payload, earlier reads (`saveAs`), earlier APIs.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-placeholders-help.png) — Tooltip with the three sources and examples.
-
----
-
-## 8) Validation (what the UI enforces)
-
-- Full function signature; args length matches ABI.  
-- `saveAs` present; alias regex; no duplicate indices/aliases.  
-- Defaults optional; shape checked.  
-- RPC optional; HTTPS + EVM-compatible in enterprise.  
-- **To field:** The UI intentionally remains free-form to support Dev/Test placeholders. At **execution time**, the engine enforces: in **Production** the resolved `to` must be a valid `0x` + 40-hex address; in **Dev/Test** a placeholder/expression is accepted.
-
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-validation-errors.png) — Example errors for duplicate alias, etc.
-
----
-
-## 9) Examples
-
-**Single return (string), saveAs string + scalar default**
 ```json
 {
-  "to": "0x1111111111111111111111111111111111111111",
-  "function": "symbol() returns (string)",
-  "args": [],
-  "saveAs": "sym",
-  "defaults": ""
-}
-```
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards-1.png) — One example card with a “validated” badge.
-
-**Multiple returns (string, uint64), saveAs map + typed defaults**
-```json
-{
-  "to": "0x1111111111111111111111111111111111111111",
-  "function": "getData(string,bytes32) returns (string,uint64)",
-  "args": ["[user.input]", "0x0000000000000000000000000000000000000000000000000000000000000000"],
-  "saveAs": { "0": "name", "1": "version" },
-  "defaults": { "0": "", "1": 0 },
-  "rpc": "https://rpc.example.org"
+  "contractReads": [
+    {
+      "args": [
+        {
+          "type": "address",
+          "value": "[address]"
+        }
+      ],
+      "function": "balanceOf(address)(uint256)",
+      "saveAs": {
+        "0": {
+          "default": 0,
+          "key": "target",
+          "type": "int256"
+        }
+      },
+      "to": "0x733083399533ebf2CfA3fF61322f0aab1Bf4Ac7C"
+    }
+  ],
+  "onInvalid": {},
+  "onValid": {},
+  "payload": {
+    "address": {
+      "type": "address"
+    }
+  }
 }
 ```
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards-2.png) — One example card with a “validated” badge.
+---
+
+### B) Save As and Defaults example (two args, two returns)
+
+```json
+{
+  "contractReads": [
+    {
+      "args": [
+        {
+          "type": "address",
+          "value": "[address]"
+        },
+        {
+          "type": "address",
+          "value": "[address2]"
+        }
+      ],
+      "function": "balanceOf(address,address)(uint256,int256)",
+      "saveAs": {
+        "0": {
+          "key": "target",
+          "type": "uint256"
+        },
+        "1": {
+          "default": 200,
+          "key": "target1",
+          "type": "uint256"
+        }
+      },
+      "to": "0x733083399533ebf2CfA3fF61322f0aab1Bf4Ac7C"
+    }
+  ],
+  "onInvalid": {},
+  "onValid": {},
+  "payload": {
+    "address": {
+      "type": "address"
+    },
+    "address2": {
+      "type": "address"
+    }
+  }
+}
+```
 
 ---
 
-## 10) Tips & Troubleshooting
+### C) RPC field example
 
-- If args fail, re-check signature & ABI types.  
-- Use placeholders to avoid hard-coded literals.  
-- Very large ints: keep defaults as strings (engine can parse).  
-- With defaults, only missing outputs fall back.
+```json
+{
+  "contractReads": [
+    {
+      "args": [
+        {
+          "type": "address",
+          "value": "[address]"
+        },
+        {
+          "type": "address",
+          "value": "[address2]"
+        }
+      ],
+      "function": "balanceOf(address,address)(uint256,int256)",
+      "rpc": "https://rpc.xyz.com",
+      "saveAs": {
+        "0": {
+          "key": "target",
+          "type": "uint256"
+        },
+        "1": {
+          "default": 200,
+          "key": "target1",
+          "type": "uint256"
+        }
+      },
+      "to": "0x733083399533ebf2CfA3fF61322f0aab1Bf4Ac7C"
+    }
+  ],
+  "onInvalid": {},
+  "onValid": {},
+  "payload": {
+    "address": {
+      "type": "address"
+    },
+    "address2": {
+      "type": "address"
+    }
+  }
+}
+```
 
+---
+
+## 6) Examples
+
+**What you see**  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards-1.png) — Example card (single return).  
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/reads-examples-cards-2.png) — Example card (two returns).
+
+### Example 1
+
+```json
+{
+  "contractReads": [
+    {
+      "args": [
+        {
+          "type": "address",
+          "value": "[address]"
+        }
+      ],
+      "function": "balanceOf(address)(uint256)",
+      "rpc": "https://rpc.xyz.com",
+      "saveAs": {
+        "0": {
+          "default": 200,
+          "key": "target",
+          "type": "uint256"
+        }
+      },
+      "to": "0x733083399533ebf2CfA3fF61322f0aab1Bf4Ac7C"
+    }
+  ],
+  "onInvalid": {},
+  "onValid": {},
+  "payload": {
+    "address": {
+      "type": "address"
+    },
+    "address2": {
+      "type": "address"
+    }
+  }
+}
+```
+
+### Example 2
+
+```json
+{
+  "contractReads": [
+    {
+      "args": [
+        {
+          "type": "address",
+          "value": "[address]"
+        },
+        {
+          "type": "address",
+          "value": "0x733083399533ebf2CfA3fF61322f0aab1Bf4Ac7C"
+        }
+      ],
+      "function": "balanceOf(address,address)(uint256,uint256)",
+      "rpc": "https://rpc.xyz.com",
+      "saveAs": {
+        "0": {
+          "default": 200,
+          "key": "target",
+          "type": "uint256"
+        },
+        "1": {
+          "key": "target2",
+          "type": "uint256"
+        }
+      },
+      "to": "0x733083399533ebf2CfA3fF61322f0aab1Bf4Ac7C"
+    }
+  ],
+  "onInvalid": {},
+  "onValid": {},
+  "payload": {
+    "address": {
+      "type": "address"
+    },
+    "address2": {
+      "type": "address"
+    }
+  }
+}
+```
+
+---
+
+## 7) Tips
+
+- Keep `function` and `args[*].type` consistent (same ABI types, same order).
+- Prefer placeholders in args for user-driven inputs (e.g. `[address]`).
+- Use `saveAs` keys that clearly communicate meaning (e.g. `balance`, `threshold`, `isAllowed`).
+- Set `default` when downstream rules/outcomes should continue even when a read output is not available.
