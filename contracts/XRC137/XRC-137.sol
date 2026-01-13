@@ -80,6 +80,11 @@ contract XRC137 {
         return executorList;
     }
 
+    /// @notice Fast ACL check used by engine preflight/wakeup.
+    function isExecutor(address exec) external view returns (bool) {
+        return executorIndex[exec] != 0;
+    }
+
     // --- Views ---
     function getRule() external view returns (string memory) {
         return ruleJson;

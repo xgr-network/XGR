@@ -69,6 +69,11 @@ contract XRC729 {
         return executorList;
     }
 
+    /// @notice Fast ACL check used by engine preflight/wakeup.
+    function isExecutor(address exec) external view returns (bool) {
+        return executorIndex[exec] != 0;
+    }
+
     function _setOSTC(string memory id, string memory json) internal {
         if (ostcIndex[id] == 0) {
             ostcIds.push(id);
