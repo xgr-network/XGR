@@ -55,9 +55,6 @@ Encrypted logs are inferred from your JSON per branch. The result returns **bran
 ### Total (all-in)
 Shows **`totalWorstCase`** — the maximum of both branches’ totals. Use this as a conservative estimate for budgeting.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/gas-total-allin.png) — “Total (all-in)” card with worst-case value and a short help tooltip.
-
 ---
 
 ## 6) Branch breakdown (onValid / onInvalid)
@@ -71,15 +68,13 @@ Each branch card contains the fields below. Hover the **?** markers for quick hi
 | **EVM.Tx+Calldata**           | Base transaction cost plus calldata size for `ENGINE_EXECUTE`.                                                      |
 | **Logs**                      | Estimated gas for engine events (EngineMeta/Extras).                                                                |
 | **Inner.Execution (limit)**   | Upper bound for user execution gas (if your rule supplies a limit).                                                 |
-| **Inner.Grant (estimateGas)** | Estimated gas for the helper grant call — *runtime cost when executed on-chain*.                                    |
-| **Grant.Gas**                 | Gas for the grant transaction itself — *runtime cost at execution*.                                                 |
 | **Grant.Value (XGR)**         | XGR value sent with the grant transaction — *runtime cost at execution*.                                            |
 | **EncryptLogs**               | Whether logs are encrypted for this branch.                                                                         |
 | **expireDays**                | Retention period in **days** for persisted logs.                                                                    |
 | **expireAt**                  | Absolute expiry timestamp shown as a local **US** date/time (source is Unix seconds since 1970).                    |
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/gas-branch-breakdown.png) — A branch card with all fields visible; tooltips opened over **Inner.Grant** and **Grant.Gas/Value** emphasizing *runtime costs*.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/gas-panel-branch-breakdown.png) — Two branch cards (**onValid** / **onInvalid**) with totals and field breakdown visible.
 
 ---
 
@@ -112,9 +107,6 @@ Click **Show details** to inspect the raw estimator response:
 - **Timestamps** → `expireAt` converts Unix seconds to **US** locale (e.g., `Oct 20, 2025, 01:23 PM`).  
 - **Export** → keep the JSON with your deployment notes for audits and capacity planning.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/gas-troubleshooting.png) — Two-column list of common errors with short “quick fix” hints.
-
 ---
 
 ## 10) FAQ
@@ -139,5 +131,3 @@ A: Whenever you change rules, logging, or payload structure — click **Estimate
 - Compare **onValid** vs **onInvalid** to see how log and grant settings impact runtime cost.  
 - Export the JSON and keep it with your **deployment checklist**.
 
-**What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/gas-next-steps.png) — Simple flow: Validation → Estimate → Review → Export.
