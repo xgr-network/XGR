@@ -1,6 +1,6 @@
 # XGR Read Key: How it works and how to use it
 
-This guide explains **what the Read Key is**, how it is stored **locally and on-chain**, how to **create/import** it, and how to **decrypt** your data in the app. It clarifies the concepts of **RAM unlock** and **permit** and why they protect you. It also explains **when** a short wallet signature (permit) is required in **Manage Read Key** and why you sometimes see **two wallet dialogs**.
+This guide explains **what the Read Key is**, how it is stored and verified, how to create/import/bind it, how to unlock it for decryptions, and why you sometimes see **two wallet dialogs**.
 
 ---
 
@@ -15,35 +15,56 @@ This guide explains **what the Read Key is**, how it is stored **locally and on-
 
 ---
 
-## 2) Create / Import / Manage
+## 2) Create / Import / Bind / Manage
 
-**Create**: generate a seed, set a password, sign a short-lived **Permit (save)**, store locally.  
-**Import**: paste a seed and set a new password, or (advanced) paste a hex public key.  
-**Delete & re-create**: removes any RAM unlock; other tabs become invalid.
+**Create new seed (12 words)**: generate a new Read-Key seed phrase, set a password, and save it locally (encrypted).  
+**Import seed**: paste an existing BIP-39 seed phrase (12/24 words) and set a new password for this device.  
+**Import pubkey (SEC1)**: paste a public key (33B compressed `0x02/0x03` or 65B uncompressed `0x04`) to enable **encryption-only** on this device.  
+**Bind Read-Key to Wallet**: registers your **local public key** on-chain for the currently connected wallet (this is an on-chain transaction).  
+**Delete local / Clear on-chain**: advanced maintenance actions.
 
-**Permit (save)**  
-- Create/Import writes to **local storage** (encrypted). For this, the app requires a short wallet signature called **Permit (save)** (~5 minutes).  
-- When the permit is active, you’ll see a **badge with a countdown** in the Read Key panel. When it expires, you must sign again the next time you save.  
-- After a **hard browser refresh / cache clear**, the wallet may still be **connected**, but the DApp may still require a fresh **authorization/signature** for saving. Use **“Authorize now”** in the panel or simply start Create/Import — then the short signature prompt will appear.
+### Permit (short-lived wallet signature)
 
-**Why you sometimes see two dialogs**  
-- **Typical case:** one signature dialog for **Permit (save)**.  
-- **If your account hasn’t been granted to the DApp yet:** the wallet may first show **“connect/allow account”** (wallet UI) and then the **Permit (save)** signature. This looks like *two* prompts, but they serve two different purposes.
+- To **Create new seed** or **Import seed**, the app needs a short wallet signature (**Permit**) so saving is an explicit user action.  
+- While valid, the panel shows `Permit · <seconds>`. If it expires, click **Authorize now** and sign again.  
+- You can set the Permit TTL (e.g. `60s`, `5m`, `1h`, `1d`, or plain seconds).
+
+**Note:** **Import pubkey** is local-only and does **not** store a private key — no Permit is required, but this device stays **encrypt-only** (no decryption here).
+
+### Recommended: store the seed offline
+
+In the Create/Import dialogs you can download an encrypted **XGR Vault (.kdbx)** file for **KeePassXC**. This file is generated locally in your browser and helps you store the Read-Key seed safely.
+
+### Why you sometimes see two dialogs
+
+- First: the wallet may prompt **connect/unlock account** (account access).  
+- Second: the **Permit** signature request.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-import.png) — Import via seed vs. public key; the Permit (save) badge shows whether saving is currently authorized.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-create.png) — Read Key panel with the seed (blurred), password fields, “I saved the seed”, and a **Permit** badge with a countdown.
+
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-import.png) — Import via seed vs. public key; the **Permit** badge shows whether saving is currently authorized.
 
 ---
 
-## 3) Verification (on-chain vs. local)
+## 3) Status, Bind & Verification (on-chain vs. local)
 
-The app compares the on-chain public key with your local public key.
+The panel shows four important states:
 
-- **Read Key verified** (green) means they match.  
-- If it’s red: connect the correct wallet & chain or update the on-chain key.
+- **Local PubKey**: a public key is stored on this device (IndexedDB).  
+- **Local PrivKey**: whether this device also has the wrapped private key:  
+  - **available** → you can **decrypt** on this device  
+  - **missing (encrypt-only)** → you can encrypt, but you cannot decrypt here (import the seed to restore)  
+- **On-chain ReadKey**: whether the connected wallet has a public key bound on-chain.  
+- **Verified**: local public key **matches** the on-chain key (fingerprint is identical).
+
+### Bind Read-Key to Wallet
+
+After you have a local key, click **Bind Read-Key to Wallet** to register (or overwrite) the on-chain public key for your connected wallet.  
+The panel logs the transaction hash in the **Result** box and links to the explorer.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/verified-badge.png) — Green **Read Key verified** badge near the wallet status.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/verified-badge.png) — Green **Read Key verified** badge. If the device has no private key, you may still see “verified (encrypt-only)”.
 
 ---
 
@@ -57,7 +78,7 @@ Used across the app (Contract Manager “Load from chain”, XRC-137 Builder, XR
 Both expire automatically; key changes invalidate any existing unlock.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog.png) — Decrypt dialog with wallet selector, **Read Key verified**, a **Permit (decrypt)** badge + countdown, password field, and **Authorize & Unlock**.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog.png) — Decrypt dialog with wallet selector, **Read Key verified**, a **Permit** badge + countdown, password field, and **Authorize & Unlock**.
 
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog-2.png)
 
@@ -78,8 +99,8 @@ Both expire automatically; key changes invalidate any existing unlock.
 - **No local wrapped key** → open **Manage Read Key** and create/import one.  
 - **Stale unlock** → after key changes, enter the password again.  
 - **RPC offline** → switch chain or endpoint; reconnect the wallet.  
-- **Import button does nothing** → usually the permit is missing or the input is invalid.  
-  - Check that **Permit (save)** is active (badge shows a countdown). If expired, use **Authorize now**.  
+- **Import/Create does nothing** → usually the **Permit** is missing/expired or the input is invalid.  
+  - Check that **Permit** is active (`Permit · <seconds>`). If expired, use **Authorize now**.  
   - Check that the seed is a valid **BIP-39 mnemonic** and that the passwords match. Errors are shown inline.
 
 ---
