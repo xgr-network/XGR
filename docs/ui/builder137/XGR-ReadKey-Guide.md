@@ -41,7 +41,6 @@ In the Create/Import dialogs you can download an encrypted **XGR Vault (.kdbx)**
 - Second: the **Permit** signature request.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-create.png) — Read Key panel with the seed (blurred), password fields, “I saved the seed”, and a **Permit** badge with a countdown.
 
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-panel-import.png) — Import via seed vs. public key; the **Permit** badge shows whether saving is currently authorized.
 
@@ -79,8 +78,6 @@ Both expire automatically; key changes invalidate any existing unlock.
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog.png) — Decrypt dialog with wallet selector, **Read Key verified**, a **Permit** badge + countdown, password field, and **Authorize & Unlock**.
-
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog-2.png)
 
 ---
 
