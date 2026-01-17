@@ -1,0 +1,21 @@
+{
+  "onInvalid": {},
+  "onValid": {
+    "payload": {
+      "Iter": "[Iter]+1",
+      "Pi": "4.0*[S]",
+      "S": "[S]+pow(-1.0,double([Iter]))/(2.0*double([Iter])+1.0)"
+    },
+    "waitSec": 3600
+  },
+  "payload": {
+    "Iter": {
+      "type": "int64"
+    },
+    "Pi": {
+      "type": "double"
+    },
+    "S": {
+      "type": "double"
+    }
+  }

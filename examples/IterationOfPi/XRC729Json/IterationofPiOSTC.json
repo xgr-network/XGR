@@ -1,0 +1,13 @@
+{
+  "id": "IterationOfPi",
+  "structure": {
+    "PiIterationStep": {
+      "rule": "<Iterationstep-Addr>",
+      "onValid": {
+        "spawns": [
+          "PiIterationStep"
+        ]
+      }
+    }
+  }
+}
