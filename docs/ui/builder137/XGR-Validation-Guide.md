@@ -1,12 +1,12 @@
 # XGR Validation — How validation works
 
-This guide explains what the **Validation** panel checks, how to read the messages, and why **Compile** is blocked until errors are fixed. It also lists the most common messages you’ll see and how to resolve them.
+This guide explains what the **Validation** panel checks, how to read the messages, and why **Compile / Deploy / Update Rule** is blocked until errors are fixed. It also lists the most common messages you’ll see and how to resolve them.
 
 ---
 
 ## Where Validation fits into the flow
 
-Validation runs continuously while you edit the model. Compile (step 2) is disabled while errors exist, so the overall flow **Wallet → Compile → Deploy → Update** only continues after Validation is green.
+Validation runs continuously while you edit the model. Compile (step 2) is disabled while errors exist, so the overall flow **Wallet → (Compile) → Deploy → Update** only continues after Validation is green.
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/validation-panel.png) — Validation panel with a header and an error counter (0 = OK).
@@ -139,4 +139,5 @@ Compile/Deploy/Update stays disabled while **any** validation error exists. Fix 
 ---
 
 _Last updated: 2026-01-17_
+
 
