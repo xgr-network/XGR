@@ -35,7 +35,7 @@ The **Rule Assist** appears on the **right side** of the dialog. It is **draggab
 ## 3) Rule Assistant (snippets & helpers)
 
 The **Assist** panel documents common **operators**, **helpers**, and **patterns**; it also inserts ready‑made snippets:
-- **String helpers**: `size()`, `lowerAscii()`, `upperAscii()`
+- **Stringy helpers**: `size()`, `lowerAscii()`, `upperAscii()`
 - **List & math**: `max()`, `min()`, `sum()`, `avg()`, `join()`, `unique()`
 - **Tip**: inside string literals, write `[[` and `]]` to render `[` and `]`
 
@@ -50,10 +50,19 @@ You can reference values from **Payload**, **API extracts**, and **Contract Read
 
 ---
 
-## 5) Operators & examples (by type)
+## 5) Operators & examples (by type family)
 
-**Strings**: `==`, `!=`, `contains`, `startsWith`, `endsWith`, `matches`, `in`  
-**Numbers**: `==`, `!=`, `>`, `>=`, `<`, `<=`  
+Payload values in rules are typed based on the configured schema. These are the valid payload field types:
+
+`string`, `bool`, `int64`, `int256`, `uint64`, `uint256`, `double`, `decimal`, `timestamp_ms`, `duration_ms`, `uuid`, `address`, `bytes`, `bytes32`
+
+For operator guidance in the UI, types are grouped into families:
+- **Stringy**: `string`, `uuid`, `address`, `bytes`, `bytes32`
+- **Numeric**: `double`, `decimal`, `int64`, `int256`, `uint64`, `uint256`, `timestamp_ms`, `duration_ms`
+- **Boolean**: `bool`
+
+**Stringy**: `==`, `!=`, `contains`, `startsWith`, `endsWith`, `matches`, `in`  
+**Numeric**: `==`, `!=`, `>`, `>=`, `<`, `<=`  
 **Boolean**: `==`, `!=`  
 Logical: `&&`, `||`, `!`
 
@@ -66,7 +75,7 @@ Logical: `&&`, `||`, `!`
 | `endsWith`      | string suffix                   | `[iban].endsWith("00")`                   |
 | `matches`       | RE2 regex match                 | `[iban].matches("^DE\\d{2}.*$")`        |
 | `in`            | membership in list              | `[country] in ["DE","AT","CH"]`           |
-| `size()`        | string length                   | `[name].size() > 3`                       |
+| `size()`        | length / size                   | `[name].size() > 3`                       |
 | `lowerAscii()` / `upperAscii()` | normalize case | `[country].upperAscii() == "DE"`          |
 | `&&` / `||` / `!` | AND / OR / NOT                | `[country] == "DE" && [amount] >= 100`    |
 
@@ -109,7 +118,7 @@ Logical: `&&`, `||`, `!`
 ## 8) Common Errors & Quick Fixes
 - Unknown placeholder → use `[` autocomplete to insert an existing key.
 - String without quotes → wrap with `"..."`.
-- Numeric comparison on strings → ensure the left side is numeric or convert upstream.
+- Numeric comparison on stringy values → ensure the left side is numeric or convert upstream.
 
 ---
 
