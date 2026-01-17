@@ -7,7 +7,7 @@ This guide shows how to connect a browser wallet (e.g., **MetaMask**) to the XGR
 ## 1) What you need
 
 - **A browser wallet** (e.g., MetaMask, Trust Wallet extension).  
-  → Install & network setup: **https://xgr.network/networks.html**
+  → Install & network setup: **https://xgr.network/network-mainnet.html**
 - **A supported browser**: Chrome, Brave, Edge, or Firefox.  
 - Optional: **Hardware wallet** (Ledger/Trezor) via MetaMask.
 
@@ -43,8 +43,8 @@ or **XRC-729 Builder**
 
 ## 3) Choose the chain (network)
 
-- **XGR Mainnet** — Chain-ID `0x66B`, RPC `https://rpc.xgr.network`, Explorer `https://explorer.xgr.network`  
-- **XGR Testnet** — Chain-ID `0x68B`, RPC `https://rpc.testnet.xgr.network`, Explorer `https://explorer.testnet.xgr.network`
+- **XGR Mainnet** — Chain-ID `0x66b`, RPC `https://rpc.xgr.network`, Explorer `https://explorer.xgr.network`  
+- **XGR Testnet** — Chain-ID `0x757`, RPC `https://rpc.testnet.xgr.network`, Explorer `https://explorer.testnet.xgr.network`
 
 The app already knows these networks. Modern wallets will ask to **add/switch** when needed — simply confirm.
 
@@ -62,8 +62,10 @@ If nothing is found, you’ll see the hint with a link to the **installation pag
 ## 5) Connect & disconnect
 
 - **Connect** opens wallet dialogs so you can grant access to your address.  
-- After connecting, the panel shows **Connected** and your address (`0x1234…`).  
+- After connecting, the panel shows **Connect** and the last 4 signs of your address.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-connected-2.png)
 - **Disconnect** ends the session in the app (the browser extension remains installed).
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/walletconnect-disconnect.png)
 
 > **Security:** Connecting only grants **read access** to your address/network. **Transactions or signatures never happen without an explicit wallet prompt.**
 
@@ -82,7 +84,7 @@ If nothing is found, you’ll see the hint with a link to the **installation pag
 ## 7) Troubleshooting
 
 **A) Wallet not detected**  
-- Install/enable a wallet → **https://xgr.network/networks.html**  
+- Install/enable a wallet → **https://xgr.network/network-mainnet.html** / **https://xgr.network/network-testnet.html** 
 - Reload the page; pin the extension in the browser (puzzle icon).
 
 **B) Wrong network / chain**  
@@ -96,11 +98,11 @@ If nothing is found, you’ll see the hint with a link to the **installation pag
 - Connect via MetaMask (import your Ledger/Trezor account). Then click **Connect**.
 
 **E) Switched account or wallet**  
-- Change the account in your wallet → in the panel use **Disconnect** then **Connect** to refresh the address.
+- Switch the account in your wallet → the panel will automatically disconnected the Wallet. Click Connect again to **connect** the new account with the page.
 
 ---
 
-_Last updated: 2025-10-19_
+
 
 ---
 
@@ -111,6 +113,10 @@ The right-side flow shows your progress and highlights the next active step.
 
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/builder-flow.png) — Flow with the Wallet step highlighted as **active** when you land on the page.
+
+---
+_Last updated: 2026-01-17_
+
 
 
 
