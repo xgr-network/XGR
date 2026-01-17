@@ -63,7 +63,7 @@ After you have a local key, click **Bind Read-Key to Wallet** to register (or ov
 The panel logs the transaction hash in the **Result** box and links to the explorer.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/verified-badge.png) — Green **Read Key verified** badge. If the device has no private key, you may still see “verified (encrypt-only)”.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-verified-badge.png) — Green **Read Key verified** badge. If the device has no private key, you may still see “verified (encrypt-only)”.
 
 ---
 
@@ -77,7 +77,7 @@ Used across the app (Contract Manager “Load from chain”, XRC-137 Builder, XR
 Both expire automatically; key changes invalidate any existing unlock.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/decrypt-dialog.png) — Decrypt dialog with wallet selector, **Read Key verified**, a **Permit** badge + countdown, password field, and **Authorize & Unlock**.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/readkey-decrypt-dialog.png) — Decrypt dialog with wallet selector, **Read Key verified**, a **Permit** badge + countdown, password field, and **Authorize & Unlock**.
 
 ---
 
@@ -109,3 +109,4 @@ Both expire automatically; key changes invalidate any existing unlock.
 - Changing or re-importing the Read Key invalidates all in-RAM unlocks across tabs.
 
 ---
+
