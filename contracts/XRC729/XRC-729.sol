@@ -108,6 +108,11 @@ contract XRC729 {
         return executorList;
     }
 
+	function isExecutor(address a) external view returns (bool) {
+		return executorIndex[a] != 0;
+	}
+
+
     // --- OSTC management ---
 
     /// @dev Internal function to set an OSTC.
