@@ -1,0 +1,18 @@
+{
+  "id": "ContinuousDataFeed",
+  "structure": {
+    "APICallStep": {
+      "rule": "0x148e80bba7b8e1cb85db5787da0d197b91a52a69",
+      "onValid": {
+        "spawns": [
+          "APICallStep"
+        ]
+      },
+      "onInvalid": {
+        "spawns": [
+          "APICallStep"
+        ]
+      }
+    }
+  }
+}

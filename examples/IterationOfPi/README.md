@@ -1,3 +1,44 @@
+# Iteration of Pi (XDaLa Example)
+
+This example demonstrates a **continuous, auditable on-chain compute stream** using XDaLa.
+It iteratively approximates **π (Pi)** using a deterministic mathematical series. Each iteration updates state on-chain and can be inspected via explorer logs / receipts.
+
+> Note: This demo is a **deterministic compute stream** (not an external oracle feed).  
+> The same execution model can later be connected to real-world inputs (measurements, market prices) via external connectors/attestations.
+
+---
+
+## What it does
+
+The process runs an infinite loop of “Pi iteration steps”:
+- increments an iteration counter (`Iter`)
+- updates the partial sum (`S`)
+- computes the current approximation `Pi = 4.0 * S`
+- waits for a configurable time (`waitSec`)
+- spawns the next step (loop)
+
+Result: a **continuous stream of verifiable state updates**.
+
+---
+
+## Math
+
+We use the Leibniz series:
+
+π = 4 · Σ((-1)^n / (2n + 1))
+
+In this example, `S` stores the running sum and `Pi = 4*S`.
+
+---
+
+## Files
+
+
+examples/IterationOfPi/
+XRC137json/
+Iterationstep.json
+XRC729json/
+IterationOfPi.json
 
 ---
 

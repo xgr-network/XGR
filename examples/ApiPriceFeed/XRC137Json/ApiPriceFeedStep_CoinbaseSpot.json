@@ -1,0 +1,92 @@
+{
+  "apiCalls": [
+    {
+      "contentType": "json",
+      "extractMap": {
+        "FetchedPrice": {
+          "default": 0,
+          "type": "double",
+          "value": "resp.data.amount"
+        },
+        "OkApi": {
+          "default": false,
+          "type": "bool",
+          "value": "[FetchedPrice] > 0.0"
+        }
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "method": "GET",
+      "name": "coinbase_spot",
+      "urlTemplate": "https://api.coinbase.com/v2/prices/[Base]-[Quote]/spot"
+    }
+  ],
+  "onInvalid": {
+    "payload": {
+      "Error": "API fetch or validation failed",
+      "Ok": "false",
+      "Pair": "[Base]-[Quote]",
+      "Price": "[PrevPrice]",
+      "Seq": "int64([Seq]) + 1",
+      "Source": "coinbase"
+    },
+    "waitSec": 3600
+  },
+  "onValid": {
+    "payload": {
+      "DeltaPct": "([PrevPrice] == 0.0) ? 0.0 : (([FetchedPrice] - [PrevPrice]) / [PrevPrice])",
+      "Error": "",
+      "Ok": "true",
+      "Pair": "[Base]-[Quote]",
+      "PrevPrice": "[FetchedPrice]",
+      "Price": "[FetchedPrice]",
+      "Seq": "int64([Seq]) + 1",
+      "Source": "coinbase"
+    },
+    "waitSec": 3600
+  },
+  "payload": {
+    "Base": {
+      "default": "BTC",
+      "type": "string"
+    },
+    "Error": {
+      "default": " ",
+      "type": "string"
+    },
+    "MaxDeltaPct": {
+      "default": 0.2,
+      "type": "double"
+    },
+    "Ok": {
+      "default": false,
+      "type": "bool"
+    },
+    "PrevPrice": {
+      "default": 0,
+      "type": "double"
+    },
+    "Price": {
+      "default": 0,
+      "type": "double"
+    },
+    "Quote": {
+      "default": "USD",
+      "type": "string"
+    },
+    "Seq": {
+      "default": 0,
+      "type": "int64"
+    },
+    "Source": {
+      "default": "coinbase",
+      "type": "string"
+    }
+  },
+  "rules": [
+    "([PrevPrice] == 0.0) || (abs([FetchedPrice] - [PrevPrice]) / [PrevPrice] <= [MaxDeltaPct])",
+    "[FetchedPrice] > 0.0",
+    "[OkApi] == true"
+  ]
+}
