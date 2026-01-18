@@ -22,7 +22,7 @@ Each iteration (“step”) performs:
 
 3. **Update session payload**
    - increments `Seq`
-   - updates `Price` and `PrevPrice`
+   - updates PrevPrice`
    - sets `Ok = true/false`
    - updates `Error` (empty on success, message on failure)
 
@@ -50,7 +50,6 @@ ApiPriceFeedLoop_CoinbaseSpot.json
 - `Base` (string) — e.g. `BTC`
 - `Quote` (string) — e.g. `USD`
 - `Seq` (int64) — iteration counter
-- `Price` (double) — latest accepted price
 - `PrevPrice` (double) — last accepted price (used for delta guard)
 - `MaxDeltaPct` (double) — max allowed relative change per step (e.g. `0.2` = 20%)
 - `Ok` (bool) — whether the current step succeeded
@@ -110,7 +109,6 @@ This process is currently running on Testnet:
   "Seq": 0,
   "MaxDeltaPct": 0.2,
   "PrevPrice": 0.0,
-  "Price": 0.0,
   "Ok": false,
   "Error": ""
 }

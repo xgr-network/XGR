@@ -27,7 +27,6 @@
       "Error": "API fetch or validation failed",
       "Ok": "false",
       "Pair": "[Base]-[Quote]",
-      "Price": "[PrevPrice]",
       "Seq": "int64([Seq]) + 1",
       "Source": "coinbase"
     },
@@ -40,7 +39,6 @@
       "Ok": "true",
       "Pair": "[Base]-[Quote]",
       "PrevPrice": "[FetchedPrice]",
-      "Price": "[FetchedPrice]",
       "Seq": "int64([Seq]) + 1",
       "Source": "coinbase"
     },
@@ -64,10 +62,6 @@
       "type": "bool"
     },
     "PrevPrice": {
-      "default": 0,
-      "type": "double"
-    },
-    "Price": {
       "default": 0,
       "type": "double"
     },
