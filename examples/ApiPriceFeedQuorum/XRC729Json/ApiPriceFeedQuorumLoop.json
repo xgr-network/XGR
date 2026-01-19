@@ -1,16 +1,16 @@
 {
-  "id": "ContinuousDataFeed",
+  "id": "ContinuousQuorumDataFeed",
   "structure": {
-    "APICallStep": {
-      "rule": "0x148e80bba7b8e1cb85db5787da0d197b91a52a69",
+    "QuorumAPICallStep": {
+      "rule": "<ApiPriceFeedStep-Addr>",
       "onValid": {
         "spawns": [
-          "APICallStep"
+          "QuorumAPICallStep"
         ]
       },
       "onInvalid": {
         "spawns": [
-          "APICallStep"
+          "QuorumAPICallStep"
         ]
       }
     }
