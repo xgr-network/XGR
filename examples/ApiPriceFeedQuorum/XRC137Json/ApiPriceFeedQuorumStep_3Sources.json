@@ -4,7 +4,7 @@
       "contentType": "json",
       "extractMap": {
         "FetchedCoinbase": {
-          "default": 0.0,
+          "default": 0,
           "type": "double",
           "value": "double(resp.data.amount)"
         },
@@ -25,7 +25,7 @@
       "contentType": "json",
       "extractMap": {
         "FetchedBitstamp": {
-          "default": 0.0,
+          "default": 0,
           "type": "double",
           "value": "double(resp.last)"
         },
@@ -46,7 +46,7 @@
       "contentType": "json",
       "extractMap": {
         "FetchedGecko": {
-          "default": 0.0,
+          "default": 0,
           "type": "double",
           "value": "double(resp.bitcoin.usd)"
         },
@@ -64,7 +64,45 @@
       "urlTemplate": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
     }
   ],
+  "onInvalid": {
+    "payload": {
+      "CoinbasePrice": "[FetchedCoinbase]",
+      "BitstampPrice": "[FetchedBitstamp]",
+      "GeckoPrice": "[FetchedGecko]",
 
+      "Pair": "[Base]-[Quote]",
+      "Price": "[PrevPrice]",
+      "DeltaPct": 0.0,
+
+      "Ok": false,
+      "Error": "Quorum failed or delta guard triggered",
+      "Source": "quorum_3api",
+
+      "Seq": "int64([Seq]) + 1"
+    },
+    "waitSec": 3600
+  },
+  "onValid": {
+    "payload": {
+      "CoinbasePrice": "[FetchedCoinbase]",
+      "BitstampPrice": "[FetchedBitstamp]",
+      "GeckoPrice": "[FetchedGecko]",
+
+      "Pair": "[Base]-[Quote]",
+
+      "Price": "consensus([[FetchedCoinbase],[FetchedBitstamp],[FetchedGecko]], \"rel\", \"ball\", \"median\", [QuorumTolPct], int64([K]))",
+      "DeltaPct": "([PrevPrice] == 0.0) ? 0.0 : safeDiv(abs(consensus([[FetchedCoinbase],[FetchedBitstamp],[FetchedGecko]], \"rel\", \"ball\", \"median\", [QuorumTolPct], int64([K])) - [PrevPrice]), abs([PrevPrice]), 0.0)",
+
+      "PrevPrice": "consensus([[FetchedCoinbase],[FetchedBitstamp],[FetchedGecko]], \"rel\", \"ball\", \"median\", [QuorumTolPct], int64([K]))",
+
+      "Ok": true,
+      "Error": "",
+      "Source": "quorum_3api",
+
+      "Seq": "int64([Seq]) + 1"
+    },
+    "waitSec": 3600
+  },
   "payload": {
     "Base": {
       "default": "BTC",
@@ -74,46 +112,49 @@
       "default": "USD",
       "type": "string"
     },
-    "Seq": {
-      "default": 0,
+
+    "Pair": {
+      "default": "BTC-USD",
+      "type": "string"
+    },
+
+    "K": {
+      "default": 2,
       "type": "int64"
     },
-    "PrevPrice": {
-      "default": 0.0,
+    "QuorumTolPct": {
+      "default": 0.01,
       "type": "double"
     },
     "MaxDeltaPct": {
       "default": 0.2,
       "type": "double"
     },
-    "QuorumTolPct": {
-      "default": 0.01,
+
+    "PrevPrice": {
+      "default": 0,
+      "type": "double"
+    },
+    "Price": {
+      "default": 0,
+      "type": "double"
+    },
+    "DeltaPct": {
+      "default": 0,
       "type": "double"
     },
 
     "CoinbasePrice": {
-      "default": 0.0,
+      "default": 0,
       "type": "double"
     },
     "BitstampPrice": {
-      "default": 0.0,
+      "default": 0,
       "type": "double"
     },
     "GeckoPrice": {
-      "default": 0.0,
+      "default": 0,
       "type": "double"
-    },
-    "ConsensusPrice": {
-      "default": 0.0,
-      "type": "double"
-    },
-    "DeltaPct": {
-      "default": 0.0,
-      "type": "double"
-    },
-    "QuorumPair": {
-      "default": "",
-      "type": "string"
     },
 
     "Ok": {
@@ -127,55 +168,15 @@
     "Source": {
       "default": "quorum_3api",
       "type": "string"
+    },
+    "Seq": {
+      "default": 0,
+      "type": "int64"
     }
   },
-
   "rules": [
-    "(([OkCoinbase] == true) && ([OkBitstamp] == true) && (abs([FetchedCoinbase] - [FetchedBitstamp]) / (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) <= [QuorumTolPct])) || (([OkCoinbase] == true) && ([OkGecko] == true) && (abs([FetchedCoinbase] - [FetchedGecko]) / (([FetchedCoinbase] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) || (([OkBitstamp] == true) && ([OkGecko] == true) && (abs([FetchedBitstamp] - [FetchedGecko]) / (([FetchedBitstamp] + [FetchedGecko]) / 2.0) <= [QuorumTolPct]))",
-    "((([OkCoinbase] == true) && ([OkBitstamp] == true) && (abs([FetchedCoinbase] - [FetchedBitstamp]) / (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) <= [QuorumTolPct])) ? (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) : ((([OkCoinbase] == true) && ([OkGecko] == true) && (abs([FetchedCoinbase] - [FetchedGecko]) / (([FetchedCoinbase] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? (([FetchedCoinbase] + [FetchedGecko]) / 2.0) : ((([OkBitstamp] == true) && ([OkGecko] == true) && (abs([FetchedBitstamp] - [FetchedGecko]) / (([FetchedBitstamp] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? (([FetchedBitstamp] + [FetchedGecko]) / 2.0) : 0.0))) > 0.0",
-    "([PrevPrice] == 0.0) || (abs(((([OkCoinbase] == true) && ([OkBitstamp] == true) && (abs([FetchedCoinbase] - [FetchedBitstamp]) / (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) <= [QuorumTolPct])) ? (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) : ((([OkCoinbase] == true) && ([OkGecko] == true) && (abs([FetchedCoinbase] - [FetchedGecko]) / (([FetchedCoinbase] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? (([FetchedCoinbase] + [FetchedGecko]) / 2.0) : ((([OkBitstamp] == true) && ([OkGecko] == true) && (abs([FetchedBitstamp] - [FetchedGecko]) / (([FetchedBitstamp] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? (([FetchedBitstamp] + [FetchedGecko]) / 2.0) : 0.0)))) - [PrevPrice]) / [PrevPrice] <= [MaxDeltaPct])"
-  ],
-
-  "onValid": {
-    "payload": {
-      "Seq": "int64([Seq]) + 1",
-      "Pair": "[Base]-[Quote]",
-
-      "CoinbasePrice": "[FetchedCoinbase]",
-      "BitstampPrice": "[FetchedBitstamp]",
-      "GeckoPrice": "[FetchedGecko]",
-
-      "ConsensusPrice": "((([OkCoinbase] == true) && ([OkBitstamp] == true) && (abs([FetchedCoinbase] - [FetchedBitstamp]) / (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) <= [QuorumTolPct])) ? (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) : ((([OkCoinbase] == true) && ([OkGecko] == true) && (abs([FetchedCoinbase] - [FetchedGecko]) / (([FetchedCoinbase] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? (([FetchedCoinbase] + [FetchedGecko]) / 2.0) : ((([OkBitstamp] == true) && ([OkGecko] == true) && (abs([FetchedBitstamp] - [FetchedGecko]) / (([FetchedBitstamp] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? (([FetchedBitstamp] + [FetchedGecko]) / 2.0) : 0.0)))",
-
-      "QuorumPair": "((([OkCoinbase] == true) && ([OkBitstamp] == true) && (abs([FetchedCoinbase] - [FetchedBitstamp]) / (([FetchedCoinbase] + [FetchedBitstamp]) / 2.0) <= [QuorumTolPct])) ? \"CB\" : ((([OkCoinbase] == true) && ([OkGecko] == true) && (abs([FetchedCoinbase] - [FetchedGecko]) / (([FetchedCoinbase] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? \"CG\" : ((([OkBitstamp] == true) && ([OkGecko] == true) && (abs([FetchedBitstamp] - [FetchedGecko]) / (([FetchedBitstamp] + [FetchedGecko]) / 2.0) <= [QuorumTolPct])) ? \"BG\" : \"\")))",
-
-      "DeltaPct": "([PrevPrice] == 0.0) ? 0.0 : (abs([ConsensusPrice] - [PrevPrice]) / [PrevPrice])",
-
-      "PrevPrice": "[ConsensusPrice]",
-      "Ok": true,
-      "Error": "",
-      "Source": "quorum_3api"
-    },
-    "waitSec": 3600
-  },
-
-  "onInvalid": {
-    "payload": {
-      "Seq": "int64([Seq]) + 1",
-      "Pair": "[Base]-[Quote]",
-
-      "CoinbasePrice": "[FetchedCoinbase]",
-      "BitstampPrice": "[FetchedBitstamp]",
-      "GeckoPrice": "[FetchedGecko]",
-
-      "ConsensusPrice": "0.0",
-      "DeltaPct": "0.0",
-      "QuorumPair": "",
-
-      "Ok": false,
-      "Error": "Quorum failed or delta guard triggered",
-      "Source": "quorum_3api"
-    },
-    "waitSec": 3600
-  }
+    "quorum([[FetchedCoinbase],[FetchedBitstamp],[FetchedGecko]], \"rel\", \"ball\", [QuorumTolPct], int64([K]))",
+    "consensus([[FetchedCoinbase],[FetchedBitstamp],[FetchedGecko]], \"rel\", \"ball\", \"median\", [QuorumTolPct], int64([K])) > 0.0",
+    "([PrevPrice] == 0.0) || (safeDiv(abs(consensus([[FetchedCoinbase],[FetchedBitstamp],[FetchedGecko]], \"rel\", \"ball\", \"median\", [QuorumTolPct], int64([K])) - [PrevPrice]), abs([PrevPrice]), 0.0) <= [MaxDeltaPct])"
+  ]
 }

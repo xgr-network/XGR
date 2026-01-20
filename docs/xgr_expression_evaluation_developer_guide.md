@@ -139,8 +139,6 @@ make it unambiguous by adding parentheses:
 
 This ensures the value is classified as an **Expression** (CEL) rather than a **Template**.
 
-
-
 ---
 
 ## 5. Evaluation semantics by component
@@ -243,35 +241,417 @@ Defaults must not hide authoring/configuration errors. Therefore, defaults do **
 
 These cases are treated as **hard errors** (abort), not soft-invalid.
 
+---
 
-## 6. Type coercion before CEL evaluation
+## 6. Type normalization before CEL evaluation
 
-Before CEL evaluation, the engine normalizes scalar values so CEL sees stable types:
+Before CEL evaluation, the engine normalizes inbound values so CEL sees stable, deterministic scalar types.
+The normalization logic is intentionally conservative: it **does not guess schema** and it **does not coerce numeric strings**.
 
-- `json.Number` is converted to `int64`, `uint64`, or `float64` when possible.
-- numeric strings like `"123"` are converted to `int64/uint64/float64` where lossless.
-- nested maps/slices are recursively normalized.
+### 6.1 Normative normalization rules
 
-This reduces accidental “string math” and decreases the likelihood of CEL overload errors.
+The normalization step (`CoerceMapForCEL`) applies `normalizeScalar` recursively to the full input map:
+
+- **Maps** (`map[string]any`): each value is normalized recursively.
+- **Lists** (`[]any`): each element is normalized recursively.
+- **`json.Number`**: converted to **`float64`** (CEL `double`).
+  - Rationale: schema-level casting should already have produced `int64/uint64` where required.
+- **`float32`**: converted to `float64`.
+- **`float64`**: kept.
+- **Strings**: kept as strings.
+  - No numeric string coercion (e.g., `"123"` remains a string).
+
+### 6.2 Implications for authors
+
+- If an API returns numeric strings, you must cast explicitly in CEL: `double(resp.data.amount)`.
+- If a payload key is declared as `double/int64/...` in the schema, prefer feeding it typed already.
+- Avoid relying on implicit CEL conversions; use explicit casts (`double(x)`, `int64(x)`, etc.) when consuming dynamic inputs.
+
+This approach reduces accidental misinterpretation of strings and makes “no such overload” errors easier to reason about.
 
 ---
 
 ## 7. CEL environment and supported helper functions
 
-The CEL environment includes:
+The CEL environment is created via `CreateEnv()` / `CreateEnvWithVars()` and includes:
 
-### Variables
-- `resp` (only used for API extraction contexts): dynamic type (`dyn`)
+### 7.1 Variables
 
-### Helper functions (XGR extensions)
-- `pow(a, b)` → power function (dynamic numeric)
-- `max(list<dyn>)`, `min(list<dyn>)`, `sum(list<dyn>)`, `avg(list<dyn>)`
-- `join(list<dyn>, sep)` → string join (items are converted to string)
-- `unique(list<dyn>)` → de-duplicate (stable order)
-- `u256(x)` → parses/constructs an unsigned 256-bit integer (returns dynamic big-int compatible value)
-- `int64(x)`, `uint64(x)`, `uint256(x)` → strict casts with overflow checks
+- `resp` (API extraction contexts only): dynamic type (`dyn`)
+- Rule/outcome/execution variables: injected as `dyn` identifiers (after placeholder rewriting)
 
-CEL built-ins remain available (e.g., `string(x)`, `double(x)`, `bool(x)`), including regex matching via `matches`.
+### 7.2 Design principles for helper functions
+
+Helper functions are designed with strict protocol constraints:
+
+- **Determinism:** no time, randomness, or host-dependent behavior.
+- **Hard-cap friendliness:** list algorithms must be safe under `MaxListCap`.
+- **Typed clarity:** prefer returning predictable types; where a `dyn` may return different concrete types,
+  it is documented explicitly.
+- **Fail-fast on authoring errors:** wrong arity or wrong argument types yield CEL errors (hard error).
+
+### 7.3 Function reference
+
+Below is the normative reference. `dyn` means “CEL dynamic”; `list<dyn>` is a CEL list whose elements are dynamic.
+
+#### 7.3.1 Numeric scalar helpers
+
+##### `abs(x) -> dyn`
+
+- **Purpose:** absolute value.
+- **Input:** numeric `dyn` (int/uint/double).
+- **Output:** `double`.
+- **Errors:**
+  - non-numeric input
+  - NaN / Infinity
+
+Examples:
+
+```cel
+abs(-5)              // 5.0
+abs(double(-3.2))    // 3.2
+```
+
+##### `pow(a, b) -> dyn`
+
+- **Purpose:** power function (`a^b`).
+- **Input:** numeric `dyn`.
+- **Output:** `double`.
+- **Notes:** if either argument is non-numeric, the function returns `0.0` (not an error). Prefer explicit casts if you want strictness.
+
+Examples:
+
+```cel
+pow(2, 10)                 // 1024.0
+pow(double([X]), 2)        // square
+```
+
+##### `relDiff(a, b) -> dyn`
+
+- **Purpose:** symmetric relative difference between two numeric scalars.
+- **Definition:**
+
+  `relDiff(a,b) = abs(a-b) / abs((a+b)/2)`
+
+- **Input:** numeric `dyn`.
+- **Output:** `double`.
+- **Edge cases:**
+  - If `abs((a+b)/2) == 0`:
+    - returns `0.0` if `a == b`
+    - returns `1e18` otherwise (deterministic “very far”)
+- **Errors:** non-numeric input.
+
+Examples:
+
+```cel
+relDiff(100.0, 101.0)      // ~0.00995
+relDiff(0.0, 0.0)          // 0.0
+relDiff(0.0, 1.0)          // 1e18
+```
+
+##### `safeDiv(num, den, fallback) -> dyn`
+
+- **Purpose:** safe division that never divides by zero.
+- **Behavior:**
+  - If `num` or `den` is non-numeric, returns `fallback`.
+  - If `den == 0`, returns `fallback`.
+  - Else returns `double(num / den)`.
+- **Output type:** `dyn`.
+  - If division succeeds: `double`.
+  - If fallback is returned: the type of `fallback`.
+- **Recommendation:** pass a `double` fallback (e.g., `0.0`) if downstream expects numeric results.
+
+Examples:
+
+```cel
+safeDiv(10.0, 2.0, 0.0)     // 5.0
+safeDiv(10.0, 0.0, 0.0)     // 0.0
+safeDiv([X], [Y], 0.0)      // numeric if possible; else 0.0
+```
+
+##### `clamp(x, lo, hi) -> dyn`
+
+- **Purpose:** clamp a numeric scalar into a closed interval.
+- **Behavior:**
+  - Swaps bounds if `lo > hi`.
+  - If `x` is non-numeric, returns `x` unchanged.
+  - If `lo/hi` are non-numeric, returns `x` unchanged.
+  - Else returns `double(x)` clamped to `[lo, hi]`.
+
+Examples:
+
+```cel
+clamp(5.0, 0.0, 10.0)      // 5.0
+clamp(-1.0, 0.0, 10.0)     // 0.0
+clamp(99.0, 0.0, 10.0)     // 10.0
+```
+
+#### 7.3.2 Distance and proximity helpers
+
+These helpers make quorum/consensus expressions short and reusable.
+
+##### `dist(metric, a, b) -> dyn`
+
+- **Purpose:** compute a distance between two scalar values under a selected metric.
+- **Output:** `double`.
+- **Errors:** wrong metric type, unsupported metric, incompatible value types.
+
+Supported `metric` values (case-insensitive):
+
+**Numeric metrics**
+
+- `""` or `"rel"` / `"relative"` / `"reldiff"`
+  - symmetric relative difference, identical to `relDiff(a,b)`
+- `"abs"` / `"absolute"`
+  - `abs(a-b)`
+
+**Equality / string metrics**
+
+- `"eq"` / `"equal"`
+  - distance is `0.0` if values are equal, otherwise `1.0` (works for any scalar types that CEL can compare)
+- `"hamming"` / `"ham"`
+  - normalized Hamming distance (strings only): `diffChars / len`
+  - if lengths differ: returns `1e18` (deterministic “very far”)
+- `"lev"` / `"levenshtein"`
+  - normalized Levenshtein distance (strings only)
+  - if max string length > 256: returns `1e18` (hard cap to avoid pathological runtime)
+
+Notes on return range:
+
+- `rel`: `[0, +inf)`
+- `abs`: `[0, +inf)`
+- `eq`: `{0, 1}`
+- `hamming` / `lev`: `[0, 1]` (except the sentinel `1e18` for unsupported cases)
+
+Examples:
+
+```cel
+// Numeric
+"rel".dist(100.0, 101.0)   // not valid: dist is a function, not a method
+
+dist("rel", 100.0, 101.0)  // ~0.00995
+
+dist("abs", 100.0, 101.0)  // 1.0
+
+// Strings
+within("hamming", "ABC", "ABD", 0.0) // false
+within("hamming", "ABC", "ABD", 0.34) // true (1/3)
+```
+
+##### `within(metric, a, b, tol) -> bool`
+
+- **Purpose:** boolean proximity check: `dist(metric, a, b) <= tol`.
+- **Inputs:**
+  - `metric`: string
+  - `tol`: numeric, must be `>= 0`
+- **Errors:** invalid metric, invalid tol, incompatible types.
+
+Examples:
+
+```cel
+within("rel", 100.0, 101.0, 0.01)        // true
+within("rel", 100.0, 102.0, 0.01)        // false
+within("eq", "CB", "CB", 0.0)           // true
+within("eq", "CB", "CG", 0.0)           // false
+```
+
+#### 7.3.3 List numeric helpers
+
+All list numeric helpers accept `list<dyn>` and are intended for **lists of numeric scalars**.
+
+If the list is empty, contains non-numeric values, or cannot be converted to a numeric slice, these helpers return `0.0`.
+This is a deterministic “neutral” value; if you need strict failure, enforce type/shape at the schema level.
+
+##### `max(list)`, `min(list)`, `sum(list)`, `avg(list) -> dyn`
+
+- **Output:** `double`.
+- **Notes:** these helpers do not sort unless necessary.
+
+Examples:
+
+```cel
+max([1.0, 5.0, 2.0])       // 5.0
+avg([1.0, 5.0, 2.0])       // 2.666...
+```
+
+##### `median(list) -> dyn`
+
+- **Output:** `double`.
+- **Definition:** median of the sorted values.
+  - odd N: middle element
+  - even N: average of the two middle elements
+- **Complexity:** `O(n log n)` but `n <= MaxListCap`.
+
+Examples:
+
+```cel
+median([1.0, 9.0, 3.0])          // 3.0
+median([1.0, 9.0, 3.0, 7.0])     // (3.0+7.0)/2 = 5.0
+```
+
+##### `stdev(list) -> dyn`
+
+- **Output:** `double`.
+- **Definition:** population standard deviation.
+  - Uses Welford’s algorithm (numerically stable).
+  - `stdev([x]) == 0.0`.
+
+Examples:
+
+```cel
+stdev([10.0, 10.0, 10.0])     // 0.0
+stdev([10.0, 12.0, 8.0])      // > 0
+```
+
+##### `cv(list) -> dyn`
+
+- **Output:** `double`.
+- **Definition:** coefficient of variation: `stdev(list) / abs(mean(list))`.
+- **Edge case:** if mean is `0`, returns `0.0`.
+
+Examples:
+
+```cel
+cv([100.0, 101.0, 99.5])      // small number
+```
+
+##### `mad(list) -> dyn`
+
+- **Output:** `double`.
+- **Definition:** median absolute deviation (unscaled):
+
+  `mad(x) = median( abs(x_i - median(x)) )`
+
+- **Notes:** `mad` is robust to outliers and often preferred for guardrails.
+
+Examples:
+
+```cel
+mad([100.0, 101.0, 99.5, 500.0])    // robust vs outlier
+```
+
+#### 7.3.4 Quorum and consensus helpers
+
+These helpers implement a **generic quorum / consensus** concept for *scalar values*, parameterized by:
+
+- **k**: minimum size of an agreement set
+- **metric**: distance function (`dist`)
+- **tol**: tolerance threshold
+- **mode**: how the agreement set is selected
+- **agg**: how the final representative value is chosen
+
+They are designed for deterministic protocol evaluation (not for research-grade distributed consensus).
+
+##### Definitions used in this protocol
+
+- **Quorum (protocol):** “At least `k` elements in a set are mutually consistent under a metric within tolerance.”
+- **Consensus (protocol):** “A deterministic representative value derived from a quorum-selected subset.”
+
+This is deliberately **math-first** (set selection + aggregation), and separate from network consensus.
+
+##### `quorum(values, metric, tol, k) -> bool`
+##### `quorum(values, metric, mode, tol, k) -> bool`
+
+- **Purpose:** decide whether a quorum of size `k` exists.
+- **Inputs:**
+  - `values`: `list<dyn>`
+  - `metric`: string (see `dist`)
+  - `tol`: numeric, must be `>= 0`
+  - `k`: numeric, must be `>= 1` (cast to int)
+  - `mode`: optional string
+- **Return:** bool.
+  - returns `true` if a quorum subset of size >= k is found
+  - returns `false` otherwise
+- **Hard errors:** invalid arity, invalid types for `metric/mode/tol/k`, non-list `values`.
+
+##### `consensus(values, metric, agg, tol, k) -> dyn`
+##### `consensus(values, metric, mode, agg, tol, k) -> dyn`
+
+- **Purpose:** compute a representative value for the selected quorum subset.
+- **Return value when quorum is not met:** deterministic `0.0`.
+  - Recommendation: guard with `quorum(...)` if `0.0` is ambiguous in your use case.
+- **Hard errors:** invalid arity, invalid `metric/mode/agg/tol/k`, non-list `values`, unknown `agg`.
+
+###### Supported `mode` values
+
+- `"ball"` (default)
+  - Selects a *center candidate* from the list that maximizes the number of inliers within `tol`.
+  - Inlier definition: `dist(metric, center, v) <= tol`.
+  - Deterministic tie-break: earliest center in the original list.
+
+- `"pairwise"` or `"clique"`
+  - Attempts to find a clique-like subset where **all pairwise distances** are within `tol`.
+  - This is a deterministic greedy procedure designed for small lists (`<= MaxListCap`). It is not an NP-hard maximum clique solver.
+
+###### Supported `agg` values
+
+- `"medoid"`
+  - Returns an element from the quorum subset that minimizes total distance to the other inliers.
+  - Works for numeric and string metrics.
+
+- `"mode"`
+  - Returns the most frequent element in the quorum subset.
+  - Equality uses a stable string key representation. Use on scalars only.
+
+- `"mean"` (numeric only)
+  - Returns the arithmetic mean as `double`.
+
+- `"median"` (numeric only)
+  - Returns the median as `double`.
+
+###### Examples
+
+**1) Numeric price feed: 2-of-3 within 1% (relative difference)**
+
+```cel
+// Build a list literal. Using raw identifiers (no placeholders) is recommended.
+prices = [FetchedCoinbase, FetchedBitstamp, FetchedGecko]
+
+quorum(prices, "rel", 0.01, 2)                 // bool
+consensus(prices, "rel", "medoid", 0.01, 2)   // representative price (dyn)
+```
+
+**2) Numeric guardrail: reject large jumps vs previous**
+
+```cel
+newP = consensus([FetchedCoinbase, FetchedBitstamp, FetchedGecko], "rel", "mean", 0.01, 2)
+
+// If PrevPrice is 0, accept (bootstrapping). Else require <= 20% move.
+(PrevPrice == 0.0) || (relDiff(newP, PrevPrice) <= MaxDeltaPct)
+```
+
+**3) String agreement: 2-of-3 equal**
+
+```cel
+quorum([SourceA, SourceB, SourceC], "eq", 0.0, 2)
+consensus([SourceA, SourceB, SourceC], "eq", "mode", 0.0, 2)
+```
+
+**4) String similarity: hamming quorum**
+
+```cel
+// "ABC" and "ABD" are within tol=0.34, so a 2-of-3 quorum can succeed.
+consensus(["ABC", "ABD", "XYZ"], "hamming", "ball", "medoid", 0.34, 2)
+```
+
+#### 7.3.5 Misc helpers
+
+##### `join(list<dyn>, sep) -> string`
+
+- Converts each element to string and joins with `sep`.
+
+##### `unique(list<dyn>) -> list<dyn>`
+
+- Stable de-duplication preserving first occurrence order.
+
+##### `u256(x) -> dyn`, `uint256(x) -> dyn`
+
+- Constructs/parses an unsigned 256-bit integer value.
+- Use for large constants where CEL int literals would overflow.
+
+##### `int64(x) -> int`, `uint64(x) -> uint`
+
+- Strict casts with overflow checks (hard error if out of range).
 
 ---
 
@@ -320,19 +700,32 @@ Typical causes:
 - mixing `int`/`uint`/`double` in a way CEL cannot implicitly reconcile
 
 Mitigations:
-- Normalize inputs (avoid numeric strings; rely on defaults or proper typing).
+- Do not rely on numeric string coercion (it is intentionally not performed).
 - Use explicit casts in expressions, e.g.:
   - `int64([A]) >= 60`
   - `double(resp.x) > 0.0`
+- When building lists, keep them type-homogeneous:
+  - good: `[FetchedA, FetchedB, FetchedC]` (all doubles)
+  - bad: `[FetchedA, "93000", FetchedC]` (mix string + double)
 
-### 9.2 Missing keys
+### 9.2 Metric / quorum errors
+Common errors for distance / quorum functions:
+
+- `metric must be string`: you passed a non-string metric.
+- `tol must be >= 0`: tolerance is missing, non-numeric, or negative.
+- `k must be >= 1`: quorum size invalid.
+- `metric expects numeric`: you used a numeric metric (`rel`/`abs`) on non-numeric values.
+
+Mitigation: enforce correct types at the schema layer, and keep metric selection explicit.
+
+### 9.3 Missing keys
 - In **rules**: missing keys → expression evaluates as false (invalid).
 - In **outcome/execution**: missing keys → `ErrSoftInvalid` (branch downgrade or meta-only).
 
 Mitigation: ensure the value is produced earlier (payload, contract read, API extract, previous outcome) or
 provide a default at the input level.
 
-### 9.3 Placeholder vs index confusion
+### 9.4 Placeholder vs index confusion
 - `[0]` is **not** a placeholder.
 - To index, use CEL indexing on an identifier, e.g. `Names[0]` or `resp.items[0]`.
 
@@ -340,9 +733,10 @@ provide a default at the input level.
 
 ## 10. Best practices
 
-- Keep expressions short and readable; prefer saved intermediate values over deeply nested comprehensions.
+- Keep expressions short and readable; prefer saved intermediate values over deeply nested ternary chains.
 - Use explicit casts when consuming API data (`double()`, `int64()`) to avoid overload ambiguity.
-- Do not rely on runtime timing; design with hard caps in mind (lists are capped at 64).
+- Prefer the quorum/consensus helpers over hand-written 2000-character expressions.
+- Always design with hard caps in mind (lists are capped at 64, Levenshtein is capped to 256-char strings).
 - If a value is meant to be computed (arithmetic/comparison), write it as an **Expression**, not a template.
 
 ---
