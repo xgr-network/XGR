@@ -26,7 +26,7 @@ Each iteration (“step”) performs:
 
 3) **Consensus value**
    - A deterministic consensus price is computed from the inlier set
-   - In this example: `agg = "median"` (robust, outlier-resistant)
+   - In this example: `agg = "mean"` (smooth,deterministic)
 
 4) **Delta guard** (optional safety)
    - Rejects updates that deviate too strongly from the previously accepted value
@@ -128,7 +128,7 @@ This example assumes the following deterministic helper functions exist in the X
 
 ### `consensus(values, metric, mode, agg, tol, k) -> double`
 - Same arguments as `quorum(...)`, plus:
-- `agg`: `"median"` recommended for robust numeric consensus
+- `agg`: `"mean"` recommended for robust numeric consensus
 
 ### `safeDiv(num, den, fallback) -> double`
 - Used to avoid division-by-zero in delta computations
@@ -141,7 +141,7 @@ Because there is no `PrevPrice`, the **previous value is simply the input `[Pric
 
 Define:
 
-- `NEW = consensus([...], "rel", "ball", "median", QuorumTolPct, K)`
+- `NEW = consensus([...], "rel", "ball", "mean", QuorumTolPct, K)`
 - `OLD = [Price]` (incoming state)
 
 Then:
