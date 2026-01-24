@@ -1,7 +1,7 @@
 # XRC-137 Rule Document Specification (xDaLa)
 
-Version: 1.0 (pre-launch)
-Last updated: 2026-01-03
+Version: 1.1
+Last updated: 2026-01-24
 
 This document specifies the **JSON rule document format** consumed by the **xDaLa Engine** when executing an XRC-137 step.
 It is written for **rule authors**, **integrators**, and **SDK implementers** who need to produce interoperable rule documents.
@@ -388,6 +388,7 @@ A branch is a JSON object with the following fields:
 | `payload` | object | No | Outcome payload (log output + execution overlay). |
 | `execution` | object | No | Inner transaction call specification (see §8.3). |
 | `grants` | array | No | Grants to apply for this step outcome (see §9). |
+| `wakeUps` | array | No | Engine-internal wake-up requests to resume other sessions (see §8.5). |
 | `logExpireDays` | integer | No | TTL for the step’s log bundle; also default grant TTL (see §9.3). |
 | `waitSec` | integer | No | Optional post-step wait time in seconds. |
 | `encryptLogs` | boolean | No | Whether to encrypt the log bundle for this branch (engine-dependent). |
@@ -440,6 +441,7 @@ Execution fields:
 | `function` | string | No | ABI signature for encoding `data`. If omitted, `data` is empty and only `to`/`value` transfer is possible. |
 | `args` | array | No | Arguments (`TypedValue[]`). Required if `function` has inputs. |
 | `value` | object | No | Native value transfer. Typed value (see `TypedValue`). |
+| `extras` | object | No | Free-form execution metadata (engine/SDK-specific). Not interpreted by the EVM call itself. |
 
 ### 8.4 Template vs CEL evaluation (Eval-or-Render)
 
@@ -452,6 +454,80 @@ Any **string field** that is declared as template/CEL-capable (branch payload st
 Missing placeholder keys:
 - If a relevant `default` exists for the target key (input field default, API extract default, contract read default), evaluation becomes soft-invalid and resolves deterministically.
 - Otherwise it triggers soft-invalid handling (downgrade to invalid branch if needed).
+
+
+### 8.5 Wake-ups (`wakeUps`)
+
+`wakeUps` enables **engine-internal, inter-session signaling**: after a step completes (valid or invalid), the engine can resume **other sessions** that are currently waiting on a specific `stepId`.
+
+This is *not* an RPC call and does not execute an EVM transaction. It is an internal state update that sets the target session’s `NextWakeAt` and merges payload into its resume payload.
+
+#### 8.5.1 Schema
+
+```json
+"wakeUps": [
+  {
+    "runner": "0xRunnerAddressOfTargetSession",
+    "sessionId": "123",
+    "stepId": "settle",
+    "payload": { "BidOk": true, "Bidder": "[from]" }
+  }
+]
+```
+
+| Field | Type | Required | Notes |
+|---|---:|:---:|---|
+| `runner` | string | Yes | EVM address of the **target session owner** (the “runner”). |
+| `sessionId` | uint64 / string | Yes | Root process ID of the target session. Must be `> 0`. |
+| `stepId` | string | Yes | The target session must currently be `WAITING` on this `stepId`. |
+| `payload` | object | No | Overlay payload merged into the target session’s resume payload. Keys starting with `_` are dropped. |
+
+#### 8.5.2 Authorization model
+
+Internal wake-ups are still **permissioned**:
+
+- If the wake-up caller (the **current session owner**, i.e. `permit.message.from`) equals the target `runner`, the wake-up is accepted.
+- Otherwise, the target session must explicitly allow that caller via the **wake-up allow list** on the target step:
+  - `ResumePlain.__wakeUp.default.internal` or
+  - `ResumePlain.__wakeUp.steps[stepId].internal`
+
+In other words: `wakeUps` is a *request* that may be ignored if the target session does not authorize the caller.
+
+#### 8.5.3 Payload merge semantics
+
+If the wake-up is accepted, the engine merges payload into the target session’s `ResumePlain` as:
+
+1. start with the existing `ResumePlain` of the target session,
+2. overlay **base payload** (typically the producing step’s output payload; keys starting with `_` are ignored),
+3. overlay the wake-up’s own `payload` (keys starting with `_` are ignored),
+4. set `NextWakeAt = now` and persist.
+
+If the producing step’s validity flips later in the tx-layer (e.g. execution reverts after validation), the engine may omit reusing that step output as base payload to avoid inconsistent propagation.
+
+#### 8.5.4 Example: bidder → auction main session
+
+A typical pattern is that a “bidder session” deposits assets and, on success, triggers the “main auction session” to continue settlement:
+
+```json
+"onValid": {
+  "payload": { "BidAccepted": true },
+  "wakeUps": [
+    {
+      "runner": "[AuctionRunner]",
+      "sessionId": "[AuctionSessionId]",
+      "stepId": "main_update",
+      "payload": {
+        "Bidder": "[from]",
+        "BidAmount": "[BidAmount]",
+        "Asset": "[AssetId]"
+      }
+    }
+  ]
+}
+```
+
+The main session’s waiting step `main_update` must allow internal wake-ups from bidder addresses (or from the specific caller addresses you expect) via its `__wakeUp` allow list.
+
 
 ---
 

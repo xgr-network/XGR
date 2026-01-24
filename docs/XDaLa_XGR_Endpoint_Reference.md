@@ -55,8 +55,9 @@ Several endpoints require an **EIP-712 permit** signed by an EOA. Permits are de
 | `xgr_getEncryptedLogInfo` | Extracts encryption metadata from a transaction log | No |
 | `xgr_getXRC137Meta` | Returns encrypted rule document blob + encrypted DEK for a given owner | No (encrypted-to-owner data) |
 | `xgr_encryptXRC137` | Produces encrypted XRC-137 blob suitable for on-chain storage | Optional (depends on request mode) |
-| `xgr_control` | Pause/resume/kill sessions (root-wide or single PID) | **ControlPermit** |
-| `xgr_wakeUpProcess` | Wakes waiting processes (by PID or StepId) and optionally merges payload | **ControlPermit** |
+| `xgr_control` | Session control (**kill**; pause/resume not implemented) | **ControlPermit** / **ControlPermitV2** |
+| `xgr_wakeUpProcess` | Wakes WAITING processes (PID-mode or Step-mode) with optional payload merge (supports AllowList) | **ControlPermit** / **ControlPermitV2** |
+| `xgr_listSessions` | Lists sessions (DB-backed), including allowlisted WAITING steps (“ToDo list” mode) | **xdalaPermit** or **ControlPermit(V2)** |
 | `xgr_manageGrants` | Creates/updates grants for a RID/scope | **xdalaPermit (owner-auth)** |
 | `xgr_listGrants` | Lists grants visible to the caller | **xdalaPermit (caller-auth)** |
 | `xgr_getGrantFeePerYear` | Returns annual grant fee in Wei | No |
@@ -282,56 +283,101 @@ Returns the encrypted rule document blob and an encrypted DEK for a given owner 
 ## 11. `xgr_control`
 
 ### Purpose
-Administrative control over sessions: pause, resume, kill.  
-Can apply to:
-- an entire root session (if `processId` omitted)
-- a specific process id (if provided)
+Administrative control over an entire session tree. **Current implementation supports only `kill`** (no pause/resume yet).  
+The `sessionId` signed in the permit is always interpreted as the **root session id** (root PID).
 
 ### Authorization
-Requires **ControlPermit** with matching action and root session id.
+Requires a valid **ControlPermit** or **ControlPermitV2** with:
+- `message.action = "kill"`
+- `message.sessionId = <rootPid>`
 
 ### Request
 ```json
 {
-  "action": "pause",
-  "processId": 123,
-  "permit": { "..." : "ControlPermit object" }
+  "action": "kill",
+  "permit": { "..." : "ControlPermit / ControlPermitV2 object" }
 }
 ```
+
+Notes:
+- `action` is optional in the request body; if provided, it must match the signed `message.action`.
 
 ### Response
 ```json
 {
   "ok": true,
   "owner": "0x...",
-  "sessionId": 123,
+  "processId": 123,
+  "action": "kill",
+  "status": "killed",
   "affected": 7
 }
 ```
 
----
+--- 
 
 ## 12. `xgr_wakeUpProcess`
 
 ### Purpose
-Wakes waiting processes:
-- either by exact `processId` (e.g. `"123:2"`)
-- or by `stepId` for all waiting children within a root session
+Wakes WAITING processes (sets `NextWakeAt = now`) using one of two mutually exclusive modes:
 
-Optionally merges a provided `payload` into the stored resume payload.
+- **PID-mode**: wake exactly one waiting process by `processId` (e.g. `"123:2"`).
+- **Step-mode**: wake *all* waiting children under the signed root session that are currently waiting on the signed `stepId`.
+
+Optionally merges a provided `payload` into each target’s stored resume payload (`ResumePlain`).
 
 ### Authorization
-Requires **ControlPermit** with action `"wake"`.
+Requires **ControlPermit** / **ControlPermitV2** with `message.action = "wake"`.
+
+Permit message types:
+- **ControlPermit**: `{ from, sessionId, action, stepId, expiry }` (runner is implicitly `from`)
+- **ControlPermitV2**: `{ from, runner, sessionId, action, stepId, expiry }` (required for AllowList-delegation)
 
 ### Request
 ```json
 {
   "processId": "123:2",
-  "stepId": "E1",
   "payload": { "X": 1 },
-  "permit": { "..." : "ControlPermit object" }
+  "permit": { "..." : "ControlPermit / ControlPermitV2 object" }
 }
 ```
+
+Mode rules:
+- **PID-mode**: `processId` is set, and `permit.message.stepId` **must be empty**.
+- **Step-mode**: `processId` is omitted, and `permit.message.stepId` **must be set**.
+
+Payload merge rules:
+- Shallow merge into `ResumePlain` (request keys overwrite stored keys).
+- Keys starting with `_` are ignored (engine-reserved / meta keys).
+
+### AllowList (delegated wake-ups)
+By default, the permit signer must be the session owner/runner (`from == runner`).  
+In **Step-mode only**, `ControlPermitV2` allows **delegation**: `from` may wake on behalf of `runner` *only if* the WAITING process’ `ResumePlain` contains an AllowList that includes `from`.
+
+AllowList location and format (stored under reserved payload key `__wakeUp`):
+
+```json
+{
+  "__wakeUp": {
+    "steps": {
+      "E1": {
+        "rpc": ["0xallowedCaller1...", "0xallowedCaller2..."],
+        "internal": ["*"]
+      }
+    },
+    "default": {
+      "rpc": ["0xallowedCallerDefault..."]
+    }
+  }
+}
+```
+
+Semantics:
+- Per-step entry (`steps[stepId]`) overrides `default`.
+- Missing `__wakeUp`, missing entry, or missing scope list => **deny**.
+- Scope `"rpc"` is used for `xgr_wakeUpProcess` delegation.
+- Scope `"internal"` is used for engine-internal wake-ups triggered via XRC-137 `wakeUp` specs.
+  - `"internal"` additionally supports wildcards (`"*"` or the zero address) to allow any internal caller.
 
 ### Response
 ```json
@@ -345,9 +391,98 @@ Requires **ControlPermit** with action `"wake"`.
 }
 ```
 
----
+--- 
 
-## 13. `xgr_manageGrants`
+## 13. `xgr_listSessions`
+
+### Purpose
+Lists sessions in two modes:
+
+1) **Owner-mode (default)**: DB-backed session listing for an owner (signed via `xdalaPermit`).  
+2) **Allow-mode (“ToDo list”)**: lists only **WAITING** steps that a caller is allowed to wake for a given `runner` (signed via `ControlPermitV2`).
+
+### Mode 1: Owner-mode (DB-backed)
+
+#### Authorization
+Requires **xdalaPermit** (`primaryType = "xdalaPermit"`) signed by the owner (`message.from`).
+
+#### Request
+```json
+{
+  "view": "raw",
+  "parentPid": "optional",
+  "rootId": "optional",
+  "last": 100,
+  "permit": { "..." : "xdalaPermit object" }
+}
+```
+
+- `rootId` (optional): if set, returns only this root session (including its threads).
+- `last` (optional): maximum number of sessions returned (default `100`).
+- `parentPid` (optional): client-side filter on the returned set.
+- `view`: currently only `"raw"` (or omitted) is supported.
+
+#### Response
+```json
+{
+  "sessions": [
+    {
+      "owner": "0x...",
+      "sessionId": "123",
+      "pid": "123:2",
+      "parentPid": "123",
+      "step": "E1",
+      "status": "waiting",
+      "updated": 1700000000,
+      "iterationStep": 2,
+      "paused": false,
+      "xrc729": "0x...",
+      "ostcId": "0x...",
+      "joinGroupId": "",
+      "joinFromGroupId": ""
+    }
+  ]
+}
+```
+
+### Mode 2: Allow-mode (WAITING-only, allowlisted)
+
+#### Authorization
+Requires:
+- `runner` (string address), and
+- `controlPermit` (**must be ControlPermitV2**) signed with:
+  - `message.action = "wake"`
+  - `message.runner = <runner>`
+  - `message.sessionId = <rootPid>` (scope binding)
+
+Notes:
+- If `controlPermit.message.stepId` is set, listing is restricted to that step only (least privilege).
+- If the signer is not the runner, only steps allowlisted under `ResumePlain.__wakeUp` (scope `"rpc"`) are returned.
+
+#### Request
+```json
+{
+  "view": "raw",
+  "runner": "0x<targetRunner>",
+  "rootId": "123",
+  "last": 100,
+  "controlPermit": { "..." : "ControlPermitV2 object with action=wake" }
+}
+```
+
+Constraints:
+- `rootId` is optional, but if provided it must equal the signed `controlPermit.message.sessionId`.
+- In allow-mode, `parentPid` is intentionally not exposed (the result is a “steps I can wake” list).
+
+#### Response
+Same shape as owner-mode, but with:
+- `status` always `"waiting"`,
+- `parentPid` omitted,
+- and only allowlisted steps returned.
+
+--- 
+
+## 14. `xgr_manageGrants`
 
 ### Purpose
 Creates or updates grants for a specific `(RID, scope)`.
@@ -386,7 +521,7 @@ Requires a valid **xdalaPermit** whose signer is the **grant owner**.
 
 ---
 
-## 14. `xgr_listGrants`
+## 15. `xgr_listGrants`
 
 ### Purpose
 Lists grants visible to the caller.
@@ -433,7 +568,7 @@ Requires **xdalaPermit** signed by the caller.
 
 ---
 
-## 15. `xgr_getGrantFeePerYear`
+## 16. `xgr_getGrantFeePerYear`
 
 ### Purpose
 Returns the current annual grant fee in Wei.
