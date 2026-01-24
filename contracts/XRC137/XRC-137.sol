@@ -47,7 +47,6 @@ contract XRC137 {
 
     // --- Executor management (owner only) ---
     function addExecutor(address exec) external onlyOwner {
-        require(exec != address(0), "zero addr");
         require(exec != owner, "owner cannot be executor");
         if (executorIndex[exec] != 0) {
             return;

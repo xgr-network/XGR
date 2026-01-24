@@ -66,7 +66,6 @@ contract XRC729 {
     /// @notice Adds an executor to the allowlist.
     /// @param exec The address to add as executor.
     function addExecutor(address exec) external onlyOwner {
-        require(exec != address(0), "XRC729: zero addr");
         require(exec != owner, "XRC729: owner cannot be executor");
         if (executorIndex[exec] != 0) {
             return; // Already present
