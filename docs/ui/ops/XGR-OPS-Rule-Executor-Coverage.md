@@ -235,6 +235,9 @@ This adds the wildcard executor address:
 
 - `0x0000000000000000000000000000000000000000`
 
+**What you see**
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/manage-execution-xrc137-executor-wildcard.png) — Updated executor list on XRC-137 after adding wildcard.
+
 **Important:** With the wildcard enabled, **any address** can execute on this contract until you remove it.
 
 ### Remove an executor
