@@ -75,6 +75,8 @@ You can:
 **What you see**  
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-mode-toggle.png) — Switching between “My Sessions” and “Allowlist WakeUp” with mode-specific inputs.
 
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-mode-toggle-allow.png) — Switching between “My Sessions” and “Allowlist WakeUp” with mode-specific inputs.
+
 ### 3.3 Authorize and refresh (Step 3)
 
 Operations are protected by short-lived authorization (“permit”) so you don’t have to sign every single click.
@@ -151,7 +153,7 @@ You can wake up in two ways:
 - **By StepId**: wake by step (when many processes are waiting on the same step).
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/wakeup-select-pid-step.png) — WakeUp dialog with PID list, Step list, and selection mode.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-wakeup-select-pid-step.png) — WakeUp dialog with PID list, Step list, and selection mode.
 
 ### 6.2 Optional: add a payload
 Some steps require a payload to continue (e.g. approvals, external inputs).
@@ -164,7 +166,7 @@ You can:
 If you don’t need a payload, you can wake up with an empty payload.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/wakeup-payload-form.png) — Payload editor in the WakeUp dialog (optional, schema-driven fields).
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-wakeup-payload-form.png) — Payload editor in the WakeUp dialog (optional, schema-driven fields).
 
 ### 6.3 Execute wakeup
 Click **Wake Up** to send the wakeup signal.
@@ -174,7 +176,7 @@ After the call, you’ll see a result screen where you can:
 - **Download** the result JSON (useful for audit trails)
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/wakeup-result.png) — WakeUp result screen with success/error and copy/download actions.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-wakeup-result.png) — WakeUp result screen with success/error and copy/download actions.
 
 ### 6.4 Allowlist mode: after success
 In **Allowlist WakeUp** mode, after a successful wakeup, closing the dialog can reset the allowlist list so you can start a fresh run for another session.
@@ -198,7 +200,7 @@ Use **Export Logs** to create an audit-friendly data export.
 - Streams directly and is more memory-efficient.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/log-export-dialog.png) — Log export dialog with preview, filters, and export options.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-log-export-dialog.png) — Log export dialog with preview, filters, and export options.
 
 ### 7.2 Preview, filters & selection
 In the export dialog you can:
@@ -235,19 +237,19 @@ From List Sessions:
 - Use “Fit” (if available) to bring everything into view
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/flow/flow-sessions-overview.png) — Flow View with node cards, status pills, and zoom/pan.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-flow-sessions-overview.png) — Flow View with node cards, status pills, and zoom/pan.
 
 ### 8.3 Open details from a node
 Nodes include a small “document” icon. Clicking it opens the detailed timeline for that step/process.
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/flow/flow-node-details.png) — Opening the step receipt/timeline from a node inside the flow view.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-flow-node-details.png) — Opening the step receipt/timeline from a node inside the flow view.
 
 ### 8.4 Load Session Details (optional enhancement)
 If available, you can load additional session details that enrich the nodes (e.g. valid/invalid info and join hints).
 
 **What you see**  
-![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/flow/flow-load-session-details.png) — Loading session details to enrich the graph.
+![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/list-sessions/list-sessions-flow-load-session-details.png) — Loading session details to enrich the graph.
 
 ---
 
