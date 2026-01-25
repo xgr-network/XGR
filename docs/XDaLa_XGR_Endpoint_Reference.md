@@ -376,8 +376,39 @@ Semantics:
 - Per-step entry (`steps[stepId]`) overrides `default`.
 - Missing `__wakeUp`, missing entry, or missing scope list => **deny**.
 - Scope `"rpc"` is used for `xgr_wakeUpProcess` delegation.
+  - `"rpc"` does **not** allow wildcards and does **not** support the object form (list only).
 - Scope `"internal"` is used for engine-internal wake-ups triggered via XRC-137 `wakeUp` specs.
-  - `"internal"` additionally supports wildcards (`"*"` or the zero address) to allow any internal caller.
+
+#### `__wakeUp.*.internal` formats
+
+`internal` supports **two encodings**:
+
+1) **List form (legacy, still valid)**
+
+```json
+"internal": ["0xallowedInternalCaller...", "*"]
+```
+
+- Wildcards are allowed for `"internal"`: `"*"` or `0x0000000000000000000000000000000000000000`.
+
+2) **Object form (extended)**
+
+```json
+"internal": {
+  "allow": ["0xallowedInternalCaller...", "*"],
+  "fromXRC137": ["0xRuleContract1...", "0xRuleContract2..."]
+}
+```
+
+Field semantics:
+- `allow` (required): list of allowed internal callers. Wildcards are permitted as in list form.
+- `fromXRC137` (optional): if present, it **binds** the internal wake-up to specific XRC-137 rule contracts.
+  - The engine passes the **currently executing rule contract address** (the XRC-137 contract that emitted the `wakeUp` spec).
+  - If `fromXRC137` is present, it must be a **non-empty** list. An empty list is treated as misconfiguration and **denies**.
+  - Wildcards are **not** supported in `fromXRC137`.
+
+Practical use:
+- Use `fromXRC137` when you want to allow “internal wildcard callers” (e.g., `"*"`), but only if the wake-up originates from **your** rule contracts, not from arbitrary rules.
 
 ### Response
 ```json
