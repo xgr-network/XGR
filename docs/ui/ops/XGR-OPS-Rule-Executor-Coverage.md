@@ -3,6 +3,7 @@
 This guide explains how to use **OPS → Manage Execution** to:
 
 - manage **executors** on **XRC-137** and **XRC-729** contracts (add / remove)
+- optionally enable **Wildcard execution (All \*)** on a contract (allows any address to execute)
 - run **RULE EXECUTOR COVERAGE (XRC-729)** to verify that a selected executor can execute *all* rule contracts referenced by an XRC-729 orchestration — and fix missing access where possible
 
 It is written for end users and focuses on what the UI provides: loading data, interpreting statuses, and applying fixes.
@@ -17,14 +18,26 @@ For an orchestration to work end-to-end, the orchestrator needs a valid executio
 On **OPS → Manage Execution** you can:
 
 - Manage the **executor list** of a loaded contract (**XRC-137** or **XRC-729**) by adding or removing executor addresses.
+- Optionally enable/disable **Wildcard execution (All \*)** on the loaded contract.
 - (Only for **XRC-729**) run **Rule Executor Coverage** to answer:
 
 > “Does the selected executor have execution rights on every referenced rule contract?”
 
-Coverage supports two ways an executor can have access on a rule contract:
+Coverage supports three ways an executor can have access on a rule contract:
 
 1. **Explicit access (has executor):** the address exists inside the rule contract’s `executors[]` list.
 2. **Implicit owner access (owner implicit):** if the selected address equals the rule contract **owner**, it can execute even if it is not listed in `executors[]`.
+3. **Wildcard execution (All \*):** if the rule contract contains the wildcard executor, it is considered open — any address can execute.
+
+### Wildcard execution (All \*)
+
+Manage Execution also supports a **Wildcard executor**:
+
+- **Wildcard executor address:** `0x0000000000000000000000000000000000000000`
+- If this address is present in a contract’s executor list, the contract is considered **open**:
+  **any address can execute** on that contract.
+
+Use this only if you intentionally want to open execution temporarily. You can later remove the wildcard to restore a restricted executor list.
 
 ---
 
@@ -67,6 +80,7 @@ Use the dropdown **“Select executor (from XRC-729)…”** to choose an execut
 Once selected:
 
 - Each table row turns **green** or **red** depending on access.
+- If a rule contract is **Wildcard-open (All \*)**, it will always show **green** (because any address can execute).
 - The panel calculates:
   - **Rows:** number of visible rows (after filtering)
   - **Eligible missing:** number of contracts that are missing and fixable
@@ -87,6 +101,11 @@ In each row you can see a status next to the owner information.
 - **owner (implicit)**
   - The selected executor equals the rule contract owner.
   - Owners can always execute, even if not listed as executor.
+  - Row is **green**.
+
+- **wildcard (\*)**
+  - The rule contract has the wildcard executor enabled (`0x0000000000000000000000000000000000000000`).
+  - The contract is open — **any address can execute**.
   - Row is **green**.
 
 - **missing**
@@ -177,6 +196,11 @@ Receipts can be inspected in the **Receipt** section using **Show details**.
   - This is expected. The owner always has implicit execution rights.
   - The row should be **green** with status **owner (implicit)**.
 
+- **Why can any address execute on this contract?**
+  - Check the executor list: if you see **Wildcard (\*)**, execution is open.
+  - The wildcard corresponds to the address `0x0000000000000000000000000000000000000000`.
+  - Remove the wildcard executor to restrict execution again.
+
 ---
 
 ## 10) Managing executors on XRC-137 (add / remove)
@@ -198,6 +222,21 @@ If you are the **contract owner**, the address will appear in the executor list 
 **What you see**
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/manage-execution-xrc137-executor-list.png) — Updated executor list on XRC-137 after adding (address appears as a list row).
 
+### Add wildcard executor (All \*)
+
+Instead of adding a specific executor address, you can enable **Wildcard execution**:
+
+1. Load the **XRC-137** (or **XRC-729**) contract address.
+2. In **ADD EXECUTOR**, switch to **All (\*)** mode.
+3. Click **Add Wildcard (\*)**.
+4. Confirm the transaction in your wallet.
+
+This adds the wildcard executor address:
+
+- `0x0000000000000000000000000000000000000000`
+
+**Important:** With the wildcard enabled, **any address** can execute on this contract until you remove it.
+
 ### Remove an executor
 
 1. Load the **XRC-137** contract address.
@@ -207,6 +246,8 @@ If you are the **contract owner**, the address will appear in the executor list 
 
 **What you see**
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/manage-execution-xrc137-remove-executor.png) — Executor list row on XRC-137 with **Remove** (trash) action.
+
+If the executor is shown as **Wildcard (\*)**, removing it will restrict execution again to the remaining executor addresses.
 
 ### Owner-only
 
@@ -233,6 +274,8 @@ This is the common “real world” workflow:
 2. In the **executor list** section, add the new executor address.
 
 This ensures the executor is recognized at the XRC-729 level (and shows up in the executor dropdown).
+
+Tip: If you intentionally want to open execution temporarily, you can enable **Wildcard (All \*)** instead — but this allows **any address** to execute.
 
 **What you see**
 ![](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/ops/manage-execution-flow-01-add-executor-to-xrc729.png) — XRC-729 loaded; new executor is added in the Executors section so it becomes selectable for coverage.
