@@ -7,7 +7,7 @@ This document specifies the **public JSON-RPC endpoints** exposed by the **XDaLa
 - submit validation calls for XDaLa sessions
 - estimate validation/branch gas
 - manage and query grants
-- control (pause/resume/kill/wake) sessions
+- control (kill/wake) sessions
 
 This is a **public interface specification**. It describes semantics and request/response formats independent of internal implementation details.
 
@@ -49,15 +49,18 @@ Several endpoints require an **EIP-712 permit** signed by an EOA. Permits are de
 |---|---|---|
 | `xgr_getPublicSale` | Returns configured public sale address (optional) | No |
 | `xgr_getCoreAddrs` | Returns core addresses needed by clients | No |
+| `xgr_getCirculatingSupply` | Returns circulating supply (total minus excluded balances) | No |
 | `xgr_getNextProcessId` | Returns next expected root session id for a sender | No |
 | `xgr_validateDataTransfer` | Submits a step validation request for a session | **SessionPermit** |
 | `xgr_estimateRuleGas` | Estimates validation gas + branch totals for an XRC-137 rule JSON | No |
 | `xgr_getEncryptedLogInfo` | Extracts encryption metadata from a transaction log | No |
 | `xgr_getXRC137Meta` | Returns encrypted rule document blob + encrypted DEK for a given owner | No (encrypted-to-owner data) |
 | `xgr_encryptXRC137` | Produces encrypted XRC-137 blob suitable for on-chain storage | Optional (depends on request mode) |
-| `xgr_control` | Session control (**kill**; pause/resume not implemented) | **ControlPermit** / **ControlPermitV2** |
+| `xgr_control` | Session control (**kill only**) | **ControlPermit** / **ControlPermitV2** |
 | `xgr_wakeUpProcess` | Wakes WAITING processes (PID-mode or Step-mode) with optional payload merge (supports AllowList) | **ControlPermit** / **ControlPermitV2** |
 | `xgr_listSessions` | Lists sessions (DB-backed), including allowlisted WAITING steps (“ToDo list” mode) | **xdalaPermit** or **ControlPermit(V2)** |
+| `xgr_stepExecuted` | Checks whether a specific iteration step already finished (tri-state) | No |
+| `xgr_sessionAlive` | Checks whether any waiting/running step still exists for a session | No |
 | `xgr_manageGrants` | Creates/updates grants for a RID/scope | **xdalaPermit (owner-auth)** |
 | `xgr_listGrants` | Lists grants visible to the caller | **xdalaPermit (caller-auth)** |
 | `xgr_getGrantFeePerYear` | Returns annual grant fee in Wei | No |
@@ -95,17 +98,17 @@ No parameters.
 ```json
 {
   "grants": "0x...",
-  "engineEOA": "0x...",
+  "publicSale": "0x...",
   "precompile": "0x...",
-  "chainId": "12345"
+  "chainId": "0x75f"
 }
 ```
 
 Field definitions:
-- `grants`: address of the on-chain Grants component
-- `engineEOA`: EOA used by the engine where signatures/transactions are required
+- `grants`: address of the on-chain Grants component (if configured; otherwise `""`)
+- `publicSale`: address of the public sale contract (if configured; otherwise `""`)
 - `precompile`: address of the engine execution precompile
-- `chainId`: chain id as decimal string
+- `chainId`: chain id as **hex string** (`0x...`). Empty string if unavailable
 
 ---
 
@@ -207,18 +210,41 @@ Field definitions:
 {
   "validationGas": 1234,
   "onValid": {
+    "encryptLogs": true,
+    "expireDays": 14,
+    "expireAt": 1700000000,
+    "grantValueWei": "123456789000000000",
+    "grantSeconds": 1209600,
     "validationGas": 1500,
     "evmTxCalldata": 21000,
     "logGas": 0,
     "innerCalls": { "execution": 50000 },
     "total": 72500
   },
-  "onInvalid": { "...": "..." },
+  "onInvalid": {
+    "encryptLogs": false,
+    "expireDays": 14,
+    "expireAt": 1700000000,
+    "grantValueWei": "0",
+    "grantSeconds": 1209600,
+    "validationGas": 1500,
+    "evmTxCalldata": 21000,
+    "logGas": 0,
+    "innerCalls": { "execution": 50000 },
+    "total": 72500
+  },
   "totalValid": 72500,
   "totalInvalid": 81234,
   "totalWorstCase": 81234
 }
 ```
+
+Notes:
+- `grantSeconds` / `grantValueWei` are the **total** billed time-fee across owner + all grant recipients for the branch.
+- `expireDays` is the **billed** TTL in days (ceil(totalSeconds/86400)).
+- `expireAt` is the **max effective** expiry timestamp written by the branch (kept for transparency).
+- `encryptLogs` is the effective branch `encryptLogs` flag after applying defaults.
+
 
 ---
 
@@ -283,7 +309,7 @@ Returns the encrypted rule document blob and an encrypted DEK for a given owner 
 ## 11. `xgr_control`
 
 ### Purpose
-Administrative control over an entire session tree. **Current implementation supports only `kill`** (no pause/resume yet).  
+Administrative control over an entire session tree. **Current implementation supports only `kill`**. `pause`/`resume` are not supported (removed).  
 The `sessionId` signed in the permit is always interpreted as the **root session id** (root PID).
 
 ### Authorization
@@ -466,7 +492,6 @@ Requires **xdalaPermit** (`primaryType = "xdalaPermit"`) signed by the owner (`m
       "status": "waiting",
       "updated": 1700000000,
       "iterationStep": 2,
-      "paused": false,
       "xrc729": "0x...",
       "ostcId": "0x...",
       "joinGroupId": "",
@@ -613,3 +638,98 @@ No parameters.
   "wei": "0x0de0b6b3a7640000"
 }
 ```
+
+---
+
+## 17. `xgr_getCirculatingSupply`
+
+### Purpose
+Returns the circulating supply in Wei as:
+
+`totalSupplyWei - sum(balance(excludedAddrs))`
+
+This is intended for dashboards and explorers.
+
+### Request
+Optional parameters (either empty or an object):
+
+```json
+{
+  "excludeAddrs": "0xabc...,0xdef..."
+}
+```
+
+- `excludeAddrs` (optional): comma-separated list of addresses to subtract from total supply.  
+  If omitted/empty, the server may fall back to `XGR_CIRC_EXCLUDE_ADDRS`.
+
+### Response
+```json
+{
+  "totalSupplyWei": "1500000000000000000000000000",
+  "excludedSumWei": "1230000000000000000000",
+  "circulatingSupplyWei": "1499998770000000000000000000",
+  "excludedAddrs": ["0xabc...","0xdef..."]
+}
+```
+
+All numeric fields are **decimal strings**.
+
+---
+
+## 18. `xgr_stepExecuted`
+
+### Purpose
+Checks whether a specific `(sessionId, iteration)` has already finished.
+
+### Request
+Parameters are positional (NOT an object):
+
+```json
+[
+  "0x<owner>",
+  "<sessionId>",
+  252
+]
+```
+
+- `owner`: owner/runner address
+- `sessionId`: **root session id** (same value as `sessionId` in `xgr_listSessions`)
+- `iteration`: iteration step (`uint64`)
+
+### Response
+Returns a tri-state value:
+
+- `true`  → step is **terminal** (`done` or `aborted`)
+- `false` → step exists and is **non-terminal** (`waiting` or `running`)
+- `null`  → no step row exists for that `(sessionId, iteration)`
+
+Example:
+```json
+true
+```
+
+---
+
+## 19. `xgr_sessionAlive`
+
+### Purpose
+Checks whether the session still has at least one active step (`waiting` or `running`).
+
+### Request
+Parameters are positional (NOT an object):
+
+```json
+[
+  "0x<owner>",
+  "<sessionId>"
+]
+```
+
+### Response
+```json
+true
+```
+
+- `true`: at least one `waiting`/`running` step exists
+- `false`: no `waiting`/`running` steps remain (session is fully drained/terminated)
+
