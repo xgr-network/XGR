@@ -1,1 +1,5 @@
-
+{
+  "name": "TestNFT #0",
+  "description": "First token of TestNFT collection",
+  "image": "https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/nft/meta/0.png"
+}
