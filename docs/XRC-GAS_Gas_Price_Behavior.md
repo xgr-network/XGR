@@ -56,7 +56,7 @@ For most integrations, XGR behaves like any EIP-1559-compatible chain. This docu
 | Base fee at low load | Decreases toward zero | **Fixed at minimum** |
 | Base fee at normal load | Fluctuates around target | **Fixed at minimum** |
 | Price floor | None | **Network-governed minimum** |
-| Priority fee (tip) | Required (>0) for inclusion | **Zero by default** |
+| Priority fee (tip) | Required (>0) for inclusion | **Optional (suggested: 1 gwei)** |
 | Price increase trigger | Above 50% block utilization | Above **80%** block utilization |
 | Maximum increase rate | +12.5% per block | **+25% per block** (above 80% only) |
 | Price decrease behavior | Gradual (-12.5% per block) | **Immediate** return to minimum |
@@ -187,7 +187,7 @@ The following examples use **hypothetical values** for illustration. Actual netw
 | Endpoint | Returns | Description |
 |----------|---------|-------------|
 | `eth_gasPrice` | `baseFee` | Suggested price for legacy transactions |
-| `eth_maxPriorityFeePerGas` | `0` | Priority fee (zero on XGR) |
+| `eth_maxPriorityFeePerGas` | `1 gwei` | Suggested priority fee (not required) |
 | `eth_feeHistory` | Historical data | Base fees, gas ratios, and reward percentiles |
 
 ### 5.2 Expected values under normal load
@@ -360,9 +360,9 @@ If a non-zero tip is specified, it can increase the effective gas price (and tot
 Effective Gas Price = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
 Transaction Cost = Gas Used × Effective Gas Price
 
-Under normal load (tip = 0):
+Under normal load (default suggestion):
   baseFee = minBaseFee (from EngineRegistry)
-  Effective Gas Price = minBaseFee
+  Effectiv eGas Price = minBaseFee + maxPriorityFeePerGas (if specified)
 ```
 
 ### Fee distribution reference
