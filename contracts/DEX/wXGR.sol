@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract wXGR is ERC20Capped, ERC20Burnable, AccessControl {
+contract wXGR is ERC20, ERC20Burnable, ERC20Capped, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor(
@@ -21,8 +22,12 @@ contract wXGR is ERC20Capped, ERC20Burnable, AccessControl {
         _mint(to, amount);
     }
 
-    // Required override because of ERC20Capped
-    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Capped) {
-        super._mint(to, amount);
+    // OZ v5: supply changes flow through _update, and ERC20Capped overrides _update
+    function _update(address from, address to, uint256 value)
+        internal
+        virtual
+        override(ERC20, ERC20Capped)
+    {
+        super._update(from, to, value);
     }
 }
