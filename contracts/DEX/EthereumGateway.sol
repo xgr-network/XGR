@@ -9,15 +9,13 @@ interface IWXGR {
     function burnFrom(address account, uint256 amount) external;
 }
 
-contract PolygonGateway is Ownable, Pausable {
+contract EthGateway is Ownable, Pausable {
     IWXGR public immutable token;
     address public operator;
-
     uint256 public redeemNonce;
 
-    mapping(bytes32 => bool) public processedDeposit; // XGRChain deposit -> Polygon mint (exactly once)
+    mapping(bytes32 => bool) public processedDeposit;
 
-    // Optional mint limiter (0 = unlimited)
     uint256 public dailyMintLimit;
     uint256 private _dayIndex;
     uint256 private _mintedToday;
@@ -25,27 +23,18 @@ contract PolygonGateway is Ownable, Pausable {
     event OperatorSet(address indexed operator);
     event DailyMintLimitSet(uint256 limit);
 
-    event Redeem(
-        address indexed redeemer,
-        address indexed toXgr,
-        uint256 amount,
-        uint256 nonce
-    );
+    event Redeem(address indexed redeemer, address indexed toXgr, uint256 amount, uint256 nonce);
 
-    event MintFromXgr(
-        bytes32 indexed depositId,
-        address indexed toPolygon,
-        uint256 amount,
-        bytes32 xgrTxHashRef
-    );
+    event MintFromXgr(bytes32 indexed depositId, address indexed toEth, uint256 amount, bytes32 xgrTxHashRef);
 
-    modifier onlyOperator() {
-        require(msg.sender == operator, "NOT_OPERATOR");
+    modifier onlyOperatorOrOwner() {
+        require(msg.sender == operator || msg.sender == owner(), "NOT_OPERATOR");
         _;
     }
 
     constructor(address initialOwner, address initialOperator, address wxgr) Ownable(initialOwner) {
         require(wxgr != address(0), "ZERO_TOKEN");
+        require(initialOperator != address(0), "ZERO_OPERATOR");
         token = IWXGR(wxgr);
         operator = initialOperator;
         emit OperatorSet(initialOperator);
@@ -65,8 +54,6 @@ contract PolygonGateway is Ownable, Pausable {
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 
-    // User burns wXGR and declares XGRChain recipient
-    // Requires prior: wXGR.approve(gateway, amount)
     function redeem(address toXgr, uint256 amount) external whenNotPaused {
         require(toXgr != address(0), "ZERO_TO");
         require(amount > 0, "ZERO_AMOUNT");
@@ -77,23 +64,23 @@ contract PolygonGateway is Ownable, Pausable {
         emit Redeem(msg.sender, toXgr, amount, nonce);
     }
 
-    // Operator mints wXGR after XGRChain deposit is final
     function mintFromXgr(
         bytes32 depositId,
-        address toPolygon,
+        address toEth,
         uint256 amount,
         bytes32 xgrTxHashRef
-    ) external onlyOperator whenNotPaused {
+    ) external onlyOperatorOrOwner whenNotPaused {
+        require(depositId != bytes32(0), "ZERO_ID");
         require(!processedDeposit[depositId], "ALREADY_PROCESSED");
-        require(toPolygon != address(0), "ZERO_TO");
+        require(toEth != address(0), "ZERO_TO");
         require(amount > 0, "ZERO_AMOUNT");
 
         _enforceDailyMintLimit(amount);
 
         processedDeposit[depositId] = true;
-        token.mint(toPolygon, amount);
+        token.mint(toEth, amount);
 
-        emit MintFromXgr(depositId, toPolygon, amount, xgrTxHashRef);
+        emit MintFromXgr(depositId, toEth, amount, xgrTxHashRef);
     }
 
     function _enforceDailyMintLimit(uint256 amount) internal {
