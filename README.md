@@ -118,7 +118,17 @@ These are the canonical entry points for the public ecosystem. If you are unsure
 - Documentation Hub: https://xgr.network/docs
 - Testnet Faucet: https://faucet.xgr.network
 - Explorer: https://explorer.xgr.network
+
 ---
+
+## Chain Configuration
+
+Reference chain configuration artifacts live in this repository under `genesis/`.
+
+- **Mainnet genesis:** `genesis/mainnet/genesis.json`
+
+If you are running a local/dev network, prefer generating a fresh genesis via the CLI tooling
+rather than hand-editing production genesis files.
 
 ## License
 
