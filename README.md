@@ -101,12 +101,23 @@ Contact: security@xgr.network
 
 ---
 
-## Links
+## Official Links
 
-- Website: https://xgr.network  
-- Documentation: This repository  
-- Organization: https://github.com/xgr-network  
+These are the canonical entry points for the public ecosystem. If you are unsure where to start, begin with the Website and the specs in this repository.
 
+- Website: https://xgr.network
+- GitHub Organization: https://github.com/xgr-network
+
+### Developer Entry Points
+
+- Specs & Standards (this repo): https://github.com/xgr-network/XGR
+- Node Implementation (xgr-node): https://github.com/xgr-network/xgr-node
+
+### Network Tools
+
+- Documentation Hub: https://xgr.network/docs
+- Testnet Faucet: https://faucet.xgr.network
+- Explorer: https://explorer.xgr.network
 ---
 
 ## License
