@@ -1,1 +1,121 @@
-//tbd
+{
+  "name": "xgrchain",
+  "genesis": {
+    "nonce": "0x0000000000000000",
+    "timestamp": "0x0",
+    "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000f90171f90168f846947913fdae82c678f42b98ca8076fe7d13b3edff15b0b56b72d028aa6d063d36917f9f18a3ee4b216e22694a701814af4fd55e6cbbe99209fc1359012e4733987ebdd0123e88f846947e8f8fd2a198f77df298041b48d79b0df4c8b1fab0a32a09397128b801da5b88319bcca6cc33d4400e12ef7e1a94141b2360abd70306aaeb5599dd0d0984bb02f88fe20b71f8469482f0b6f1efbb3fc9bcde0ee5a08e01e76cc29e13b08b94120a8ae2a89a0f7deb09f266d90bf5d5152a6ee559977d7f3361a0ce1cc65b012f3a820c7f1c18a01cef9ba8ae90f84694c5cc7b4ee5b0f6524ecac177ed37b2b567180707b091bf571d3f5563976e560c5f7d9898f75a0829804ce5e212370834303c23953388f01e06d0a9da2615c5e7f1aaf10da7f8469498f8bc086454b8386788244eee9a43d5d0b4e63eb0a65579c3b300f0d8e94e77b3915ac09f309c0a109a3aa3bb66d8beb538d733026624bf9d096e2a3d52deff78a36513d180c28080c080",
+    "gasLimit": "0x3938700",
+    "difficulty": "0x1",
+    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "coinbase": "0x0000000000000000000000000000000000000000",
+    "alloc": {
+      "0x0000000000000000000000000000000000000000": {
+        "balance": "0"
+      },
+      "0x00000000000000000000000000000000000000e1": {
+        "balance": "1"
+      },
+      "0x2A021a1B25DA25e14C4046e5BAc9375Ec3bebf8c": {
+        "balance": "2103833846420000000000000000"
+      },
+      "0x4675EdCa3c4637E68Ed1C1776a11EB5c9828F056": {
+        "balance": "3141592653580000000000000000"
+      },
+      "0x7818A59b2D279Fe3444B75dcE1A443C1b124c161": {
+        "balance": "1380649000000000000000000000"
+      }
+    },
+    "number": "0x0",
+    "gasUsed": "0x00000",
+    "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "baseFee": "0x0",
+    "baseFeeEM": "0x0",
+    "baseFeeChangeDenom": "0x0"
+  },
+  "params": {
+    "forks": {
+      "EIP2930": {
+        "block": 1208500
+      },
+      "EIP2929": {
+        "block": 1208500
+      },
+      "EIP3860": {
+        "block": 1208500
+      },
+      "EIP3651": {
+        "block": 1208500
+      },
+      "london": {
+        "block": 0
+      },
+      "EIP150": {
+        "block": 0
+      },
+      "EIP155": {
+        "block": 0
+      },
+      "EIP158": {
+        "block": 0
+      },
+      "byzantium": {
+        "block": 0
+      },
+      "constantinople": {
+        "block": 0
+      },
+      "homestead": {
+        "block": 0
+      },
+      "istanbul": {
+        "block": 0
+      },
+      "londonfix": {
+        "block": 0
+      },
+      "petersburg": {
+        "block": 0
+      },
+      "quorumcalcalignment": {
+        "block": 0
+      },
+      "txHashWithType": {
+        "block": 0
+      }
+    },
+    "chainID": 1643,
+    "engine": {
+      "ibft": {
+        "blockTime": 2000000000,
+        "epochSize": 500,
+        "type": "PoA",
+        "validator_type": "bls"
+      }
+    },
+    "blockGasTarget": 0,
+    "engineRegistryAddress": "0x72cbbb5c95662510da052b98add933ff99ec820f",
+    "bootstrapEngineEOA": "0x0000000000000000000000000000000000000000",
+    "burnContract": null,
+    "burnContractDestinationAddress": "0x0000000000000000000000000000000000000000"
+  },
+  "bootnodes": [
+    "/ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck"
+  ],
+  "alloc": {
+    "0x0000000000000000000000000000000000000000": {
+      "balance": "0"
+    },
+    "0x00000000000000000000000000000000000000e1": {
+      "balance": "1"
+    },
+    "0x2A021a1B25DA25e14C4046e5BAc9375Ec3bebf8c": {
+      "balance": "2103833846420000000000000000"
+    },
+    "0x4675EdCa3c4637E68Ed1C1776a11EB5c9828F056": {
+      "balance": "3141592653580000000000000000"
+    },
+    "0x7818A59b2D279Fe3444B75dcE1A443C1b124c161": {
+      "balance": "1380649000000000000000000000"
+    }
+  }
+}
