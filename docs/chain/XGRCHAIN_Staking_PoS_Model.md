@@ -354,7 +354,11 @@ Exact epoch size is read from active chain/staking configuration.
 
 ---
 
-## 12. FeePoolSplit gate
+## 12. PoA → PoS cutover boundary
+
+At the PoA → PoS transition, a boundary block can be the first PoS block while the epoch being finalized is still fully pre-PoS.
+
+## 13. FeePoolSplit gate
 
 PoS policy logic is fork-gated by `FeePoolSplit`.
 
@@ -370,7 +374,7 @@ This prevents PoS policy logic from affecting pre-PoS / pre-fee-pool execution.
 
 ---
 
-## 13. Uptime accounting
+## 14. Uptime accounting
 
 Uptime accounting is performed by `RecordBlockUptime`.
 
@@ -395,7 +399,7 @@ This avoids false slashing from incomplete commit-signature information.
 
 ---
 
-## 14. Micro-epoch uptime weights
+## 15. Micro-epoch uptime weights
 
 The implementation has micro-epoch uptime weight accounting.
 
@@ -420,7 +424,7 @@ The monitoring endpoint exposes:
 
 ---
 
-## 15. Epoch finalization
+## 16. Epoch finalization
 
 `FinalizeEpoch` runs on the tx-free epoch boundary block.
 
@@ -471,7 +475,7 @@ Stake at or below this floor is liveness-only and not slashed.
 
 ---
 
-## 16. Rewards
+## 17. Rewards
 
 Fees accumulated in the FeePool are distributed at epoch finalization.
 
@@ -498,7 +502,7 @@ Important:
 
 ---
 
-## 17. Delegation model
+## 18. Delegation model
 
 The monitoring endpoint exposes delegation-related fields for validators and delegators.
 
@@ -532,7 +536,7 @@ This document does not define delegation write operations unless the specific CL
 
 ---
 
-## 18. Monitoring and exactness
+## 19. Monitoring and exactness
 
 The PoS overview endpoint is designed to avoid fake values.
 
@@ -550,7 +554,7 @@ The old monitoring RFC proposed a future Validator Monitoring Registry. That RFC
 
 ---
 
-## 19. Deprecated beacon endpoint
+## 20. Deprecated beacon endpoint
 
 The legacy endpoint:
 
@@ -576,7 +580,7 @@ Do not document Beacon recovery as active XGR behavior.
 
 ---
 
-## 20. Current implementation caveats
+## 21. Current implementation caveats
 
 The `PoS_3` implementation is still an upgrade branch. Treat these as code-review-sensitive areas:
 
@@ -588,7 +592,7 @@ The `PoS_3` implementation is still an upgrade branch. Treat these as code-revie
 
 ---
 
-## 21. Related documents
+## 22. Related documents
 
 | Document | Purpose |
 |---|---|
