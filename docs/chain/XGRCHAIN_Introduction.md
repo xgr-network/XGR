@@ -8,61 +8,179 @@
 
 ---
 
-## What is XGR Chain?
+## 1. What is XGR Chain?
 
-**XGR Chain** (chain name: `xgrchain`) is an **EVM-compatible** blockchain network built using **Polygon Edge** as the base client stack.
+**XGR Chain** is the EVM-compatible Layer-1 blockchain of the XGR Network.
 
-Two important clarifications:
+It provides the execution and settlement layer for:
 
-1) **Bootstrap chain (not a fork):**  
-XGR Chain starts from a **custom genesis block** and a clean state (block `0`).  
-It does **not** inherit state or history from Ethereum mainnet (or any other chain). In other words, it is a **new network** with its own validator set, chain ID and parameters.
+- standard Ethereum-compatible accounts, contracts and transactions
+- XGR-native fee behavior
+- XDaLa Engine integration
+- XRC-137 rule contracts
+- XRC-729 orchestration contracts
+- current and upcoming IBFT-based validator operation
+- the PoS / staking transition path under active implementation
 
-2) **Open chain code vs. closed Engine:**  
-The **chain client / protocol implementation** is intended to be made public (open source).  
-The **Engine** component remains **closed source**. Where protocol-relevant parameters are controlled by governance, the chain uses an **on-chain registry contract** (see *EngineRegistry*) so that network behavior remains **verifiable on-chain** even if some off-chain components are closed.
+XGR Chain started from a custom genesis block and does **not** inherit Ethereum state or history. It is a separate network with its own chain ID, validator set, genesis configuration and protocol parameters.
 
 ---
 
-## Quick facts (from `genesis.json`)
+## 2. What XGR Chain is not
+
+XGR Chain is not a Polygon Supernet documentation clone.
+
+Older Polygon Edge documentation used terms such as:
+
+- Edge-powered chain
+- Supernets
+- rootchain / childchain bridge
+- Polygon CDK
+- PolyBFT
+- rootchain predicates
+- checkpoint manager
+- state sender / state receiver
+
+Those concepts are not the canonical description of the current XGR Chain documentation.
+
+XGR Chain uses an EVM-compatible client lineage, but the public XGR documentation must describe the actual XGR implementation, not historical Polygon Edge product narratives.
+
+---
+
+## 3. Architecture overview
+
+At a high level, XGR consists of four layers:
+
+| Layer | Purpose | Implementation status |
+|---|---|---|
+| XGR Chain | EVM-compatible blockchain, block production, transaction execution, fees and settlement | Mainnet / evolving |
+| XDaLa Engine | Validation and orchestration engine exposed through `xgr_*` JSON-RPC endpoints | Mainnet |
+| XRC-137 | Rule-document smart contract standard used by the Engine | Mainnet |
+| XRC-729 | Orchestration/session smart contract standard used by the Engine | Mainnet |
+
+The chain and the Engine are documented separately:
+
+- Chain behavior lives under `docs/chain/`
+- XDaLa / Engine endpoints live in the XDaLa endpoint reference
+- XRC standards live in their own XRC documents
+
+---
+
+## 4. Chain identity
+
+Current public chain documentation should treat these values as the canonical baseline unless a newer genesis/configuration document overrides them.
 
 | Parameter | Value |
 |---|---|
 | Network name | `xgrchain` |
 | Chain ID | `1643` |
-| Client basis | Polygon Edge (EVM-compatible) |
-| Consensus | IBFT (Istanbul BFT), **PoA** |
-| Validator signature scheme | **BLS** (validator_type = `bls`) |
-| Block time | ~2.0 s |
-| Epoch size | 500 blocks |
-| Block gas limit (genesis) | 60,000,000 |
-| Bootnodes | 1 |
+| EVM compatibility | Yes |
+| Transaction signing | EIP-155 chain-id protected |
+| Standard RPC | Ethereum JSON-RPC compatible |
+| Engine RPC namespace | `xgr_*` |
+| Main contract standards | XRC-137, XRC-729 |
+| Fee model | XGR-specific gas and fee behavior |
 
 ---
 
-## Where to start
+## 5. Consensus and validator model
 
-This documentation set is split into:
+XGR Chain uses **IBFT** as its finality protocol.
 
-- **Chain Spec** — a normative overview of the network parameters and protocol choices  
-- **IBFT Consensus** — how finality and validator-based consensus work on XGR Chain  
-- **Genesis & Network Configuration** — how genesis is structured and which parameters matter  
-- **Gas & Fees** — described in **`XRC-GAS_Gas_Price_Behavior.md`** (already present)
+IBFT provides deterministic finality: once a block is committed by the required validator quorum, it is final under the IBFT safety assumptions.
 
----
+The validator model is evolving:
 
-## Glossary
+| Component | Implementation status | Notes |
+|---|---|---|
+| IBFT finality | Mainnet | Core consensus mechanism |
+| BLS validator signatures | Mainnet | Used by the current validator setup |
+| PoA validator setup | Mainnet / historical baseline | Existing operational baseline |
+| PoS staking and permissionless validator join | In development / upgrade path | Implemented in the PoS branch and documented separately when finalized |
+| Delegation staking | In development / upgrade path | Belongs in the PoS/Staking documentation |
 
-- **Bootstrap chain:** a new network started from a genesis block (no inherited history).
-- **Chain ID:** the EIP-155 chain identifier used in transaction signing to prevent replay attacks.
-- **IBFT:** Istanbul Byzantine Fault Tolerance, a PBFT-family consensus protocol with immediate finality.
-- **PoA:** Proof-of-Authority; validators are permissioned entities.
-- **BLS validators:** validators identified by an ECDSA address but using BLS keys for aggregated commit seals.
-- **EngineRegistry:** an on-chain configuration registry contract used to store governance-controlled parameters such as `minBaseFee`.
+Do not describe XGR Chain as a Polygon Supernet or PolyBFT chain.
 
 ---
 
-## Out of scope
+## 6. XDaLa integration
 
-This chain documentation intentionally does **not** document the closed-source **Engine** implementation internals.  
-Where the Engine affects consensus-critical or fee-critical behavior, the chain will reference **on-chain parameters** that are independently verifiable.
+XDaLa is the XGR Data Layer / validation and orchestration engine.
+
+It enables:
+
+- rule-based validation
+- encrypted and plaintext rule documents
+- validation gas estimation
+- orchestration sessions
+- grants and encrypted access flows
+- wake/kill/list session control
+- XRC-137 and XRC-729 based process execution
+
+XDaLa is exposed through the `xgr_*` JSON-RPC namespace and is documented outside the chain-introduction document.
+
+See:
+
+- `XDaLa_Engine_JSON_RPC_Endpoint_Reference.md`
+- `XDaLa_Permit_Catalog.md`
+- `xgr_encryptionGrants.md`
+- `XRC-137_Rule_Document_Spec.md`
+- `XRC-137_Smart_Contract_Standard.md`
+- `XRC-729_Smart_Contract_Standard.md`
+
+---
+
+## 7. Documentation map
+
+Use these documents as the canonical public documentation set.
+
+| Document | Purpose |
+|---|---|
+| `XGRCHAIN_Introduction.md` | Entry point and high-level architecture |
+| `XGRCHAIN_Chain_Spec.md` | Chain parameters and protocol-level specification |
+| `XGRCHAIN_Consensus_IBFT.md` | IBFT finality and validator consensus |
+| `XGRCHAIN_Genesis_and_Configuration.md` | Genesis and runtime configuration |
+| `XGRCHAIN_Ethereum_JSON_RPC_Reference.md` | Standard Ethereum-compatible RPC |
+| `XRC-GAS_Gas_Price_Behavior.md` | XGR gas and fee behavior |
+| `XDaLa_Engine_JSON_RPC_Endpoint_Reference.md` | XDaLa Engine RPC namespace |
+| `XRC-137_Rule_Document_Spec.md` | Rule document format |
+| `XRC-137_Smart_Contract_Standard.md` | Rule contract standard |
+| `XRC-729_Smart_Contract_Standard.md` | Orchestration contract standard |
+
+Upcoming PoS/staking documentation should be added as separate chain documents, not mixed into this introduction:
+
+- `XGRCHAIN_Staking_PoS_Model.md`
+- `XGRCHAIN_Staking_PoS_Endpoint_Reference.md`
+
+---
+
+## 8. Glossary
+
+| Term | Meaning |
+|---|---|
+| XGR Chain | The EVM-compatible blockchain layer of the XGR Network |
+| XDaLa | XGR Data Layer / validation and orchestration engine |
+| XRC-137 | Smart contract standard for rule documents |
+| XRC-729 | Smart contract standard for orchestration/session definitions |
+| IBFT | Istanbul Byzantine Fault Tolerance; deterministic-finality consensus protocol |
+| PoA | Proof-of-Authority validator model; current/historical baseline |
+| PoS | Proof-of-Stake validator model; staking/permissionless-join upgrade path |
+| EVM | Ethereum Virtual Machine |
+| Engine RPC | The `xgr_*` JSON-RPC namespace exposed by the XDaLa Engine |
+| Standard RPC | Ethereum-compatible `eth_*`, `net_*`, `web3_*` RPC surface |
+
+---
+
+## 9. Out of scope
+
+This introduction does not define:
+
+- exact staking economics
+- validator join/deactivation rules
+- delegation rules
+- PoS endpoint schemas
+- low-level txpool/debug/operator RPCs
+- internal Engine implementation details
+- legacy Polygon bridge/rootchain/CDK behavior
+
+Those topics must be documented in dedicated files if they remain relevant to XGR Chain.
