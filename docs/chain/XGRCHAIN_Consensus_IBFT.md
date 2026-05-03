@@ -1,195 +1,298 @@
-# XGR Chain — IBFT Consensus (PoA, BLS)
+# XGR Chain — IBFT Consensus
 
 **Document ID:** XGRCHAIN-IBFT-CONSENSUS  
 **Last updated:** 2026-05-03  
 **Audience:** Protocol developers, node operators, validators, auditors  
-**Implementation status:** Mixed  
+**Implementation status:** Mainnet  
 **Source of truth:** `xgrchain/consensus/ibft`
 
 ---
 
-## 1. Why IBFT?
+## 1. Scope
 
-XGR Chain uses **IBFT** (Istanbul Byzantine Fault Tolerance), a PBFT-family consensus protocol with:
+This document describes the **IBFT consensus layer** used by XGR Chain.
 
-- **Immediate finality** (no probabilistic reorg depth like PoW)
-- Deterministic block production with a **proposer** per height / round
-- Fault tolerance against Byzantine validators as long as the validator set respects IBFT assumptions
+It covers:
 
-For XGR Chain, IBFT runs in **Proof-of-Authority (PoA)** mode and validators are **permissioned**.
+- deterministic finality
+- proposer and validator roles
+- IBFT voting phases
+- quorum and fault assumptions
+- block proposal and validation flow
+- BLS-based commit sealing where applicable
+- operator-relevant behavior
 
----
+This document intentionally does **not** define the upcoming staking-based validator model.
 
-## 2. Fault model and thresholds
+Staking, delegation, weighted voting power, validator activation, validator deactivation, micro/macro epochs, rewards and slashing belong in a separate document:
 
-Let:
+- `XGRCHAIN_Staking_PoS_Model.md`
 
-- `n` be the number of validators in the active validator set
-- `f = floor((n - 1) / 3)` be the maximum number of Byzantine validators tolerated
-
-IBFT requires:
-
-- `n >= 3f + 1`
-- Block finalization requires **≥ 2f + 1** commit votes
-
-**Example (genesis validator set):**  
-At genesis, `n = 5` so `f = floor((5-1)/3) = 1` and finalization requires `2f+1 = 3` validators.
+This separation keeps the current mainnet IBFT documentation stable while allowing the PoS/staking model to evolve independently.
 
 ---
 
-## 3. Protocol flow (high level)
+## 2. What IBFT provides
 
-Each block height `h` proceeds in rounds `r = 0, 1, 2, ...`.
+IBFT stands for **Istanbul Byzantine Fault Tolerance**.
 
-In each round:
+It is a PBFT-family consensus protocol designed for validator-based networks. Its main property is deterministic finality:
 
-1) A designated **proposer** broadcasts a block proposal  
-2) Validators exchange **prepare** votes for the proposal  
-3) Validators exchange **commit** votes once prepare quorum is reached  
-4) Once commit quorum is reached, the block is finalized and appended
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant P as Proposer
-    participant V1 as Validator 1
-    participant V2 as Validator 2
-    participant V3 as Validator 3
-    participant Vn as Validator n
-
-    Note over P,Vn: Round r at height h
-
-    P->>V1: PRE-PREPARE (proposal block)
-    P->>V2: PRE-PREPARE (proposal block)
-    P->>V3: PRE-PREPARE (proposal block)
-    P->>Vn: PRE-PREPARE (proposal block)
-
-    V1->>P: PREPARE (vote)
-    V2->>P: PREPARE (vote)
-    V3->>P: PREPARE (vote)
-    Vn->>P: PREPARE (vote)
-
-    Note over P: Collect ≥ 2f+1 PREPARE
-
-    P->>V1: COMMIT (aggregate / commit proof)
-    P->>V2: COMMIT (aggregate / commit proof)
-    P->>V3: COMMIT (aggregate / commit proof)
-    P->>Vn: COMMIT (aggregate / commit proof)
-
-    Note over V1,Vn: Collect ≥ 2f+1 COMMIT
-
-    V1-->>V1: Finalize block h (immediate finality)
-    V2-->>V2: Finalize block h
-    V3-->>V3: Finalize block h
-    Vn-->>Vn: Finalize block h
+```text
+Once a block is committed by the required IBFT quorum, it is final under the IBFT fault assumptions.
 ```
 
-> Exact message types and networking details are implementation-specific, but the above reflects the standard PBFT / IBFT phase structure.
+Unlike probabilistic consensus systems, applications do not need to wait for many confirmations to reduce reorg probability. Finality is reached at commit.
 
 ---
 
-## 4. Timing configuration on XGR Chain
+## 3. Consensus roles
 
-From `genesis.json`:
+### 3.1 Validator
 
-| Parameter | Value |
+A validator participates in consensus by:
+
+- receiving block proposals
+- independently validating proposed blocks
+- checking block headers, signatures and state transition validity
+- voting in the IBFT prepare and commit phases
+- contributing to finality by signing commit messages
+
+Validators do not blindly trust the proposer. Every validator executes and verifies the proposed block before committing it.
+
+### 3.2 Proposer
+
+For each height and round, IBFT selects one validator as proposer.
+
+The proposer:
+
+- selects transactions from the pool
+- builds the candidate block
+- executes the block locally
+- fills consensus-related header fields
+- broadcasts the proposal to the validator set
+
+The proposer has more packaging responsibility for that round, but it does not have unilateral authority. The block still needs the validator quorum.
+
+### 3.3 Active validator set
+
+IBFT operates over an active validator set.
+
+In the current mainnet baseline, the validator set is operated as a validator-authorized set. Future staking-based validator selection and weighted voting power are documented separately.
+
+---
+
+## 4. IBFT round flow
+
+Each block height proceeds in rounds.
+
+```text
+height h
+  round 0
+    proposer proposes block
+    validators prepare
+    validators commit
+    block finalizes if quorum is reached
+  round 1
+    used if round 0 times out or fails
+  round 2
+    ...
+```
+
+High-level flow:
+
+1. **Proposal / Pre-prepare**  
+   The proposer broadcasts a candidate block for the current height and round.
+
+2. **Block verification**  
+   Validators verify the proposal:
+   - parent linkage
+   - header validity
+   - transaction validity
+   - state transition
+   - gas accounting
+   - consensus metadata
+
+3. **Prepare**  
+   Validators signal that they accept the proposed block for the current round.
+
+4. **Commit**  
+   Validators sign the block commitment once prepare quorum is reached.
+
+5. **Finalize**  
+   The block is inserted once commit quorum is reached.
+
+6. **Round change**  
+   If progress stalls, validators move to the next round with a new proposer.
+
+---
+
+## 5. Fault model and quorum
+
+IBFT tolerates Byzantine validators as long as the active validator set satisfies the usual BFT assumptions.
+
+For an unweighted validator set:
+
+```text
+n = number of validators
+f = floor((n - 1) / 3)
+```
+
+The network can tolerate up to `f` Byzantine validators, and block finalization requires a quorum larger than two thirds of the validator set.
+
+Equivalent intuition:
+
+```text
+commit power must be at least 2/3 of the validator set, with implementation-specific rounding
+```
+
+For current unweighted IBFT operation, this is validator-count based.
+
+Weighted voting power for the PoS/staking model is not defined here. It belongs in:
+
+- `XGRCHAIN_Staking_PoS_Model.md`
+
+---
+
+## 6. Finality
+
+IBFT finality is immediate after commit quorum.
+
+A finalized block should not be reverted unless the IBFT safety assumptions are violated, for example by excessive Byzantine voting power or severe implementation/configuration faults.
+
+For application developers:
+
+- one finalized IBFT block is conceptually final
+- additional confirmations may still be used for operational conservatism
+- explorers and wallets should treat committed blocks as final under IBFT assumptions
+
+---
+
+## 7. Block proposal and validation
+
+The proposer creates the block, but validators independently verify it.
+
+A validator must reject a proposal if, for example:
+
+- the parent hash is wrong
+- the block number is wrong
+- the timestamp rules are violated
+- the proposer is invalid for the height/round
+- transaction execution does not produce the expected state
+- gas accounting is invalid
+- consensus metadata is malformed
+- commit/proposer seals are invalid
+- block-specific protocol hooks fail
+
+This is why the proposer does not control the chain alone. It only initiates the round.
+
+---
+
+## 8. Signatures and seals
+
+XGR Chain's current validator setup uses BLS-based consensus sealing.
+
+At a high level:
+
+- validator identity is represented by an address
+- validators hold consensus key material
+- commit votes are represented compactly
+- BLS aggregation allows multiple commit signatures to be represented as one aggregated seal plus participant bitmap
+
+This reduces commit proof size and improves verification/storage efficiency compared with storing many separate signatures.
+
+Implementation details belong to the node code, not to the public high-level consensus specification.
+
+---
+
+## 9. Header metadata
+
+IBFT stores consensus metadata in the block header extra-data area.
+
+Conceptually, this metadata contains:
+
+- validator set information where required
+- proposer seal
+- committed seal / aggregated commit proof
+- parent committed seal where required
+- round number
+
+The exact encoding is implementation-specific and should be treated as part of the node consensus implementation.
+
+External integrations should normally use standard JSON-RPC block and receipt APIs rather than parsing IBFT extra data manually.
+
+---
+
+## 10. Epochs and validator-set checkpoints
+
+IBFT implementations commonly use epoch boundaries for validator-set handling, snapshots and consensus housekeeping.
+
+For XGR Chain:
+
+- epoch behavior must be interpreted through the active chain configuration
+- staking-specific epoch semantics must not be inferred from generic IBFT behavior
+- PoS micro/macro epoch logic is documented separately
+
+Do not mix the following concepts into this IBFT document:
+
+- staking epochs
+- delegation epochs
+- weighted voting-power epochs
+- reward epochs
+- slashing windows
+
+Those belong in `XGRCHAIN_Staking_PoS_Model.md`.
+
+---
+
+## 11. Operator notes
+
+Validators should monitor:
+
+- block production
+- round changes
+- peer connectivity
+- signer/key availability
+- missed proposals
+- commit participation
+- node clock drift
+- JSON-RPC and p2p health
+
+Persistent round changes usually indicate one of:
+
+- proposer not producing valid blocks
+- validator connectivity problems
+- validator key/signing problems
+- insufficient online quorum
+- state divergence / invalid proposal rejection
+
+For IBFT networks, stable low-latency connectivity between validators is operationally important.
+
+---
+
+## 12. Out of scope
+
+This document does not describe:
+
+- staking economics
+- permissionless validator join
+- validator delegation
+- weighted voting power
+- reward distribution
+- slashing
+- PoS monitoring endpoints
+- legacy Polygon Bridge / Supernet / PolyBFT behavior
+- rootchain / childchain bridge mechanics
+
+---
+
+## 13. Related documents
+
+| Document | Purpose |
 |---|---|
-| `blockTime` | `2000000000` ns (~2.0 seconds) |
-| `epochSize` | `500` blocks |
-| Mode | PoA |
-| Validator type | BLS |
-
----
-
-## 5. BLS validators and aggregated commit seals
-
-XGR Chain uses `validator_type = "bls"`. Practically:
-
-- Each validator has an **ECDSA keypair** which defines the validator **address** (identity)
-- Each validator also has a **BLS keypair**
-- Commit votes are represented as a **BLS aggregated signature** plus a bitmap of participating validators
-
-This has two key benefits:
-
-- **Smaller consensus proofs** (one aggregated signature instead of many individual signatures)
-- Faster verification and storage efficiency
-
-Implementation-wise, the committed seal is represented as an `AggregatedSeal`:
-
-```go
-// consensus/ibft/signer/bls.go (abridged)
-
-type AggregatedSeal struct {
-    Bitmap    *big.Int // which validators participated
-    Signature []byte   // aggregated BLS signature
-}
-```
-
----
-
-## 6. Header `extraData` structure (IstanbulExtra)
-
-IBFT stores consensus metadata in the block header `extraData`. The format used is:
-
-- 32 bytes **vanity**
-- followed by `RLP(IstanbulExtra)`
-
-The structure (abridged) is:
-
-```go
-// consensus/ibft/signer/extra.go (abridged)
-
-type IstanbulExtra struct {
-    Validators           validators.Validators
-    ProposerSeal         []byte
-    CommittedSeals       Seals
-    ParentCommittedSeals Seals
-    RoundNumber          *uint64
-}
-```
-
-### 6.1 Genesis `extraData` and initial validator set
-
-In the genesis block, `extraData` encodes the initial validator set and empty seals.
-
-Decoded initial validator set:
-
-| # | Validator address (ECDSA) | BLS public key (48 bytes) |
-|---|---|---|
-| 1 | 0x7913fdae82c678f42b98ca8076fe7d13b3edff15 | 0xb56b72d028aa6d063d36917f9f18a3ee4b216e22694a701814af4fd55e6cbbe99209fc1359012e4733987ebdd0123e88 |
-| 2 | 0x7e8f8fd2a198f77df298041b48d79b0df4c8b1fa | 0xa32a09397128b801da5b88319bcca6cc33d4400e12ef7e1a94141b2360abd70306aaeb5599dd0d0984bb02f88fe20b71 |
-| 3 | 0x82f0b6f1efbb3fc9bcde0ee5a08e01e76cc29e13 | 0x8b94120a8ae2a89a0f7deb09f266d90bf5d5152a6ee559977d7f3361a0ce1cc65b012f3a820c7f1c18a01cef9ba8ae90 |
-| 4 | 0xc5cc7b4ee5b0f6524ecac177ed37b2b567180707 | 0x91bf571d3f5563976e560c5f7d9898f75a0829804ce5e212370834303c23953388f01e06d0a9da2615c5e7f1aaf10da7 |
-| 5 | 0x98f8bc086454b8386788244eee9a43d5d0b4e63e | 0xa65579c3b300f0d8e94e77b3915ac09f309c0a109a3aa3bb66d8beb538d733026624bf9d096e2a3d52deff78a36513d1 |
-
----
-
-## 7. Validator set changes (PoA governance)
-
-IBFT PoA networks typically manage validator set changes through a **proposal / vote** mechanism.
-
-This codebase includes operator-facing subcommands under `command/ibft/` (Polygon Edge style), including:
-
-- `ibft status` — current status / health
-- `ibft snapshot` — view validator set snapshot at a height
-- `ibft propose` — propose validator add/remove
-- `ibft candidates` — view current candidates
-- `ibft quorum` — quorum-related inspection / configuration
-- `ibft switch` — consensus switching helper (used in some deployments)
-
-> The exact CLI binary name depends on how you package the node, but the subcommand structure is present in `command/ibft/*`.
-
----
-
-## 8. Practical operator notes
-
-- **Key material:** For BLS mode, validator operators must securely manage **both** ECDSA and BLS private keys.
-- **Network connectivity:** IBFT is sensitive to message delays; ensure stable connectivity between validators.
-- **Observability:** Track round changes and proposal/commit timing; persistent round increases are a strong indicator of network issues.
-
----
-
-## 9. Related documents
-
-- **Chain Spec:** `XGRCHAIN-SPEC`  
-- **Gas behavior:** `XRC-GAS_Gas_Price_Behavior.md`
+| `XGRCHAIN_Introduction.md` | High-level XGR Chain overview |
+| `XGRCHAIN_Chain_Spec.md` | Chain parameters and protocol configuration |
+| `XGRCHAIN_Genesis_and_Configuration.md` | Genesis and configuration details |
+| `XGRCHAIN_Ethereum_JSON_RPC_Reference.md` | Standard Ethereum-compatible RPC |
+| `XRC-GAS_Gas_Price_Behavior.md` | XGR gas and fee behavior |
+| `XGRCHAIN_Staking_PoS_Model.md` | Future staking / weighted voting-power model |
