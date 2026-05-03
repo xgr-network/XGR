@@ -1,10 +1,13 @@
 # XGR Encryption & Grants Reference
 
-Version: 2.0  
-Last updated: 2025-01-06
+**Document ID:** XGR-ENCRYPTION-GRANTS  
+**Last updated:** 2026-05-03  
+**Audience:** Developers, wallet developers, privacy integrators, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa grants and encryption endpoints
 
 This document specifies the encryption model and grants system used by XGR for protecting rule documents (XRC-137) and engine-emitted logs.  
-It is written for **developers** integrating with XDaLa and **clients** that need to encrypt, decrypt, or manage access to protected content.
+
 
 ---
 

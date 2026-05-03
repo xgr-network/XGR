@@ -1,9 +1,10 @@
 # XGR Chain — IBFT Consensus (PoA, BLS)
 
-**Document ID:** XGRCHAIN-IBFT  
-**Status:** Draft  
-**Last updated:** 2026-02-07  
-**Audience:** Node operators, protocol implementers, auditors
+**Document ID:** XGRCHAIN-IBFT-CONSENSUS  
+**Last updated:** 2026-05-03  
+**Audience:** Protocol developers, node operators, validators, auditors  
+**Implementation status:** Mixed  
+**Source of truth:** `xgrchain/consensus/ibft`
 
 ---
 

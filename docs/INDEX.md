@@ -1,5 +1,11 @@
 # XDaLa and XRC Documentation Index
 
+**Document ID:** XGR-DOCS-INDEX  
+**Last updated:** 2026-05-03  
+**Audience:** Developers, integrators, auditors, contributors  
+**Implementation status:** Mixed  
+**Source of truth:** `docs/`
+
 ## Core
 - general-overview.md
 

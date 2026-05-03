@@ -1,9 +1,10 @@
 # XGR Chain — Chain Specification
 
 **Document ID:** XGRCHAIN-SPEC  
-**Status:** Draft  
-**Last updated:** 2026-03-07  
-**Audience:** Protocol integrators, node operators, auditors
+**Last updated:** 2026-05-03  
+**Audience:** Protocol integrators, node operators, auditors  
+**Implementation status:** Mixed  
+**Source of truth:** `xgrchain` / genesis configuration / consensus configuration
 
 ---
 

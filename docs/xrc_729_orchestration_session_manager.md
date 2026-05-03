@@ -1,5 +1,10 @@
 # XRC-729 Orchestration and Session Manager
-Public specification for orchestration semantics in xDaLa.
+
+**Document ID:** XRC-729-ORCHESTRATION-SESSION-MANAGER  
+**Last updated:** 2026-05-03  
+**Audience:** Orchestration developers, engine developers, backend integrators, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa session manager and orchestration runtime
 
 This document describes how **XRC-729** (the orchestration smart contract) defines an orchestration graph and how the **xDaLa Session Manager** executes that graph, including **spawns**, **joins**, and **kill-as-soon-as-possible (ASAP)** behavior.
 

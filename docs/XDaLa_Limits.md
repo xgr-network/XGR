@@ -1,5 +1,11 @@
 # XDaLa Hard Limits Specification (XRC-137, XRC-729, CEL)
 
+**Document ID:** XDALA-LIMITS  
+**Last updated:** 2026-05-03  
+**Audience:** Developers, rule authors, orchestrator developers, auditors  
+**Implementation status:** Mixed  
+**Source of truth:** `xgr-node` / XDaLa Engine validation and execution limits
+
 ## 1. Scope and Rationale
 
 This document specifies the **deterministic hard limits (“caps”)** enforced by the **XDaLa Engine** for:

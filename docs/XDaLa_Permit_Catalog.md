@@ -1,5 +1,11 @@
 # XDaLa Permit Catalog
 
+**Document ID:** XDALA-PERMIT-CATALOG  
+**Last updated:** 2026-05-03  
+**Audience:** Wallet developers, frontend developers, backend integrators, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa EIP-712 permit verification implementation
+
 ## 1. What is a “Permit”?
 
 A **permit** is an **EIP-712 typed-data signature** that authorizes specific XDaLa actions without requiring an on-chain authorization transaction.

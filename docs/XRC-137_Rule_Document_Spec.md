@@ -1,10 +1,12 @@
 # XRC-137 Rule Document Specification (xDaLa)
 
-Version: 1.1
-Last updated: 2026-01-24
+**Document ID:** XRC-137-RULE-DOCUMENT  
+**Last updated:** 2026-05-03  
+**Audience:** Rule authors, SDK developers, engine developers, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa rule parser and executor
 
 This document specifies the **JSON rule document format** consumed by the **xDaLa Engine** when executing an XRC-137 step.
-It is written for **rule authors**, **integrators**, and **SDK implementers** who need to produce interoperable rule documents.
 
 ---
 

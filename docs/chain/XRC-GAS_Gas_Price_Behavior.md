@@ -1,7 +1,10 @@
 # XRC-GAS: Gas Price Behavior
 
-Version: 1.0  
-Last updated: 2025-01-06
+**Document ID:** XRC-GAS-BEHAVIOR  
+**Last updated:** 2026-05-03  
+**Audience:** Wallet developers, dApp developers, explorer developers, node operators, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgrchain/jsonrpc`, `xgrchain/state`, `xgrchain/txpool`
 
 This document specifies the **gas price behavior** on the XGR Network for developers integrating applications.  
 It explains how gas pricing works, how to estimate transaction costs, and what to expect compared to standard Ethereum-compatible networks.

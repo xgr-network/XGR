@@ -1,9 +1,10 @@
 # XRC-137 Smart Contract Standard (Rule Container Contract)
 
-**Document ID:** XRC-137-CONTRACT  
-**Status:** Draft (pre-launch)  
-**Language:** English  
-**Audience:** Contract integrators, SDK/tooling developers, auditors.
+**Document ID:** XRC-137-CONTRACT-STANDARD  
+**Last updated:** 2026-05-03  
+**Audience:** Contract developers, tooling developers, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `contracts/XRC137/XRC-137.sol`
 
 ---
 

@@ -1,5 +1,11 @@
 # XDaLa JSON-RPC Extension: XGR Endpoint Reference
 
+**Document ID:** XDALA-ENGINE-RPC  
+**Last updated:** 2026-05-03  
+**Audience:** Client developers, wallet developers, orchestrator developers, dashboard developers  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa Engine JSON-RPC implementation
+
 ## 1. Scope and Audience
 
 This document specifies the **public JSON-RPC endpoints** exposed by the **XDaLa Engine** under the **XGR namespace**. It is intended for client developers building wallets, orchestrators, dashboards, and integrations that need to:

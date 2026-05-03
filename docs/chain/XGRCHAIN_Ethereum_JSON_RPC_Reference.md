@@ -2,7 +2,9 @@
 
 **Document ID:** XGRCHAIN-ETH-RPC  
 **Last updated:** 2026-05-03  
-**Audience:** Wallet developers, explorer developers, node operators, integrators
+**Audience:** Wallet developers, explorer developers, node operators, integrators  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgrchain/jsonrpc`
 
 ---
 

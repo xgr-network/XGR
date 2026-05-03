@@ -1,9 +1,10 @@
 # XGR Chain — Introduction
 
 **Document ID:** XGRCHAIN-INTRO  
-**Status:** Draft  
-**Last updated:** 2026-02-07  
-**Audience:** Developers, node operators, auditors
+**Last updated:** 2026-05-03  
+**Audience:** Developers, node operators, auditors, integrators  
+**Implementation status:** Mixed  
+**Source of truth:** `xgrchain`, `xgr-node`, chain genesis/configuration
 
 ---
 

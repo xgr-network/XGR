@@ -1,5 +1,11 @@
 # XRC‑137 ValidationGas Specification (Off‑Chain Cost Model)
 
+**Document ID:** XRC-137-VALIDATION-GAS  
+**Last updated:** 2026-05-03  
+**Audience:** Rule authors, wallet developers, frontend developers, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa validation gas estimator
+
 This document specifies how **ValidationGas** is computed for an XRC‑137 rule and how list comprehensions
 (e.g., `map`, `filter`, `exists`, `all`) are priced deterministically using **n·m + overhead**.
 

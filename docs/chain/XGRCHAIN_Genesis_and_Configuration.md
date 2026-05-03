@@ -1,9 +1,10 @@
 # XGR Chain — Genesis & Network Configuration
 
-**Document ID:** XGRCHAIN-GENESIS  
-**Status:** Draft  
-**Last updated:** 2026-03-07  
-**Audience:** Node operators, network maintainers, auditors
+**Document ID:** XGRCHAIN-GENESIS-CONFIG  
+**Last updated:** 2026-05-03  
+**Audience:** Node operators, protocol developers, auditors  
+**Implementation status:** Mixed  
+**Source of truth:** `xgrchain` genesis files and chain configuration
 
 ---
 

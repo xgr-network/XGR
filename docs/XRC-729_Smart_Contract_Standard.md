@@ -1,9 +1,10 @@
 # XRC-729 Smart Contract Standard (Orchestration Registry)
 
-**Document ID:** XRC-729-CONTRACT  
-**Status:** Draft (pre-launch)  
-**Language:** English  
-**Audience:** Contract integrators, SDK/tooling developers, auditors.
+**Document ID:** XRC-729-CONTRACT-STANDARD  
+**Last updated:** 2026-05-03  
+**Audience:** Contract developers, orchestration developers, tooling developers, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `contracts/XRC729/XRC-729.sol`
 
 ---
 

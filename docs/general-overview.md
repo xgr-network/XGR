@@ -1,5 +1,11 @@
 # XGR & XDaLa — The Missing Layer for Deterministic On-Chain Processes
 
+**Document ID:** XGR-GENERAL-OVERVIEW  
+**Last updated:** 2026-05-03  
+**Audience:** Developers, integrators, partners, technical readers  
+**Implementation status:** Mixed  
+**Source of truth:** `XGR`, `xgr-node`, `xgrchain`
+
 > **One-liner**  
 > **XGR** is a fully EVM-compatible chain. **XDaLa** is its differentiator: a deterministic rule- and process-layer that turns multi-step workflows into first-class, auditable on-chain **sessions**.
 

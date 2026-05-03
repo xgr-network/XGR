@@ -1,5 +1,11 @@
 # XGR / XDaLa Expression Evaluation – Developer Guide
 
+**Document ID:** XDALA-EXPRESSION-EVALUATION  
+**Last updated:** 2026-05-03  
+**Audience:** Rule authors, SDK developers, engine developers, auditors  
+**Implementation status:** Mainnet  
+**Source of truth:** `xgr-node` / XDaLa expression evaluator
+
 This document specifies how *expressions* and *templates* are evaluated in XRC‑137/XDaLa, including
 placeholder handling, CEL integration, deterministic hard caps, type coercion, and error semantics.
 
