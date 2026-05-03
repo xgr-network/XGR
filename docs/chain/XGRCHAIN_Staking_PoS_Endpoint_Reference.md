@@ -153,7 +153,7 @@ The endpoint returns `monitoringNotes`.
 Important semantics:
 
 - `currentlyValidating` is derived from current consensus header validator set, not heuristic fallback.
-- `wasValidatorLastEpoch` prefers epoch-keyed PoS state and may fall back to last-finalized epoch-end header snapshot if state is missing.
+- `wasValidatorLastEpoch` is a monitoring/display field. It may use the last-finalized epoch-end header snapshot only for RPC visibility if epoch-keyed PoS state is unavailable. This is not a consensus finalization fallback.
 - join/deactivation effective blocks are deterministic epoch-boundary markers.
 - reward-ineligible status is computed only for validators present in the reported epoch set.
 - proposer uptime windows are rolling proposer-duty reliability metrics, not lifetime uptime.
