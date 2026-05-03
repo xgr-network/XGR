@@ -2,84 +2,159 @@
 
 **Document ID:** XGRCHAIN-NODE-OPERATOR-RPC  
 **Last updated:** 2026-05-03  
-**Audience:** Node operators, infrastructure engineers, validator operators, internal tooling developers  
-**Implementation status:** Mixed  
-**Source of truth:** `xgrchain/jsonrpc`, `xgrchain/txpool`, `xgrchain/docs/docs/design/*`
+**Audience:** Node operators, validator operators, infrastructure engineers, internal tooling developers  
+**Implementation status:** Current public baseline for standard debug/txpool/operator surfaces; XGR-specific extension methods are release-dependent  
+**Source of truth:** Public `xgr-network/xgr-node` releases, active node binary behavior, and official XGR Network operator announcements
 
 ---
 
 ## 1. Scope
 
-This document describes **operator-only JSON-RPC surfaces and node internals** that are useful for diagnostics, tracing, txpool understanding and infrastructure operation.
+This document describes operator-facing RPC surfaces and node internals that are useful for diagnostics, tracing, transaction pool inspection and infrastructure operation.
 
 It covers:
 
-- the role of JSON-RPC inside the node
+- RPC surface categories
+- JSON-RPC dispatcher behavior
 - `debug_*` tracing endpoints
-- tracer configuration
+- trace configuration
+- debug request throttling
+- `txpool_*` JSON-RPC endpoints
 - txpool / mempool internals
 - txpool validation rules
-- operational security recommendations
-- what should not be exposed publicly
+- txpool sizing and pressure handling
+- transaction replacement behavior
+- base-fee interaction in the txpool
+- gRPC operator services
+- operational security guidance
+- troubleshooting workflows
 
-This document does **not** define the public wallet/explorer API.
+This document is for node operation and diagnostics.
 
-Public RPC documentation lives in:
-
-- `XGRCHAIN_Ethereum_JSON_RPC_Reference.md`
-
-XDaLa Engine endpoints live in:
-
-- `XDaLa_Engine_JSON_RPC_Endpoint_Reference.md`
+It is not an application API guide.
 
 ---
 
-## 2. Public vs operator RPC
+## 2. RPC surface categories
 
-XGR Chain has different RPC categories.
+XGR Chain nodes expose different RPC surfaces for different audiences.
 
-| Category | Examples | Intended audience | Public exposure |
+| Surface | Examples | Intended use | Exposure policy |
 |---|---|---|---|
-| Standard Ethereum RPC | `eth_*`, `net_*`, `web3_*` | wallets, explorers, dApps | can be public with rate limits |
-| XDaLa Engine RPC | `xgr_*` | XDaLa clients, orchestration tools | depends on endpoint and deployment policy |
-| Debug RPC | `debug_*` | operators, auditors, internal diagnostics | **do not expose publicly** |
-| TxPool internals | txpool module / gRPC operator hooks / metrics | operators, validators, internal tooling | **do not expose publicly unless explicitly controlled** |
+| Standard Ethereum JSON-RPC | `eth_*`, `net_*`, `web3_*` | Wallets, explorers, applications, scripts | Can be public with rate limits |
+| TxPool JSON-RPC | `txpool_*` | Transaction pool inspection | Operator / controlled infrastructure |
+| Debug JSON-RPC | `debug_*` | Tracing and execution diagnostics | Internal only |
+| XGR extension RPC | `xgr_*` | XGR-specific validation/orchestration flows | Release- and endpoint-dependent |
+| gRPC operator services | System, txpool and consensus operator services | Node operation and internal tooling | Internal only |
 
-The old Polygon Edge documentation kept `debug_*` and `txpool_*` beside public RPC docs. XGR should not do that. Debug and txpool surfaces are operational tools, not public application APIs.
+The public RPC endpoint used by wallets and applications should normally expose only the standard Ethereum-compatible surface and explicitly approved XGR extension methods.
+
+Debug, txpool and gRPC operator surfaces should be restricted to trusted networks.
 
 ---
 
-## 3. JSON-RPC server role
+## 3. JSON-RPC dispatcher model
 
-The JSON-RPC layer receives requests, decodes JSON-RPC 2.0 messages, dispatches them to endpoint namespaces and serializes responses.
+The JSON-RPC dispatcher receives JSON-RPC 2.0 requests and maps method names to registered endpoint services.
 
-At a high level:
+Method names follow this pattern:
 
-1. client sends JSON-RPC request
-2. node decodes method and params
-3. dispatcher maps the request to an endpoint implementation
-4. endpoint reads chain/txpool/state/Engine data as needed
-5. response or error is encoded as JSON-RPC 2.0
+```text
+<namespace>_<method>
+```
 
-Relevant endpoint groups:
+Examples:
 
-| Namespace | Purpose |
+```text
+eth_blockNumber
+net_peerCount
+web3_clientVersion
+txpool_status
+debug_traceTransaction
+xgr_<method>
+```
+
+The dispatcher splits the request method name at the first underscore and dispatches the call to the corresponding endpoint service.
+
+Registered endpoint categories in the current public baseline include:
+
+| Namespace | Endpoint role |
 |---|---|
-| `eth_*` | Ethereum-compatible chain interaction |
-| `net_*` | network metadata |
-| `web3_*` | client/version/hash helpers |
-| `debug_*` | tracing and execution diagnostics |
-| `xgr_*` | XDaLa Engine-specific methods |
+| `eth` | Ethereum-compatible chain interaction |
+| `net` | Network metadata |
+| `web3` | Client/version/hash helpers |
+| `txpool` | Transaction pool inspection |
+| `debug` | Execution tracing and diagnostics |
+| `xgr` | XGR-specific extension endpoint surface, behavior depends on active release stack |
+
+JSON-RPC batch requests are supported, but can be limited by runtime configuration.
+
+Relevant runtime controls:
+
+| Runtime option | Purpose |
+|---|---|
+| `--json-rpc-batch-request-limit` | Maximum number of JSON-RPC requests in one batch; `0` disables the limit |
+| `--json-rpc-block-range-limit` | Maximum block range for range-based RPC queries |
+| `--concurrent-requests-debug` | Debug tracing request throttling |
+| `--websocket-read-limit` | Maximum WebSocket message size |
 
 ---
 
-## 4. Debug RPC overview
+## 4. Standard Ethereum-compatible RPC
 
-The `debug_*` endpoint group is intended for tracing and diagnostics.
+Standard Ethereum-compatible RPC is the normal application and infrastructure surface.
 
-It is implemented by the `Debug` endpoint in `jsonrpc/debug_endpoint.go`.
+Typical namespaces:
 
-Supported debug methods include:
+```text
+eth_*
+net_*
+web3_*
+```
+
+Used by:
+
+- wallets
+- explorers
+- indexers
+- scripts
+- dApps
+- infrastructure tools
+- monitoring systems
+
+Typical public-safe examples, when rate-limited and configured properly:
+
+```text
+eth_blockNumber
+eth_chainId
+eth_getBalance
+eth_getTransactionByHash
+eth_getTransactionReceipt
+eth_call
+eth_estimateGas
+eth_sendRawTransaction
+net_version
+net_peerCount
+web3_clientVersion
+```
+
+Public RPC nodes should still apply:
+
+- request rate limits
+- JSON-RPC batch limits
+- block-range limits
+- WebSocket limits
+- abuse monitoring
+- resource monitoring
+- namespace filtering where available
+
+---
+
+## 5. Debug RPC overview
+
+The `debug_*` endpoint group is intended for tracing and execution diagnostics.
+
+Supported debug methods in the current public baseline include:
 
 | Method | Purpose |
 |---|---|
@@ -89,15 +164,29 @@ Supported debug methods include:
 | `debug_traceTransaction` | Trace a mined transaction by transaction hash |
 | `debug_traceCall` | Simulate and trace a call against a selected block |
 
-These methods can be expensive. They may execute EVM tracing over full blocks or transactions and should be treated as operator-only.
+Debug tracing can be CPU- and memory-intensive.
+
+It should be treated as an operator-only diagnostic surface.
+
+Recommended deployment model:
+
+```text
+Public RPC node:
+  expose eth/net/web3 as needed
+  do not expose debug
+
+Internal tracing node:
+  expose debug only to trusted operator networks
+  isolate from validators where possible
+```
 
 ---
 
-## 5. `debug_traceBlockByNumber`
+## 6. `debug_traceBlockByNumber`
 
 Traces all transactions in a block selected by block number.
 
-### Request shape
+### Request
 
 ```json
 {
@@ -117,16 +206,29 @@ Traces all transactions in a block selected by block number.
 ### Notes
 
 - The selected block must exist.
-- Genesis block tracing is rejected.
-- The trace is subject to throttling and timeout behavior.
+- Genesis block tracing returns an error.
+- Tracing is subject to timeout behavior.
+- Tracing is subject to debug request throttling.
+- Large blocks can be expensive to trace.
+
+Supported block selector examples:
+
+```text
+latest
+earliest
+pending
+0x<number>
+```
+
+Actual selector support follows the active JSON-RPC implementation.
 
 ---
 
-## 6. `debug_traceBlockByHash`
+## 7. `debug_traceBlockByHash`
 
 Traces all transactions in a block selected by block hash.
 
-### Request shape
+### Request
 
 ```json
 {
@@ -146,15 +248,17 @@ Traces all transactions in a block selected by block hash.
 ### Notes
 
 - Returns an error if the block is not found.
-- Genesis block tracing is rejected.
+- Genesis block tracing returns an error.
+- Tracing all transactions in a block may be expensive.
+- Use only on trusted/internal infrastructure.
 
 ---
 
-## 7. `debug_traceBlock`
+## 8. `debug_traceBlock`
 
 Traces an RLP-encoded block.
 
-### Request shape
+### Request
 
 ```json
 {
@@ -173,17 +277,18 @@ Traces an RLP-encoded block.
 
 ### Notes
 
-- The input is decoded as a full RLP block.
-- Invalid encoding returns an error.
-- Genesis block tracing is rejected.
+- The first parameter must be an RLP-encoded full block.
+- Invalid hex or invalid RLP returns an error.
+- Genesis block tracing returns an error.
+- This method is intended for diagnostics and block-level analysis.
 
 ---
 
-## 8. `debug_traceTransaction`
+## 9. `debug_traceTransaction`
 
-Traces a transaction by transaction hash.
+Traces a mined transaction by transaction hash.
 
-### Request shape
+### Request
 
 ```json
 {
@@ -203,17 +308,20 @@ Traces a transaction by transaction hash.
 ### Notes
 
 - The transaction must already be mined.
-- The node resolves the block through transaction lookup.
-- Genesis transactions are not traceable.
+- The node resolves the block through the transaction lookup index.
 - Unknown transactions return an error.
+- Transactions in genesis are not traceable.
+- Pending transactions are not traced by this method.
+
+For pending or hypothetical execution, use `debug_traceCall`.
 
 ---
 
-## 9. `debug_traceCall`
+## 10. `debug_traceCall`
 
 Simulates and traces a call at a selected block.
 
-### Request shape
+### Request
 
 ```json
 {
@@ -240,13 +348,15 @@ Simulates and traces a call at a selected block.
 
 ### Notes
 
+- The call is simulated against the selected block/header state.
+- It does not submit a transaction.
+- It does not modify chain state.
 - If gas is omitted, the implementation can default to the selected block gas limit.
-- The call is traced against the selected header/state.
-- This is diagnostic simulation, not transaction submission.
+- The trace result depends on the selected block and current state at that block.
 
 ---
 
-## 10. Trace configuration
+## 11. Trace configuration
 
 Debug tracing accepts a configuration object.
 
@@ -254,8 +364,8 @@ Supported fields:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `tracer` | string | `callTracer` for call tracing; otherwise struct tracer is used |
-| `timeout` | string | Go duration string, e.g. `5s`, `30s` |
+| `tracer` | string | `callTracer` selects call tracing; any other value uses the struct tracer |
+| `timeout` | string | Go duration string, for example `5s` or `30s` |
 | `enableMemory` | bool | Include memory in struct logs unless struct logs are disabled |
 | `disableStack` | bool | Disable stack capture |
 | `disableStorage` | bool | Disable storage capture |
@@ -270,13 +380,54 @@ Default timeout:
 
 If timeout is reached, tracing is cancelled with an execution-timeout error.
 
+A config object is required by the current implementation. Missing trace config returns an error.
+
+### 11.1 Call tracer
+
+Use:
+
+```json
+{
+  "tracer": "callTracer",
+  "timeout": "5s"
+}
+```
+
+The call tracer is useful for:
+
+- high-level call trees
+- internal calls
+- value movement
+- revert analysis
+- contract interaction debugging
+
+### 11.2 Struct tracer
+
+Any tracer value other than `callTracer` falls back to the struct tracer.
+
+Example:
+
+```json
+{
+  "disableStack": false,
+  "disableStorage": true,
+  "enableMemory": false,
+  "enableReturnData": true,
+  "timeout": "5s"
+}
+```
+
+The struct tracer is useful for lower-level EVM execution analysis.
+
+It can be significantly heavier than call tracing.
+
 ---
 
-## 11. Debug endpoint throttling
+## 12. Debug endpoint throttling
 
-The debug endpoint uses request throttling.
+Debug tracing uses request throttling.
 
-Operator flag:
+Relevant runtime flag:
 
 ```text
 --concurrent-requests-debug
@@ -288,50 +439,225 @@ Purpose:
 Limit the number of concurrent debug requests.
 ```
 
-Operational recommendation:
+Default in the current public baseline:
 
-- keep this low on shared infrastructure
-- do not expose debug tracing on public RPC
-- use dedicated internal nodes for heavy tracing
-- isolate tracing from validator nodes where possible
+```text
+32
+```
+
+Operational recommendations:
+
+- keep the value low on shared infrastructure
+- use dedicated tracing nodes for heavy debug workloads
+- do not run heavy tracing on validator nodes during critical operation
+- do not expose debug endpoints publicly
+- monitor CPU, memory, disk I/O and request latency
+- use short timeouts for normal debugging
+- use longer timeouts only on isolated internal nodes
 
 ---
 
-## 12. TxPool / mempool terminology
+## 13. TxPool JSON-RPC overview
 
-In this documentation, **TxPool** and **mempool** refer to the same operational area:
+The current public baseline registers a `txpool` JSON-RPC namespace.
+
+Supported txpool JSON-RPC methods include:
+
+| Method | Purpose |
+|---|---|
+| `txpool_content` | Returns pending and queued transactions grouped by sender and nonce |
+| `txpool_inspect` | Returns a compact text summary of pending/queued transactions and pool capacity |
+| `txpool_status` | Returns pending and queued transaction counts |
+
+The txpool namespace is useful for operators and infrastructure diagnostics.
+
+It should not be treated as a normal public application API.
+
+---
+
+## 14. `txpool_status`
+
+Returns the number of pending and queued transactions.
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "txpool_status",
+  "params": []
+}
+```
+
+### Response shape
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "pending": 12,
+    "queued": 3
+  }
+}
+```
+
+### Meaning
+
+| Field | Meaning |
+|---|---|
+| `pending` | Number of promoted / executable transactions currently ready for inclusion |
+| `queued` | Number of enqueued transactions not yet executable, usually due to nonce gaps or ordering |
+
+Use this endpoint for lightweight pool health checks.
+
+---
+
+## 15. `txpool_content`
+
+Returns pending and queued transactions grouped by sender address and nonce.
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "txpool_content",
+  "params": []
+}
+```
+
+### Response shape
+
+```json
+{
+  "pending": {
+    "0x<sender>": {
+      "0": {
+        "hash": "0x...",
+        "nonce": "0x0",
+        "from": "0x...",
+        "to": "0x...",
+        "value": "0x...",
+        "gas": "0x...",
+        "gasPrice": "0x..."
+      }
+    }
+  },
+  "queued": {
+    "0x<sender>": {
+      "1": {
+        "hash": "0x...",
+        "nonce": "0x1"
+      }
+    }
+  }
+}
+```
+
+Exact transaction object fields follow the node's transaction serialization.
+
+### Notes
+
+- Can return large responses.
+- Should not be exposed publicly without strict controls.
+- Useful for diagnosing stuck nonces and queue pressure.
+- Useful for identifying senders producing excessive future-nonce transactions.
+
+---
+
+## 16. `txpool_inspect`
+
+Returns compact txpool information.
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "txpool_inspect",
+  "params": []
+}
+```
+
+### Response shape
+
+```json
+{
+  "pending": {
+    "0x<sender>": {
+      "0": "0 wei + 21000 gas x 100000000000 wei"
+    }
+  },
+  "queued": {},
+  "currentCapacity": 10,
+  "maxCapacity": 4096
+}
+```
+
+### Meaning
+
+| Field | Meaning |
+|---|---|
+| `pending` | Compact summary of executable transactions |
+| `queued` | Compact summary of queued transactions |
+| `currentCapacity` | Currently used txpool capacity in slots |
+| `maxCapacity` | Configured maximum txpool capacity in slots |
+
+The displayed gas price uses the node's current base-fee-aware gas price calculation.
+
+---
+
+## 17. TxPool / mempool terminology
+
+In this document, **TxPool** and **mempool** refer to the same operational area:
 
 ```text
 pending transactions stored by a node before they are included in a block
 ```
 
-The code uses the `txpool` module name.
+The code uses the module name:
 
-The old docs separated `txpool.md` and `mempool.md`. For XGR, those should be consolidated into one operator/internal explanation.
+```text
+txpool
+```
+
+The pool is local to a node.
+
+Different nodes may temporarily have different txpool contents.
+
+Consensus finalizes blocks, not txpool state.
 
 ---
 
-## 13. TxPool purpose
+## 18. TxPool purpose
 
 The TxPool manages incoming transactions before block inclusion.
 
 It handles:
 
-- local transactions submitted by JSON-RPC/gRPC
+- local transactions submitted through node interfaces
 - gossiped transactions received from peers
 - transaction validation before pool admission
+- sender recovery
 - nonce ordering per sender account
 - replacement handling
 - promotion from enqueued to executable transactions
 - pruning under pressure
-- transaction selection for block building
+- transaction selection support for block building
+- txpool events
 - txpool metrics
 
-The TxPool is not the consensus layer. It prepares candidate transactions, but validators still verify executed blocks through IBFT.
+The TxPool is not the consensus layer.
+
+It prepares candidate transactions, but validators still verify executed blocks through IBFT.
 
 ---
 
-## 14. TxPool data model
+## 19. TxPool data model
 
 The TxPool maintains transactions per sender account.
 
@@ -339,32 +665,33 @@ Conceptually each account has two queues:
 
 | Queue | Meaning |
 |---|---|
-| Enqueued | Transactions known but not yet executable because of nonce gaps or ordering |
+| Enqueued | Transactions known but not currently executable, usually due to nonce gaps or future nonce order |
 | Promoted | Transactions ready for execution if selected for a block |
 
 The pool also maintains:
 
 | Structure | Purpose |
 |---|---|
-| account map | all accounts with txpool transactions |
-| lookup index | fast lookup for known transactions |
-| priced executable queue | executable transactions sorted by effective gas price |
-| slot gauge | tracks pool capacity usage |
-| event manager | emits txpool transaction events |
-| pending counter | tracks ready/pending count for metrics |
+| account map | Tracks all accounts with txpool transactions |
+| lookup index | Fast lookup for known transactions |
+| priced executable queue | Executable transactions sorted by effective price |
+| slot gauge | Tracks pool capacity usage |
+| event manager | Emits txpool transaction events |
+| pending counter | Tracks ready/pending count for metrics |
+| base fee value | Used for effective gas price computation and sorting |
 
 ---
 
-## 15. TxPool transaction sources
+## 20. TxPool transaction sources
 
 Transactions can enter the pool from two sources:
 
 | Origin | Meaning |
 |---|---|
-| `local` | submitted through local node interfaces such as JSON-RPC/gRPC |
-| `gossip` | received through the p2p transaction gossip topic |
+| `local` | Submitted through local node interfaces |
+| `gossip` | Received through p2p transaction gossip |
 
-The p2p topic name is:
+The p2p transaction gossip topic is:
 
 ```text
 txpool/0.1
@@ -374,7 +701,7 @@ Local transactions can be broadcast to peers when the txpool topic is available.
 
 ---
 
-## 16. TxPool validation rules
+## 21. TxPool validation rules
 
 Before entering the pool, a transaction is validated.
 
@@ -382,64 +709,105 @@ Important checks include:
 
 | Check | Purpose |
 |---|---|
-| Reject state transactions | State transactions are not accepted into the public txpool |
-| Max transaction size | DoS protection; max encoded tx size is 128 KB |
-| Non-negative value | Negative-value transactions are rejected |
-| Signature recovery | Invalid signatures are rejected |
+| State transaction rejection | Internal state transactions are not accepted into the normal txpool |
+| Max transaction size | Rejects oversized encoded transactions |
+| Non-negative value | Rejects negative-value transactions |
+| Signature recovery | Rejects transactions whose sender cannot be recovered |
 | Sender consistency | Explicit `from` must match recovered sender |
-| Contract initcode limit | EIP-3860 contract creation size limit when active |
-| Access-list fork availability | Access-list txs require EIP-2930 and typed tx support |
-| Dynamic-fee fork availability | Dynamic-fee txs require London and typed tx support |
-| Fee cap / tip cap sanity | Fee cap and tip cap must be present and valid |
-| Fee cap above base fee | Dynamic tx `maxFeePerGas` must be at least current base fee |
-| Legacy gas price above base fee | Legacy tx gas price must satisfy base fee when London is active |
-| Price limit | Effective gas price must satisfy node `priceLimit` |
+| Contract initcode limit | Enforces EIP-3860 initcode size limit when active |
+| Access-list fork availability | Access-list transactions require EIP-2930 and typed transaction support |
+| Dynamic-fee fork availability | Dynamic-fee transactions require London and typed transaction support |
+| Fee cap / tip cap sanity | Ensures dynamic-fee fields are present and valid |
+| Fee cap above base fee | Dynamic-fee `maxFeePerGas` must cover current base fee |
+| Legacy gas price above base fee | Legacy `gasPrice` must satisfy base fee when London rules apply |
+| Node price limit | Effective gas price must satisfy `priceLimit` |
 | Nonce ordering | Too-low nonces are rejected |
 | Account balance | Sender must have enough funds for gas and value |
 | Intrinsic gas | Transaction gas must cover intrinsic gas |
-| Block gas limit | Transaction gas must not exceed current block gas limit |
+| Block gas limit | Transaction gas must not exceed the current block gas limit |
+| Chain ID for typed tx | Typed transaction chain ID must match node txpool chain ID |
 
-TxPool admission is therefore stricter than simply accepting any signed transaction.
+TxPool admission is stricter than accepting any signed transaction.
 
 ---
 
-## 17. TxPool sizing and pressure handling
+## 22. Chain ID handling in TxPool
+
+Typed transactions must carry the correct chain ID.
+
+For XGR Chain mainnet:
+
+```text
+chainId = 1643
+```
+
+For typed transactions:
+
+- `AccessListTx`
+- `DynamicFeeTx`
+
+the txpool checks that the transaction chain ID matches the configured node chain ID.
+
+If the transaction does not carry a chain ID, the node can populate it from its configured chain ID before validation.
+
+If the transaction carries a different chain ID, it is rejected.
+
+This protects the txpool from cross-chain replay or misconfigured client submissions.
+
+---
+
+## 23. TxPool sizing and pressure handling
 
 Important constants:
 
 | Constant | Value | Meaning |
 |---|---:|---|
-| `txSlotSize` | 32 KB | slot accounting unit |
-| `txMaxSize` | 128 KB | max encoded transaction size |
-| `maxAccountDemotions` | 10 | max recoverable demotions before dropping account txs |
-| `maxAccountSkips` | 10 | max consecutive blocks account txs can be skipped |
-| `pruningCooldown` | 5 seconds | cooldown between pruning attempts |
+| `txSlotSize` | 32 KB | Slot accounting unit |
+| `txMaxSize` | 128 KB | Max encoded transaction size |
+| `maxAccountDemotions` | 10 | Max recoverable demotions before dropping account transactions |
+| `maxAccountSkips` | 10 | Max consecutive blocks account transactions can be skipped |
+| `pruningCooldown` | 5 seconds | Cooldown between pruning attempts |
 
 Relevant server flags:
 
 | Flag | Meaning |
 |---|---|
-| `--max-slots` | maximum txpool slots |
-| `--max-enqueued` | maximum enqueued transactions per account |
-| `--price-limit` | minimum effective gas price accepted into txpool |
+| `--max-slots` | Maximum txpool slots |
+| `--max-enqueued` | Maximum enqueued transactions per account |
+| `--price-limit` | Minimum effective gas price accepted into txpool |
+
+Default values in the current public baseline:
+
+| Setting | Default |
+|---|---:|
+| `--max-slots` | `4096` |
+| `--max-enqueued` | `128` |
+| `--price-limit` | `0` |
 
 When the pool is under high pressure, future-nonce transactions can be rejected to preserve capacity for executable transactions.
 
 ---
 
-## 18. Transaction replacement
+## 24. Transaction replacement
 
 The TxPool handles same-sender / same-nonce replacement.
 
-A replacement transaction must offer a better effective gas price than the existing transaction for the same nonce.
+A replacement transaction must offer a better effective gas price than the existing transaction for the same sender and nonce.
 
-Otherwise it is rejected as underpriced replacement.
+If the existing transaction has the same or better effective gas price, the replacement is rejected as underpriced.
 
 This protects the pool from cheap replacement spam.
 
+Operational implications:
+
+- resend stuck transactions with the same nonce only if the new effective gas price is higher
+- dynamic-fee replacements must increase the effective price enough to be accepted
+- clients should track nonce and fee state carefully
+- repeated underpriced replacement attempts can indicate wallet misconfiguration or spam
+
 ---
 
-## 19. TxPool and base fee
+## 25. TxPool and base fee
 
 The TxPool tracks the current base fee from the chain head.
 
@@ -451,15 +819,23 @@ Base fee is used for:
 - rejecting underpriced legacy transactions when London rules are active
 - enforcing node-level `priceLimit`
 
-The canonical gas rules are documented in:
+Effective gas price logic follows:
 
-- `XRC-GAS_Gas_Price_Behavior.md`
+```text
+Legacy transaction:
+effectiveGasPrice = gasPrice
+
+Dynamic-fee transaction:
+effectiveGasPrice = min(maxFeePerGas, maxPriorityFeePerGas + baseFee)
+```
+
+A transaction can be validly signed but still rejected by the txpool if its effective price is too low for the current node state.
 
 ---
 
-## 20. TxPool metrics
+## 26. TxPool metrics
 
-The txpool module emits metrics under the txpool prefix.
+The txpool module emits txpool-related metrics.
 
 Important metric themes:
 
@@ -472,87 +848,303 @@ Important metric themes:
 - insufficient funds
 - block gas limit exceeded
 - dynamic-fee validation errors
+- rejected future transactions
+- already-known transactions
+- replacement-underpriced transactions
 
-Operators should alert on unusual spikes in invalid or underpriced transaction metrics, as these can indicate client bugs, spam, mispriced traffic or RPC abuse.
+Operators should alert on unusual spikes in invalid or underpriced transaction metrics.
+
+Common causes include:
+
+- misconfigured wallets
+- stale gas settings
+- spam traffic
+- RPC abuse
+- nonce-management bugs
+- chain ID mismatch
+- insufficient account balance
+- broken transaction replacement logic
 
 ---
 
-## 21. TxPool JSON-RPC status
+## 27. gRPC operator services
 
-As of the checked `PoS_3` state:
+The node exposes gRPC operator services for internal node operation and tooling.
 
-- old `docs/docs/api/json-rpc-txpool.md` is not present on the branch
-- no current `txpool_*` JSON-RPC endpoint was identified in the active branch search
-- txpool behavior is still implemented internally in the `txpool` module
-
-Therefore:
+The gRPC interface is controlled by:
 
 ```text
-Do not document txpool_* as a public JSON-RPC namespace unless the endpoint is intentionally reintroduced.
+--grpc-address
 ```
 
-If future versions add `txpool_*` endpoints, they should be documented here as operator-only, not in the public Ethereum RPC reference.
+Recommended production binding:
+
+```text
+127.0.0.1:9632
+```
+
+Do not expose gRPC publicly.
+
+### 27.1 System service
+
+The System service includes methods for:
+
+| Method | Purpose |
+|---|---|
+| `GetStatus` | Returns client/network/current block status |
+| `PeersAdd` | Adds a peer |
+| `PeersList` | Lists known peers |
+| `PeersStatus` | Returns information about a peer |
+| `Subscribe` | Streams blockchain events |
+| `BlockByNumber` | Returns block data by number |
+| `Export` | Streams exported chain data |
+
+These methods are operational interfaces.
+
+They are useful for CLI tooling, internal automation and node diagnostics.
+
+### 27.2 TxPool operator service
+
+The txpool module registers a txpool operator gRPC service when a gRPC server is configured.
+
+This service is internal tooling infrastructure and should be treated as private operator surface.
+
+### 27.3 Consensus operator services
+
+Consensus-related operator services may be available depending on the active release and enabled consensus engine.
+
+These services are intended for node and validator diagnostics.
+
+They should remain internal.
 
 ---
 
-## 22. Security guidance for debug and txpool tooling
+## 28. WebSocket behavior
 
-Do not expose debug or txpool internals on public RPC infrastructure.
+The JSON-RPC layer supports WebSocket handling where enabled by node configuration.
 
-Recommended policy:
+Supported subscription patterns include:
 
-| Surface | Public exposure |
+```text
+eth_subscribe
+eth_unsubscribe
+```
+
+Supported subscription categories include:
+
+| Subscription | Meaning |
 |---|---|
-| `eth_*` | allowed with rate limits |
-| `net_*` | allowed with rate limits |
-| `web3_*` | allowed with rate limits |
-| `xgr_*` | depends on endpoint policy |
-| `debug_*` | internal only |
-| `txpool_*` if reintroduced | internal only |
-| gRPC operator services | internal only |
+| `newHeads` | New block headers |
+| `logs` | Log events matching a filter |
+| `newPendingTransactions` | Pending transaction notifications |
+
+Relevant runtime control:
+
+```text
+--websocket-read-limit
+```
+
+Default:
+
+```text
+8192
+```
+
+Public WebSocket endpoints should be rate-limited and monitored.
+
+Pending transaction subscriptions can be high-volume under load.
+
+---
+
+## 29. Security guidance
+
+Operator and diagnostic surfaces must be protected.
+
+Recommended exposure policy:
+
+| Surface | Recommended exposure |
+|---|---|
+| `eth_*` | Public only with rate limits and monitoring |
+| `net_*` | Public only with rate limits and monitoring |
+| `web3_*` | Public only with rate limits and monitoring |
+| `txpool_*` | Internal or controlled infrastructure only |
+| `debug_*` | Internal only |
+| `xgr_*` | Endpoint-specific policy |
+| gRPC operator services | Internal only |
+| Metrics | Internal / monitoring network only |
 
 Minimum controls:
 
-- firewall debug endpoints
-- run public RPC on non-validator nodes
+- do not expose debug tracing publicly
+- do not expose gRPC publicly
+- do not run public RPC on validator nodes
+- restrict txpool inspection to trusted infrastructure
 - isolate heavy tracing from validators
-- apply JSON-RPC batch/range limits
+- apply JSON-RPC batch limits
+- apply block-range limits
 - cap concurrent debug requests
-- rate-limit public HTTP/WebSocket access
-- monitor CPU, memory and disk during tracing
-- do not expose debug endpoints through public reverse proxies
+- rate-limit public HTTP/WebSocket traffic
+- monitor CPU, memory, disk and network usage
+- monitor RPC error rates
+- monitor txpool pressure
+- monitor peer count and block height
 
 ---
 
-## 23. Operational troubleshooting
+## 30. Recommended deployment patterns
 
-### Block production stalls
+### 30.1 Public RPC node
+
+Recommended public RPC node exposure:
+
+| Surface | Exposure |
+|---|---|
+| `eth_*` | Public with rate limits |
+| `net_*` | Public with rate limits |
+| `web3_*` | Public with rate limits |
+| `txpool_*` | Usually disabled or restricted |
+| `debug_*` | Not public |
+| gRPC | Localhost/private only |
+| Metrics | Monitoring network only |
+
+Public RPC nodes should not hold validator signing material.
+
+### 30.2 Internal tracing node
+
+Recommended tracing node exposure:
+
+| Surface | Exposure |
+|---|---|
+| `debug_*` | Internal only |
+| `txpool_*` | Internal only |
+| `eth_*` | Internal only |
+| gRPC | Localhost/private only |
+| Metrics | Monitoring network only |
+
+Use tracing nodes for heavy diagnostic workloads.
+
+### 30.3 Validator node
+
+Recommended validator node exposure:
+
+| Surface | Exposure |
+|---|---|
+| P2P | Required by network topology |
+| JSON-RPC | Localhost/private only |
+| gRPC | Localhost only |
+| `debug_*` | Disabled or tightly restricted |
+| `txpool_*` | Local/internal only |
+| Metrics | Monitoring network only |
+
+Validators should not be used as public RPC endpoints.
+
+---
+
+## 31. Operational troubleshooting
+
+### 31.1 Block production stalls
 
 Check:
 
+- process health
 - peer count
 - validator connectivity
 - IBFT round changes
 - signer errors
 - block proposal logs
 - txpool pressure
-- disk and CPU saturation
+- disk usage
+- CPU saturation
+- memory pressure
+- system clock synchronization
 
-### Transactions not included
+Useful checks:
+
+```text
+eth_blockNumber
+net_peerCount
+web3_clientVersion
+```
+
+Use internal operator tooling for deeper node status checks.
+
+---
+
+### 31.2 Transactions are not included
 
 Check:
 
 - account nonce
 - sender balance
 - gas limit
+- transaction type
+- chain ID
 - effective gas price
-- txpool `priceLimit`
 - base fee
+- node `priceLimit`
+- txpool status
 - replacement pricing
 - max enqueued/account limits
 - whether the transaction is future-nonce
+- whether the transaction exceeds block gas limit
 
-### RPC latency high
+Useful methods:
+
+```text
+eth_getTransactionByHash
+eth_getTransactionReceipt
+txpool_status
+txpool_content
+txpool_inspect
+```
+
+---
+
+### 31.3 Transaction rejected as underpriced
+
+Possible causes:
+
+- `gasPrice` below current base fee
+- `maxFeePerGas` below current base fee
+- `maxPriorityFeePerGas` greater than `maxFeePerGas`
+- effective gas price below node `priceLimit`
+- replacement transaction does not improve effective gas price
+- stale wallet gas estimate
+- local node base fee changed since transaction construction
+
+Actions:
+
+- refresh fee estimate
+- increase effective gas price
+- verify nonce
+- verify account balance
+- retry through a healthy synced node
+
+---
+
+### 31.4 Transaction rejected due to nonce
+
+Possible causes:
+
+- nonce already mined
+- nonce lower than account state nonce
+- nonce gap
+- queued future-nonce transaction
+- replacement transaction underpriced
+- multiple wallets using same account
+- local nonce cache stale
+
+Useful methods:
+
+```text
+eth_getTransactionCount
+txpool_content
+txpool_inspect
+```
+
+---
+
+### 31.5 RPC latency high
 
 Check:
 
@@ -560,34 +1152,83 @@ Check:
 - large `eth_getLogs` ranges
 - batch request size
 - WebSocket subscription pressure
+- pending transaction subscriptions
 - txpool spam
-- CPU/memory saturation
+- CPU saturation
+- memory pressure
 - disk I/O
+- peer churn
+- reverse proxy limits
+
+Mitigations:
+
+- reduce public method exposure
+- lower batch limit
+- lower block-range limit
+- isolate tracing
+- rate-limit clients
+- scale RPC nodes horizontally
+- move indexing workloads off public RPC nodes
 
 ---
 
-## 24. Explicit legacy exclusions
+### 31.6 Debug tracing times out
 
-The following old documentation topics should not be kept as current XGR operator documentation:
+Possible causes:
 
-| Old topic | Decision |
-|---|---|
-| Generic Edge JSON-RPC overview | replaced by XGR-specific RPC documents |
-| Separate mempool and txpool pages | consolidated here |
-| Public `txpool_*` docs from old API tree | not active / not public |
-| Public `debug_*` docs from old API tree | operator-only here |
-| Bridge/rootchain RPC | removed / legacy |
-| State sync relayer operator docs | removed / legacy |
-| PolyBFT checkpoint/bridge internals | removed / legacy |
+- trace timeout too low
+- block too large
+- transaction execution too complex
+- struct tracer capturing too much data
+- node under CPU pressure
+- node under memory pressure
+- tracing performed on overloaded public RPC node
+
+Actions:
+
+- use `callTracer` for high-level traces
+- increase timeout only on internal tracing nodes
+- disable memory/storage capture where possible
+- isolate tracing workload
+- check node resources
+- avoid tracing through public RPC infrastructure
 
 ---
 
-## 25. Related documents
+## 32. Operator checklist
 
-| Document | Purpose |
-|---|---|
-| `XGRCHAIN_Node_Operation.md` | General node operation and runtime flags |
-| `XGRCHAIN_Ethereum_JSON_RPC_Reference.md` | Public Ethereum-compatible RPC |
-| `XDaLa_Engine_JSON_RPC_Endpoint_Reference.md` | XDaLa Engine RPC |
-| `XRC-GAS_Gas_Price_Behavior.md` | Gas and fee behavior |
-| `XGRCHAIN_Consensus_IBFT.md` | IBFT consensus |
+For public RPC infrastructure:
+
+- expose only intended namespaces
+- rate-limit public traffic
+- set batch request limits
+- set block range limits
+- restrict WebSocket abuse
+- keep debug internal
+- keep gRPC internal
+- monitor txpool pressure
+- monitor RPC latency and errors
+- monitor CPU, memory and disk
+- do not run validator keys on public RPC nodes
+
+For validator infrastructure:
+
+- keep JSON-RPC private
+- keep gRPC local/private
+- keep debug restricted
+- monitor peer count
+- monitor consensus logs
+- monitor block height
+- monitor signer errors
+- avoid heavy tracing on validators
+- isolate validator keys
+- maintain backups and restart procedures
+
+For tracing infrastructure:
+
+- run separate internal tracing nodes
+- expose debug only to trusted networks
+- tune `--concurrent-requests-debug`
+- use timeouts
+- monitor resources
+- avoid public access
