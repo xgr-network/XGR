@@ -3,22 +3,37 @@
 **Document ID:** XGRCHAIN-SPEC  
 **Last updated:** 2026-05-03  
 **Audience:** Protocol integrators, node operators, auditors  
-**Implementation status:** Mixed  
+**Implementation status:** Mainnet  
 **Source of truth:** `xgrchain` / genesis configuration / consensus configuration
 
 ---
 
 ## 1. Scope
 
-This document defines the **chain-level specification** for **XGR Chain** (`xgrchain`), including:
+This document defines the **chain-level specification** for **XGR Chain** (`xgrchain`).
 
-- Network identity
-- Consensus configuration (**IBFT PoA with BLS validators**)
-- Execution and fork configuration (baseline EVM forks from genesis; Berlin + partial Shanghai activated later)
-- Genesis-defined parameters (bootnodes, allocations)
-- Fee model references
+It covers:
 
-This spec is intended to be **public** and can include small code excerpts where it improves precision.
+- network identity
+- EVM compatibility
+- transaction model
+- fork / execution configuration
+- genesis-level parameters
+- consensus-layer references
+- fee-model references
+- JSON-RPC compatibility
+- boundaries between chain specification, XDaLa Engine specification and upcoming PoS/staking specification
+
+This document does **not** describe:
+
+- XDaLa Engine internals
+- XRC-137 rule syntax
+- XRC-729 orchestration semantics
+- staking / delegation / weighted voting power
+- PoS validator activation/deactivation rules
+- Polygon Bridge / Rootchain / Childchain / PolyBFT mechanics
+
+Those topics are documented separately where relevant.
 
 ---
 
@@ -26,157 +41,352 @@ This spec is intended to be **public** and can include small code excerpts where
 
 | Field | Value |
 |---|---|
-| `name` | `xgrchain` |
-| `chainID` | `1643` |
+| Network name | `xgrchain` |
+| Chain ID | `1643` |
+| Native execution model | EVM-compatible |
+| Standard RPC namespace | `eth_*`, `net_*`, `web3_*` |
+| XDaLa Engine RPC namespace | `xgr_*` |
+| Native token decimals | 18 |
+| Transaction replay protection | EIP-155 chain ID |
 
-**Normative behavior**
-- Transactions **MUST** be signed with EIP-155 using `chainID = 1643` to prevent replay across networks.
-- Client implementations **MUST** reject transactions whose signature chain ID does not match.
+### Normative behavior
+
+Transactions **must** be signed with the configured chain ID.
+
+```text
+chainId = 1643
+```
+
+Nodes and clients must reject transactions whose signature chain ID does not match the active XGR Chain configuration.
 
 ---
 
 ## 3. Client basis and compatibility
 
-XGR Chain is built on **Polygon Edge** and provides:
+XGR Chain uses an EVM-compatible client lineage based on Polygon Edge concepts and implementation structures, but the XGR public specification is defined by the actual XGR repositories and chain configuration.
 
-- **EVM compatibility** (smart contracts, logs, receipts)
-- Standard Ethereum transaction types (**legacy** and **EIP-1559 / type-2**)
-- JSON-RPC compatibility for common endpoints (e.g., `eth_sendRawTransaction`, `eth_call`, `eth_getLogs`, etc.)
+XGR Chain supports:
+
+- EVM smart contract execution
+- Ethereum-style externally owned accounts
+- contract creation
+- event logs and receipts
+- Ethereum-compatible transaction signing
+- Ethereum-compatible JSON-RPC for common wallet/explorer operations
+- legacy transactions
+- EIP-1559 / type-2 transactions
+- chain-specific `xgr_*` Engine extension endpoints
+
+XGR Chain should not be described as a Polygon Supernet, PolyBFT chain, Rootchain/Childchain bridge network or CDK chain.
 
 ---
 
-## 4. Execution hardfork configuration
+## 4. Execution model
 
-XGR Chain uses a staged fork activation model. The following baseline EVM forks are enabled from **block 0** (genesis):
+XGR Chain executes transactions through an Ethereum-compatible EVM execution pipeline.
 
-- `homestead`
-- `byzantium`
-- `constantinople`
-- `petersburg`
-- `istanbul`
-- `london`
-- `londonfix`
-- `EIP150`, `EIP155`, `EIP158`
-- `quorumcalcalignment`
-- `txHashWithType`
+For each valid block:
+
+1. transactions are selected and ordered by the proposer
+2. each transaction is executed against the parent state
+3. account balances, contract storage, logs and receipts are produced
+4. gas usage and fee accounting are applied
+5. the resulting state root is committed into the block header
+6. validators independently verify the same state transition before committing the block
+
+The proposer does not control state unilaterally. Validators must independently verify the block and its state transition before finalizing it through IBFT.
+
+---
+
+## 5. Transaction model
+
+XGR Chain supports the standard Ethereum transaction model used by EVM-compatible wallets and tooling.
+
+Supported transaction categories include:
+
+| Transaction type | Support | Notes |
+|---|---|---|
+| Legacy transaction | Yes | Uses `gasPrice` |
+| EIP-155 protected transaction | Yes | Chain ID replay protection |
+| Access-list transaction | Yes, when corresponding fork is active | Berlin / EIP-2930 behavior |
+| Dynamic fee / type-2 transaction | Yes | Uses `maxFeePerGas` and `maxPriorityFeePerGas` |
+| Contract creation | Yes | Standard EVM contract deployment |
+| Contract call | Yes | Standard EVM calldata execution |
+
+The canonical public RPC documentation is:
+
+- `XGRCHAIN_Ethereum_JSON_RPC_Reference.md`
+
+---
+
+## 6. Execution hardfork configuration
+
+XGR Chain uses a staged fork activation model.
+
+The following baseline EVM forks / features are enabled from **block 0**:
+
+| Fork / feature | Activation |
+|---|---|
+| Homestead | block `0` |
+| Byzantium | block `0` |
+| Constantinople | block `0` |
+| Petersburg | block `0` |
+| Istanbul | block `0` |
+| London | block `0` |
+| LondonFix | block `0` |
+| EIP-150 | block `0` |
+| EIP-155 | block `0` |
+| EIP-158 | block `0` |
+| Quorum call alignment | block `0` |
+| `txHashWithType` | block `0` |
 
 Additional fork features are activated from **block `1208500`**:
 
-- `EIP2930` — Berlin access-list transactions
-- `EIP2929` — Berlin gas repricing for state access opcodes
-- `EIP3860` — Shanghai initcode metering / limit
-- `EIP3651` — Shanghai warm `COINBASE`
+| Fork / EIP | Purpose |
+|---|---|
+| EIP-2930 | Berlin access-list transactions |
+| EIP-2929 | Berlin gas repricing for state access |
+| EIP-3860 | Shanghai initcode metering / limit |
+| EIP-3651 | Shanghai warm `COINBASE` |
 
-This means the chain runs with **Berlin** and a **partial Shanghai** feature set from block `1208500` onward.
+Not active in the current public specification:
 
-**Not active:** withdrawal processing is **not** enabled; in particular, Shanghai withdrawals (`EIP4895`) are not part of the active fork set.
-
-**Implication:** the network behaves as a modern EVM chain from genesis, including EIP-1559-style transaction fields, with the additional Berlin and selected Shanghai execution rules applying from block `1208500`.
+| Feature | Status |
+|---|---|
+| EIP-4895 withdrawals | Not active |
+| Ethereum beacon withdrawals | Not part of XGR Chain execution model |
+| Polygon Bridge / Rootchain state sync | Not part of current XGR Chain specification |
+| PolyBFT bridge/checkpoint flow | Not part of current XGR Chain specification |
 
 ---
 
-## 5. Consensus: IBFT (PoA, BLS validators)
+## 7. Consensus layer
 
-### 5.1 Consensus engine selection
+XGR Chain uses **IBFT** as its deterministic-finality consensus protocol.
 
-From `genesis.json`:
+The detailed consensus document is:
 
-- `params.engine.ibft.type = "PoA"`
-- `params.engine.ibft.validator_type = "bls"`
+- `XGRCHAIN_Consensus_IBFT.md`
 
-Meaning:
+This chain specification only defines the relationship between chain execution and consensus:
 
-- **PoA:** validator identities are permissioned and form a fixed or governance-managed set.
-- **BLS validator type:** each validator has:
-  - an **ECDSA address** (20 bytes) used as identity, and
-  - a **BLS public key** (48 bytes) used for aggregated commit signatures.
+- the proposer builds a candidate block
+- validators independently verify the block and state transition
+- finality is reached through IBFT quorum
+- committed blocks are final under IBFT fault assumptions
 
-### 5.2 Timing and epochs
+### Current validator model
+
+The current mainnet consensus documentation is intentionally separated from the upcoming staking-based validator model.
+
+| Component | Implementation status | Document |
+|---|---|---|
+| IBFT finality | Mainnet | `XGRCHAIN_Consensus_IBFT.md` |
+| Current validator operation | Mainnet | `XGRCHAIN_Consensus_IBFT.md` |
+| Staking / weighted voting power | In development | `XGRCHAIN_Staking_PoS_Model.md` |
+| PoS monitoring endpoints | In development | `XGRCHAIN_Staking_PoS_Endpoint_Reference.md` |
+
+This separation prevents the mainnet IBFT specification from being polluted with in-development staking rules.
+
+---
+
+## 8. Timing and block parameters
+
+Current chain-level timing and block parameters:
 
 | Parameter | Value |
 |---|---|
-| `blockTime` | `2000000000` ns (~2.0 seconds) |
-| `epochSize` | `500` blocks |
+| Target block time | ~2.0 seconds |
+| `blockTime` | `2000000000` ns |
+| Epoch size | 500 blocks |
+| Genesis block gas limit | 60,000,000 |
+| Genesis difficulty | `0x1` |
+| Genesis parent hash | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| Genesis mix hash | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| Genesis timestamp | `0x0` |
 
-Operationally, an epoch is ~`500 * 2.0s ≈ 16.7` minutes.
+Operational estimate:
 
-### 5.3 Initial validator set
+```text
+500 blocks * 2 seconds ≈ 1000 seconds ≈ 16.7 minutes
+```
 
-The initial validator set is encoded in the genesis block `extraData` using the Istanbul extra-data structure.
-
-| # | Validator address (ECDSA) | BLS public key (48 bytes) |
-|---|---|---|
-| 1 | 0x7913fdae82c678f42b98ca8076fe7d13b3edff15 | 0xb56b72d028aa6d063d36917f9f18a3ee4b216e22694a701814af4fd55e6cbbe99209fc1359012e4733987ebdd0123e88 |
-| 2 | 0x7e8f8fd2a198f77df298041b48d79b0df4c8b1fa | 0xa32a09397128b801da5b88319bcca6cc33d4400e12ef7e1a94141b2360abd70306aaeb5599dd0d0984bb02f88fe20b71 |
-| 3 | 0x82f0b6f1efbb3fc9bcde0ee5a08e01e76cc29e13 | 0x8b94120a8ae2a89a0f7deb09f266d90bf5d5152a6ee559977d7f3361a0ce1cc65b012f3a820c7f1c18a01cef9ba8ae90 |
-| 4 | 0xc5cc7b4ee5b0f6524ecac177ed37b2b567180707 | 0x91bf571d3f5563976e560c5f7d9898f75a0829804ce5e212370834303c23953388f01e06d0a9da2615c5e7f1aaf10da7 |
-| 5 | 0x98f8bc086454b8386788244eee9a43d5d0b4e63e | 0xa65579c3b300f0d8e94e77b3915ac09f309c0a109a3aa3bb66d8beb538d733026624bf9d096e2a3d52deff78a36513d1 |
-
-> **Note:** the validator list above was decoded from the genesis `extraData` RLP payload (vanity + IstanbulExtra).
+This is the base chain epoch concept. PoS-specific micro/macro epoch semantics are documented separately.
 
 ---
 
-## 6. Genesis block parameters
+## 9. Genesis block
 
-| Field | Value |
+XGR Chain starts from its own genesis block.
+
+It does not inherit:
+
+- Ethereum state
+- Ethereum account balances
+- Polygon state
+- Polygon validator history
+- Polygon bridge state
+
+Genesis defines:
+
+- chain ID
+- block gas limit
+- initial allocations
+- bootnodes
+- consensus parameters
+- fork activation configuration
+- protocol-level registry addresses where configured
+
+### Genesis allocation semantics
+
+Genesis `alloc` entries define pre-funded accounts in wei.
+
+Balances must be interpreted with 18 decimals:
+
+```text
+1 native unit = 10^18 wei
+```
+
+Exact allocation values belong in the Genesis and Configuration document:
+
+- `XGRCHAIN_Genesis_and_Configuration.md`
+
+They should not be duplicated across multiple documents unless necessary for auditing.
+
+---
+
+## 10. Bootnodes and networking
+
+Bootnodes are defined in chain configuration / genesis-level network configuration as libp2p multiaddresses.
+
+Their purpose is peer discovery, not consensus authority.
+
+A node may join the p2p network through bootnodes, but consensus participation still depends on validator-set rules and active consensus configuration.
+
+Detailed node operation belongs in:
+
+- `XGRCHAIN_Node_Operation.md`
+
+---
+
+## 11. Gas and fee model
+
+XGR Chain supports EIP-1559-compatible transaction fields, but it does **not** use Ethereum mainnet fee economics one-to-one.
+
+The canonical fee document is:
+
+- `XRC-GAS_Gas_Price_Behavior.md`
+
+Key high-level points:
+
+| Topic | XGR behavior |
 |---|---|
-| `genesis.gasLimit` | `0x3938700` (60,000,000) |
-| `genesis.difficulty` | `0x1` |
-| `genesis.mixHash` | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `genesis.parentHash` | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `genesis.timestamp` | `0x0` |
+| Legacy fee field | `gasPrice` |
+| Dynamic fee fields | `maxFeePerGas`, `maxPriorityFeePerGas` |
+| Base fee | Chain-controlled / minimum-fee aware |
+| Suggested priority fee | Currently zero in the node suggestion path |
+| Fee distribution | XGR-specific burn / donation / validator or fee-pool split |
+| Explorer display | Must not label the entire fee as burned |
+
+For exact behavior, always use the dedicated gas document, not this chain spec.
 
 ---
 
-## 7. Bootnodes
+## 12. On-chain configuration registry
 
-The network bootnodes are defined in genesis as libp2p multiaddrs:
+XGR Chain can use on-chain configuration contracts to expose governance-controlled parameters.
 
-| # | Multiaddr |
+The chain specification treats on-chain configuration as the verifiable source for protocol-relevant values where such contracts are active.
+
+Relevant examples include:
+
+- minimum base fee
+- fee-policy parameters
+- Engine-related configured addresses
+- public sale / core address discovery where exposed
+
+Detailed semantics belong in the specific documents for gas, Engine endpoints or genesis/configuration.
+
+---
+
+## 13. JSON-RPC surfaces
+
+XGR Chain exposes two public RPC categories.
+
+### 13.1 Standard Ethereum-compatible RPC
+
+Used by wallets, explorers, scripts and infrastructure:
+
+```text
+eth_*
+net_*
+web3_*
+```
+
+Canonical document:
+
+- `XGRCHAIN_Ethereum_JSON_RPC_Reference.md`
+
+### 13.2 XDaLa Engine RPC
+
+Used by validation/orchestration clients:
+
+```text
+xgr_*
+```
+
+Canonical document:
+
+- `XDaLa_Engine_JSON_RPC_Endpoint_Reference.md`
+
+The standard Ethereum RPC and the XDaLa Engine RPC must not be mixed into a single ambiguous reference.
+
+---
+
+## 14. XDaLa and XRC standards
+
+XGR Chain provides the settlement/execution layer used by XDaLa and XRC smart contracts.
+
+XDaLa and XRC behavior is specified in separate documents:
+
+| Document | Purpose |
 |---|---|
-| 1 | /ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck |
+| `XDaLa_Engine_JSON_RPC_Endpoint_Reference.md` | Engine RPC interface |
+| `XDaLa_Permit_Catalog.md` | EIP-712 permit types |
+| `xgr_encryptionGrants.md` | Grant and encryption flows |
+| `XRC-137_Rule_Document_Spec.md` | Rule document format |
+| `XRC-137_Smart_Contract_Standard.md` | Rule contract standard |
+| `XRC-729_Smart_Contract_Standard.md` | Orchestration contract standard |
+
+The chain spec does not define XDaLa internals.
 
 ---
 
-## 8. Genesis allocations
+## 15. Explicit non-goals / removed legacy scopes
 
-Genesis `alloc` defines pre-funded accounts (balances in **wei**, i.e., 10^-18 of the native token).
+The following legacy Polygon Edge / Supernet concepts are not part of the current XGR Chain public chain specification:
 
-| Address | Balance (wei) | Balance (native units, 18 decimals) |
-|---|---|---|
-| 0x0000000000000000000000000000000000000000 | 0 | 0 |
-| 0x00000000000000000000000000000000000000e1 | 1 | 1.00000000000000007e-18 |
-| 0x2A021a1B25DA25e14C4046e5BAc9375Ec3bebf8c | 2103833846420000000000000000 | 2,103,833,846.42000008 |
-| 0x4675EdCa3c4637E68Ed1C1776a11EB5c9828F056 | 3141592653580000000000000000 | 3,141,592,653.57999992 |
-| 0x7818A59b2D279Fe3444B75dcE1A443C1b124c161 | 1380649000000000000000000000 | 1,380,649,000 |
-
----
-
-## 9. Fee model overview
-
-XGR Chain uses a **modified EIP-1559** fee policy optimized for **stable, predictable base fees** under normal load:
-
-- A governance-controlled **minimum base fee** (`minBaseFee`) is stored in an on-chain registry contract (*EngineRegistry*).
-- Below a utilization threshold (**80%** of the block gas limit), the base fee is clamped to `minBaseFee`.
-- Above the threshold, “emergency pricing” ramps base fee up (max ~**+25% / block**).
-
-The full behavior is specified in:
-
-- **`XRC-GAS_Gas_Price_Behavior.md`**
+| Legacy concept | Status in XGR Chain docs |
+|---|---|
+| Polygon Supernets product architecture | Not part of XGR specification |
+| Polygon CDK positioning | Not part of XGR specification |
+| Rootchain / childchain bridge docs | Not part of current XGR Chain docs |
+| ERC20/ERC721/ERC1155 predicate bridge docs | Not part of current XGR Chain docs |
+| State sender / state receiver bridge flow | Not part of current XGR Chain docs |
+| Checkpoint manager bridge flow | Not part of current XGR Chain docs |
+| PolyBFT bridge/checkpoint flow | Removed / not canonical |
+| MATIC-specific staking docs | Not part of XGR Chain docs |
 
 ---
 
-## 10. On-chain configuration registry (EngineRegistry)
+## 16. Related documents
 
-The genesis includes:
-
-- `params.engineRegistryAddress = 0x72cbbb5c95662510da052b98add933ff99ec820f`
-- `params.bootstrapEngineEOA = 0x0000000000000000000000000000000000000000`
-
-The chain client reads governance parameters from `engineRegistryAddress` when deployed; otherwise it falls back to safe defaults.
-
----
-
-## 11. Non-goals
-
-This spec does not define application-layer protocols (XDaLa, orchestration, etc.) and does not document closed-source Engine internals.
+| Document | Purpose |
+|---|---|
+| `XGRCHAIN_Introduction.md` | High-level chain and architecture overview |
+| `XGRCHAIN_Consensus_IBFT.md` | IBFT finality and consensus flow |
+| `XGRCHAIN_Genesis_and_Configuration.md` | Genesis and runtime configuration |
+| `XGRCHAIN_Ethereum_JSON_RPC_Reference.md` | Standard Ethereum-compatible RPC |
+| `XRC-GAS_Gas_Price_Behavior.md` | Gas and fee behavior |
+| `XGRCHAIN_Staking_PoS_Model.md` | Upcoming staking and weighted voting-power model |
+| `XGRCHAIN_Staking_PoS_Endpoint_Reference.md` | Upcoming staking/PoS RPC reference |
