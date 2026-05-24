@@ -1,10 +1,10 @@
 # XGR Chain — Introduction
 
 **Document ID:** XGRCHAIN-INTRO  
-**Last updated:** 2026-05-03  
+**Last updated:** 2026-05-24  
 **Audience:** Developers, node operators, auditors, integrators  
-**Implementation status:** Current public baseline with separately released XGR extensions and preview components  
-**Source of truth:** Public `xgr-network/xgr-node` releases, published XGR Chain configuration, and official XGR Network operator announcements
+**Implementation status:** XGR2.0 mainnet baseline with delegated PoS active  
+**Source of truth:** Public `xgr-network/xgr-node` branch `XGR2.0`, published XGR Chain configuration, and official XGR Network operator announcements
 
 ---
 
@@ -19,8 +19,9 @@ It is an independent blockchain network with its own:
 - validator set
 - consensus configuration
 - protocol parameters
-- native fee behavior
+- native gas and fee behavior
 - runtime and upgrade path
+- delegated PoS staking model
 
 XGR Chain provides the execution and settlement layer for:
 
@@ -28,21 +29,36 @@ XGR Chain provides the execution and settlement layer for:
 - Ethereum-compatible smart contracts
 - Ethereum-compatible transactions
 - standard Ethereum JSON-RPC access
-- deterministic-finality consensus
+- deterministic-finality consensus through IBFT
+- delegated PoS validator participation
+- validator self-staking
+- delegated staking
+- epoch-based validator activation and deactivation
 - XGR-native gas and fee behavior
-- XGR-specific validation and orchestration features where supported by the active release stack
 
-The public node baseline is provided through:
+The public node implementation is provided through:
 
 ```text
 https://github.com/xgr-network/xgr-node
 ```
 
+The active public source branch for the XGR2.0 delegated PoS rollout is:
+
+```text
+XGR2.0
+```
+
 The public node baseline provides:
 
 - EVM execution
-- consensus networking
+- IBFT consensus networking
+- delegated PoS validator selection
+- validator self-staking
+- delegated staking
+- staking contract interaction
+- epoch and micro-epoch accounting
 - standard Ethereum JSON-RPC interface
+- PoS monitoring RPC endpoints
 - configuration and genesis tooling
 - node operation primitives
 
@@ -52,43 +68,54 @@ Network-specific values are defined by the published XGR Chain configuration.
 
 ## 2. Release and feature status
 
-XGR Chain uses a staged release model.
+XGR Chain uses a staged release and activation model.
 
 The documentation distinguishes between:
 
-1. **current public baseline behavior**
-2. **published network configuration**
-3. **XGR-specific extensions**
-4. **preview or upcoming protocol components**
+1. **current public node behavior**
+2. **published mainnet configuration**
+3. **XGR-specific chain extensions**
+4. **application-layer systems documented separately**
 
-This distinction is important because not every XGR feature is necessarily part of the current public baseline node release.
+This distinction is important because chain-level behavior is defined by the active node implementation and the published network configuration.
 
-### 2.1 Current public baseline
+Application-layer systems such as XDaLa are not part of this chain introduction and are documented separately.
 
-The current public baseline is the versioned public node software released through:
+---
+
+## 2.1 Current public baseline
+
+The current public baseline for the delegated PoS mainnet rollout is the public node implementation maintained in:
 
 ```text
 xgr-network/xgr-node
 ```
 
-Current stable baseline example:
+Reference branch:
 
 ```text
-v1.1.1
+XGR2.0
 ```
 
 This baseline covers:
 
 | Area | Status |
 |---|---|
-| EVM execution | Current public baseline |
-| Consensus networking | Current public baseline |
-| Standard Ethereum JSON-RPC | Current public baseline |
-| Genesis / configuration tooling | Current public baseline |
-| Node operation | Current public baseline |
-| Public release tags | Current public baseline |
+| EVM execution | Active |
+| IBFT block production and deterministic finality | Active |
+| Delegated PoS validator participation | Active |
+| Validator self-staking | Active |
+| Delegated staking | Active |
+| Epoch-based validator activation and deactivation | Active |
+| Micro-epoch uptime accounting | Active |
+| Standard Ethereum JSON-RPC | Active |
+| PoS monitoring RPC endpoints | Active |
+| Genesis and configuration tooling | Active |
+| Node operation | Active |
 
-### 2.2 Published chain configuration
+---
+
+## 2.2 Published chain configuration
 
 The published XGR Chain configuration defines network-specific values such as:
 
@@ -96,6 +123,8 @@ The published XGR Chain configuration defines network-specific values such as:
 - genesis block
 - fork activation settings
 - consensus parameters
+- IBFT engine parameters
+- PoS activation settings
 - bootnodes
 - pre-funded accounts
 - block gas limit
@@ -104,34 +133,28 @@ The published XGR Chain configuration defines network-specific values such as:
 
 Operators must use the published XGR Chain configuration for the target network.
 
-### 2.3 XGR-specific extensions
+For XGR mainnet, the delegated PoS transition is part of the XGR2.0 rollout. The effective PoS activation point is defined by the published chain configuration and must not be guessed from documentation text alone.
 
-XGR-specific extension areas include:
+---
 
-- XDaLa RPC methods
-- XRC-137 rule contracts
-- XRC-729 orchestration/session contracts
-- XGR-specific gas and fee behavior
-- encrypted grants and permission flows
-- validation gas behavior
-- process execution and orchestration flows
+## 2.3 XGR-specific chain extensions
 
-Their availability depends on the active official XGR release stack and published operator instructions.
+XGR-specific chain extensions currently relevant to chain documentation include:
 
-### 2.4 Preview / upcoming components
-
-Some components may be documented as preview or upcoming when they are not part of the current public baseline release.
-
-This includes, where applicable:
-
-- staking-based validator model
-- permissionless validator join
+- XGR-native gas and fee behavior
+- delegated PoS validator participation
+- validator self-staking
 - delegated staking
-- stake-weighted voting power
-- staking-specific RPC endpoints
-- micro/macro epoch staking semantics
+- epoch-boundary validator activation
+- epoch-boundary validator deactivation
+- micro-epoch uptime accounting
+- PoS monitoring RPC endpoints
+- chain-level configuration parameters
+- access-control parameters where configured
 
-Preview documentation is intended for technical orientation and integration planning. It should not be treated as production availability unless an official release or operator announcement activates it.
+These are chain-level features.
+
+Application-layer process engines, orchestration systems, encrypted grants, business rules, workflow execution models and XDaLa-specific components are documented separately.
 
 ---
 
@@ -141,17 +164,18 @@ At a high level, XGR Chain consists of several functional layers.
 
 | Layer | Purpose | Status |
 |---|---|---|
-| EVM execution layer | Executes Ethereum-compatible transactions and smart contracts | Public baseline |
-| Consensus layer | Produces and finalizes blocks through IBFT | Public baseline |
-| Networking layer | Connects nodes through peer-to-peer networking | Public baseline |
-| JSON-RPC layer | Provides Ethereum-compatible RPC access for wallets, explorers, scripts and infrastructure | Public baseline |
+| EVM execution layer | Executes Ethereum-compatible transactions and smart contracts | Active |
+| Consensus layer | Produces and finalizes blocks through IBFT | Active |
+| Delegated PoS layer | Provides validator staking, delegation and stake-weighted validator participation | Active in XGR2.0 |
+| Networking layer | Connects nodes through peer-to-peer networking | Active |
+| JSON-RPC layer | Provides Ethereum-compatible RPC access and PoS monitoring endpoints | Active |
 | Configuration layer | Defines chain ID, genesis, fork activation, bootnodes and protocol parameters | Published XGR configuration |
-| XGR extension layer | Provides XGR-specific validation, orchestration and process features | Release-dependent |
-| Staking / PoS layer | Provides staking, delegation and stake-weighted validator participation where applicable | Preview/upcoming unless activated |
+| Gas and fee layer | Applies XGR-specific gas and fee behavior where configured | Active where configured |
+| Access-control layer | Applies allowlist and blocklist rules where configured | Active where configured |
 
 The chain layer remains EVM-compatible.
 
-XGR-specific functionality extends the network through additional contracts, RPC methods and protocol modules where supported by the active release stack.
+Delegated PoS changes validator participation and validator-set management. It does not require a custom Ethereum transaction format.
 
 ---
 
@@ -169,8 +193,9 @@ High-level identity:
 | Contract model | Ethereum-compatible smart contracts |
 | Transaction model | Ethereum-compatible transaction signing and execution |
 | Standard RPC | `eth_*`, `net_*`, `web3_*` |
-| XGR extension RPC | `xgr_*` where supported |
+| PoS monitoring RPC | Available where enabled by the active node release |
 | Finality model | IBFT deterministic finality |
+| Validator model | Delegated PoS with IBFT block production |
 | Native decimal model | 18 decimals unless otherwise specified by published chain configuration |
 
 Exact network-defining values belong to the active published chain configuration.
@@ -198,7 +223,71 @@ Validators independently verify the block before finalization.
 
 ---
 
-## 6. EVM compatibility
+## 6. Consensus and delegated PoS
+
+XGR Chain uses IBFT for block production and deterministic finality.
+
+With XGR2.0, validator participation is governed by delegated PoS mechanics.
+
+This means:
+
+- validators participate through staking
+- validators may have self-stake
+- validators may receive delegated stake
+- delegated stake can affect active validator weight where supported by the active staking rules
+- validator activation is epoch-boundary based
+- validator deactivation is epoch-boundary based
+- staking state is exposed through PoS-related RPC views
+- the current validator set remains enforced through the consensus layer
+
+IBFT remains the finality mechanism.
+
+Delegated PoS defines how validators enter, leave and participate economically in the validator set.
+
+---
+
+## 7. Epoch and micro-epoch model
+
+XGR2.0 introduces an epoch-based staking model.
+
+At a high level:
+
+- validator joins are not necessarily effective immediately in the same epoch
+- validator deactivations are not necessarily effective immediately in the same epoch
+- stake and delegation changes can become effective at epoch boundaries
+- micro-epoch accounting can be used for uptime-related weighting
+- PoS monitoring endpoints expose epoch and micro-epoch fields
+
+The exact epoch size, micro-epoch size and macro-epoch factor are defined by the active chain configuration.
+
+Operators and integrators must use live RPC data and the published network configuration rather than hard-coded assumptions.
+
+---
+
+## 8. Staking and delegation model
+
+XGR2.0 supports a delegated PoS staking model.
+
+The model includes:
+
+- validator self-stake
+- validator minimum stake rules
+- validator activation and deactivation state
+- delegator stake
+- delegation pool configuration
+- delegation activation and deactivation state
+- delegated raw stake
+- delegated active stake
+- total active current stake
+- validator and delegator lifecycle handling
+
+Validator and delegator lifecycle behavior is enforced by the node implementation and staking logic.
+
+The documentation for staking endpoints is maintained separately in the PoS endpoint reference.
+
+---
+
+## 9. EVM compatibility
 
 XGR Chain is designed to support standard EVM tooling.
 
@@ -218,319 +307,136 @@ Supported transaction categories include:
 
 - legacy transactions
 - EIP-155 protected transactions
-- dynamic fee / type-2 transactions where supported by the active fork configuration
-- contract creation transactions
-- contract call transactions
+- Ethereum-compatible transaction formats supported by the active node implementation
 
-Exact behavior depends on the active published fork configuration.
+XGR Chain does not require wallets or integrators to adopt a non-standard transaction envelope for ordinary transfers or contract calls.
 
 ---
 
-## 7. Consensus and validator model
+## 10. JSON-RPC access
 
-XGR Chain uses **IBFT** as its deterministic-finality consensus protocol.
+XGR Chain exposes standard Ethereum-compatible JSON-RPC methods.
 
-IBFT provides finality under Byzantine fault assumptions.
+These include method families such as:
 
-At a high level:
+- `eth_*`
+- `net_*`
+- `web3_*`
 
-1. a proposer is selected for a round
-2. the proposer builds a candidate block
-3. validators independently verify the candidate block
-4. validators exchange consensus messages
-5. a block is committed once the required quorum is reached
-6. the committed block is final under IBFT assumptions
+Where supported by the active node release, additional PoS monitoring endpoints expose validator, staking, delegation and epoch-related state.
 
-Current validator operation is part of the public node and chain operation model.
+PoS RPC data is intended for:
 
-Staking-based validator participation is documented separately where applicable and must be interpreted according to its release status.
-
----
-
-## 8. Staking / PoS upgrade path
-
-XGR Chain is designed to evolve toward a staking-based validator model where activated by the official release path.
-
-The staking model may include:
-
-- permissionless validator join
-- delegated staking
-- stake-weighted voting power
-- validator activation and deactivation
-- validator monitoring endpoints
-- epoch-based staking behavior
-- staking-specific operator checks
-
-Until activated by an official release and operator announcement, staking-related documentation should be treated as preview or upcoming technical documentation.
-
----
-
-## 9. XDaLa integration
-
-**XDaLa** is the XGR validation and orchestration layer.
-
-It is designed for:
-
-- rule-based validation
-- rule contracts
-- structured process execution
-- orchestration sessions
-- grants
-- encrypted access flows
-- validation gas estimation
-- API-backed and contract-backed process logic where supported
-
-XDaLa uses XGR-specific RPC methods in the `xgr_*` namespace where supported by the active release stack.
-
-The standard Ethereum-compatible RPC surface and the XDaLa RPC surface are separate interfaces with different purposes.
-
----
-
-## 10. XRC-137
-
-**XRC-137** is the XGR rule-document / rule-contract standard.
-
-It is used to describe validation logic in a structured format.
-
-Depending on the active release stack and deployed contracts, XRC-137 can be used by XDaLa to:
-
-- read rule definitions
-- validate inputs
-- estimate validation gas
-- enforce structured rule logic
-- connect on-chain contracts with validation and orchestration flows
-
-XRC-137 belongs to the XGR extension layer.
-
----
-
-## 11. XRC-729
-
-**XRC-729** is the XGR orchestration/session contract standard.
-
-It is designed to support controlled process execution and session-based orchestration.
-
-Depending on the active release stack and deployed contracts, XRC-729 can be used for:
-
-- orchestration sessions
-- wake/kill/list session control
-- process execution coordination
-- structured execution state
-- contract-mediated process rules
-
-XRC-729 belongs to the XGR extension layer.
-
----
-
-## 12. JSON-RPC surfaces
-
-XGR Chain exposes different RPC surfaces for different purposes.
-
-### 12.1 Standard Ethereum-compatible RPC
-
-Used by:
-
-- wallets
+- operators
 - explorers
-- scripts
-- infrastructure tools
-- indexers
-- applications
+- staking dashboards
+- monitoring systems
+- validator tooling
+- delegation interfaces
+- auditors
 
-Typical namespaces:
-
-```text
-eth_*
-net_*
-web3_*
-```
-
-This surface is the compatibility layer for normal EVM tooling.
-
-### 12.2 Operator and diagnostic RPC
-
-Used by node operators for:
-
-- status checks
-- node diagnostics
-- peer inspection
-- transaction pool inspection
-- validator and consensus monitoring where available
-
-These methods are operational interfaces and should not automatically be exposed publicly.
-
-### 12.3 XGR extension RPC
-
-Used by validation and orchestration clients.
-
-Typical namespace:
-
-```text
-xgr_*
-```
-
-This surface is used by XGR-specific features such as XDaLa where supported by the active release stack.
+RPC consumers must treat live node data as authoritative for current chain state.
 
 ---
 
-## 13. Gas and fee behavior
+## 11. Gas and fee behavior
 
-XGR Chain has XGR-specific gas and fee behavior.
+XGR Chain has XGR-native gas and fee behavior.
 
-It supports Ethereum-style transaction fee fields where supported by the active release and fork configuration, but XGR fee policy must not be assumed to be identical to Ethereum mainnet.
+The chain configuration and node implementation define:
 
-Relevant topics include:
-
-- `gasPrice`
-- `maxFeePerGas`
-- `maxPriorityFeePerGas`
 - base fee behavior
-- minimum base fee behavior
-- transaction pool price acceptance
-- fee accounting
-- burn, donation, validator or fee-pool semantics where configured
-- explorer fee display
+- minimum fee behavior
+- block gas target behavior
+- fee-related fork behavior
+- configured fee destinations where applicable
 
-The exact gas and fee behavior is defined in the dedicated gas documentation and the active chain configuration.
+Exact fee behavior belongs in the dedicated gas and fee documentation.
 
----
-
-## 14. Node operation
-
-XGR Chain nodes can be operated in different roles.
-
-Common roles include:
-
-| Role | Purpose |
-|---|---|
-| Validator node | Participates in consensus and signs blocks |
-| Full node | Follows and verifies the chain without signing blocks |
-| RPC node | Serves JSON-RPC traffic for users, applications or infrastructure |
-| Bootnode | Provides stable peer discovery support |
-
-Node operation includes:
-
-- release selection
-- binary build or installation
-- genesis/configuration setup
-- data directory management
-- key material handling
-- P2P configuration
-- RPC configuration
-- validator operation
-- monitoring
-- logging
-- metrics
-- backups
-- upgrades
-- security
-
-Node role and release status determine which options should be enabled.
+This introduction only establishes that gas and fee behavior is chain-level protocol behavior and not an application-layer convention.
 
 ---
 
-## 15. Genesis and configuration
+## 12. Node operation
 
-Genesis and configuration define the actual network.
+An XGR node is responsible for:
 
-They include:
+- loading the published chain configuration
+- connecting to peers
+- synchronizing blocks
+- validating block headers
+- executing transactions
+- verifying state transitions
+- participating in IBFT consensus where configured as a validator
+- exposing JSON-RPC access where enabled
+- maintaining local chain state
+
+Validator nodes additionally participate in block production and consensus voting according to the active validator set.
+
+With delegated PoS active, validator participation depends on the staking and validator-set rules enforced by the active chain configuration and node implementation.
+
+---
+
+## 13. Configuration as source of truth
+
+The published chain configuration is part of the protocol source of truth.
+
+Documentation must not override or invent network-defining values.
+
+Network-defining values include:
 
 - chain ID
-- genesis block
-- initial allocation
-- fork activation settings
-- consensus configuration
+- genesis hash
 - bootnodes
+- IBFT settings
+- PoS activation block
+- epoch parameters
+- fork activation blocks
 - block gas limit
-- fee-related parameters
-- configured protocol addresses where applicable
+- fee parameters
+- configured system addresses
+- allowlist and blocklist settings where configured
 
-Operators must not invent or locally alter production genesis values.
-
-For public networks, use only the published XGR Chain configuration.
-
----
-
-## 16. Network upgrades
-
-Network upgrades and hardforks may involve:
-
-- binary releases
-- validator coordination
-- fork activation
-- configuration changes
-- node rollout windows
-- rollback boundaries
-- monitoring requirements
-- post-upgrade checks
-
-Production upgrade instructions must come from official XGR Network release and operator announcements.
-
-A local build or unpublished development state is not a production upgrade path.
+If documentation and published configuration conflict, the published configuration and active node implementation take precedence.
 
 ---
 
-## 17. Access control and permission boundaries
+## 14. Separation from application-layer documentation
 
-XGR Chain has multiple permission and exposure boundaries.
+This document describes XGR Chain as a blockchain protocol and node implementation.
 
-Relevant areas include:
+It does not define:
 
-- JSON-RPC exposure
-- debug/operator endpoint exposure
-- validator key isolation
-- P2P boundary
-- contract ownership
-- XDaLa permits
-- XDaLa grants
-- encryption-related access flows
+- XDaLa process semantics
+- application-specific validation rules
+- business-process orchestration
+- encrypted grant workflows
+- external API validation flows
+- UI behavior
+- explorer UI behavior
+- marketing claims
 
-Validator infrastructure and public RPC infrastructure should be separated wherever possible.
+Those topics must be documented in their own documents.
 
-Public RPC nodes should not hold validator signing material.
-
----
-
-## 18. Networking and P2P
-
-XGR Chain nodes communicate through peer-to-peer networking.
-
-P2P operation includes:
-
-- libp2p address handling
-- bootnodes
-- NAT configuration
-- DNS advertisement
-- peer limits
-- discovery
-- validator connectivity
-- RPC vs P2P separation
-- operational troubleshooting
-
-A healthy node should maintain stable peer connectivity and follow the current chain height.
-
-Validators require reliable networking to participate in consensus.
+Chain documentation should remain limited to protocol, node, consensus, staking, configuration, gas, RPC and operator behavior.
 
 ---
 
-## 19. Glossary
+## 15. Document status
 
-| Term | Meaning |
-|---|---|
-| XGR Chain | The EVM-compatible blockchain layer of the XGR Network |
-| XGR Network | The broader project, infrastructure, standards and ecosystem around XGR Chain |
-| XDaLa | XGR validation and orchestration layer |
-| XRC-137 | Rule-document / rule-contract standard |
-| XRC-729 | Orchestration/session contract standard |
-| IBFT | Istanbul Byzantine Fault Tolerance; deterministic-finality consensus protocol |
-| EVM | Ethereum Virtual Machine |
-| RPC | Remote Procedure Call interface |
-| Standard RPC | Ethereum-compatible `eth_*`, `net_*`, `web3_*` RPC surface |
-| XGR RPC | XGR-specific `xgr_*` RPC surface |
-| Validator | Node participating in consensus and block finalization |
-| Full node | Node that follows and verifies the chain but does not sign blocks |
-| RPC node | Full node configured to serve JSON-RPC traffic |
-| Bootnode | Node used for peer discovery |
-| Genesis | Initial chain configuration and state |
-| Chain ID | Replay-protection identifier for signed transactions |
-| Release tag | Versioned public node release marker |
+This document reflects the XGR2.0 delegated PoS mainnet baseline.
+
+It should be updated whenever one of the following changes:
+
+- active node branch or release baseline
+- published chain configuration
+- PoS activation settings
+- staking contract behavior
+- validator lifecycle behavior
+- delegation lifecycle behavior
+- epoch or micro-epoch behavior
+- gas or fee behavior
+- RPC endpoint behavior
+- node operation requirements
+
+For implementation-level details, use the public node source code and the published XGR Chain configuration as the authoritative references.
