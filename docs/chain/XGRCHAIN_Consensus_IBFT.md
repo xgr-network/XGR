@@ -1,10 +1,10 @@
 # XGR Chain — IBFT Consensus
 
 **Document ID:** XGRCHAIN-IBFT-CONSENSUS  
-**Last updated:** 2026-05-03  
+**Last updated:** 2026-05-24  
 **Audience:** Protocol developers, node operators, validator operators, auditors  
-**Implementation status:** Current public baseline for unweighted IBFT; stake-weighted voting is development / preview until activated by an official release  
-**Source of truth:** Public `xgr-network/xgr-node` releases, published XGR Chain configuration, staking-enabled release artifacts where applicable, and official XGR Network operator announcements
+**Implementation status:** XGR2.0 mainnet baseline with delegated PoS active  
+**Source of truth:** `xgr-network/XGR` `main` branch `genesis/mainnet/genesis.json`, public `xgr-network/xgr-node` branch `XGR2.0`, and official XGR Network operator announcements
 
 ---
 
@@ -20,21 +20,69 @@ It explains:
 - block proposal construction
 - independent validator verification
 - quorum calculation
-- commit seals
+- committed seals
 - BLS validator sealing
-- epoch behavior
+- PoA to delegated PoS transition
+- epoch and micro-epoch behavior
 - validator-set behavior
-- public baseline voting power
-- development / preview stake-weighted voting behavior
+- voting power behavior before and after PoS activation
 - operator-relevant monitoring and failure modes
 
 IBFT is the consensus protocol that decides which valid block becomes finalized.
 
 The EVM execution layer decides whether the proposed block is valid.
 
+Delegated PoS controls validator participation and voting power after the XGR2.0 transition.
+
 ---
 
-## 2. What IBFT provides
+## 2. Published mainnet consensus configuration
+
+The published mainnet genesis is:
+
+```text
+genesis/mainnet/genesis.json
+```
+
+The published IBFT engine configuration contains:
+
+| Field | Value |
+|---|---:|
+| `blockTime` | `2000000000` |
+| `microEpochSize` | `25` |
+| `macroEpochMicroFactor` | `40` |
+| `microEpochInactivityDecayBps` | `9000` |
+| `microEpochNominalWeightUnits` | `10000` |
+
+The published IBFT type schedule is:
+
+| Phase | Type | Validator type | From | To | Deployment |
+|---|---|---|---:|---:|---:|
+| Pre-XGR2.0 | `PoA` | `bls` | `0` | `5446499` | n/a |
+| XGR2.0 and later | `PoS` | `bls` | `5446500` | n/a | `5446500` |
+
+The delegated PoS activation block is:
+
+```text
+5446500
+```
+
+The PoS deployment block is:
+
+```text
+5446500
+```
+
+The PoS validator limits are:
+
+| Field | Value |
+|---|---:|
+| `minValidatorCount` | `4` |
+| `maxValidatorCount` | `25` |
+
+---
+
+## 3. What IBFT provides
 
 IBFT stands for **Istanbul Byzantine Fault Tolerance**.
 
@@ -58,7 +106,7 @@ Additional confirmations may still be used by applications for operational conse
 
 ---
 
-## 3. Consensus and execution boundary
+## 4. Consensus and execution boundary
 
 IBFT and EVM execution are separate but connected.
 
@@ -69,6 +117,8 @@ IBFT and EVM execution are separate but connected.
 | TxPool | Supplies candidate transactions to proposers |
 | P2P networking | Transports consensus messages, blocks and transactions |
 | Validator signer | Signs consensus messages and block seals |
+| Fork manager | Selects signer, validator set and hooks for the given height |
+| PoS validator store | Provides contract-backed validator state in PoS mode |
 
 The proposer builds a block.
 
@@ -80,12 +130,16 @@ A proposer cannot finalize a block alone.
 
 ---
 
-## 4. High-level block lifecycle
+## 5. High-level block lifecycle
 
 A block follows this high-level lifecycle:
 
 ```text
 pending height
+  ↓
+active fork/signing mode resolved
+  ↓
+active validator set resolved
   ↓
 proposer selected
   ↓
@@ -103,6 +157,8 @@ committed seals written
   ↓
 block inserted
   ↓
+post-insert hooks run
+  ↓
 txpool reset against new head
   ↓
 next height
@@ -116,7 +172,7 @@ Consensus finalizes only blocks that validators can independently verify.
 
 ---
 
-## 5. Validator role
+## 6. Validator role
 
 A validator participates in consensus.
 
@@ -140,7 +196,7 @@ Every validator verifies the candidate block before accepting it.
 
 ---
 
-## 6. Proposer role
+## 7. Proposer role
 
 For each height and round, IBFT selects one validator as proposer.
 
@@ -154,6 +210,7 @@ It:
 - executes transactions locally
 - calculates gas used
 - calculates state root
+- applies active consensus hooks
 - prepares IBFT extra data
 - writes the proposer seal
 - broadcasts the proposal to validators
@@ -164,7 +221,7 @@ The block still requires validator quorum.
 
 ---
 
-## 7. Full node role
+## 8. Full node role
 
 A full node follows and verifies the chain but does not sign consensus messages unless it is also an active validator.
 
@@ -185,7 +242,7 @@ Recommended non-validator runtime behavior:
 
 ---
 
-## 8. Validator activity check
+## 9. Validator activity check
 
 The IBFT backend checks whether the node's signer is part of the active validator set.
 
@@ -215,7 +272,7 @@ A node can be fully synced without being a validator.
 
 ---
 
-## 9. IBFT round flow
+## 10. IBFT round flow
 
 Each block height can have one or more rounds.
 
@@ -253,7 +310,7 @@ Persistent round changes indicate an operational or consensus problem.
 
 ---
 
-## 10. Proposal construction
+## 11. Proposal construction
 
 When the node is proposer, it builds a proposal for the pending height.
 
@@ -274,13 +331,14 @@ The proposal construction path performs the following steps:
 13. begin EVM state transition
 14. write transactions from the txpool
 15. run pre-commit state hook
-16. commit state transition
-17. set state root
-18. set gas used
-19. build block body and receipts
-20. write proposer seal
-21. compute provisional block hash
-22. return RLP-encoded proposal
+16. append deterministic epoch-finalization system transaction if the PoS finalization hook produced the matching system receipt
+17. commit state transition
+18. set state root
+19. set gas used
+20. build block body and receipts
+21. write proposer seal
+22. compute provisional block hash
+23. return RLP-encoded proposal
 
 Simplified:
 
@@ -289,9 +347,13 @@ parent header
   ↓
 candidate header
   ↓
+active hooks modify header
+  ↓
 IBFT extra initialized
   ↓
 transactions executed
+  ↓
+pre-commit hook runs
   ↓
 state root / gas used set
   ↓
@@ -302,12 +364,13 @@ proposal broadcast
 
 ---
 
-## 11. Transaction writing by proposer
+## 12. Transaction writing by proposer
 
 The proposer writes transactions from the txpool into the candidate block.
 
 The block builder:
 
+- checks whether active hooks allow transactions to be written for the block
 - prepares the txpool
 - peeks the next transaction
 - rejects transactions exceeding block gas limit
@@ -331,7 +394,7 @@ The proposer does not include transactions that fail execution validation.
 
 ---
 
-## 12. Proposal verification
+## 13. Proposal verification
 
 When a validator receives a proposal, it validates it before accepting it.
 
@@ -373,7 +436,7 @@ A validator rejects the proposal if local execution does not reproduce the propo
 
 ---
 
-## 13. Header verification
+## 14. Header verification
 
 IBFT header verification checks consensus-specific header fields.
 
@@ -394,7 +457,7 @@ Header verification is part of both proposal validation and finalized-block vali
 
 ---
 
-## 14. Block execution verification
+## 15. Block execution verification
 
 The blockchain layer verifies that the proposed block body and execution result are correct.
 
@@ -415,9 +478,42 @@ A block with an invalid state root or receipt root must not be accepted.
 
 ---
 
-## 15. Proposer selection
+## 16. Fork manager and active consensus mode
 
-The public baseline uses deterministic proposer selection over the active validator set.
+The IBFT fork manager resolves the active consensus modules for a given height.
+
+For each height it can provide:
+
+- active signer
+- active validator set
+- active hooks
+- active validator store
+- active IBFT type
+
+The published mainnet type schedule means:
+
+```text
+height 0..5446499  -> PoA
+height >= 5446500  -> PoS
+```
+
+The fork manager treats a height as PoS-active when the IBFT fork selected for that height has type `PoS`.
+
+Validator-set consistency is consensus-critical.
+
+If nodes derive different validator sets for the same height, they can disagree about:
+
+- active validators
+- proposer
+- quorum
+- committed seal validity
+- block validity
+
+---
+
+## 17. Proposer selection
+
+IBFT uses deterministic proposer selection over the active validator set.
 
 Conceptually:
 
@@ -444,11 +540,11 @@ That is consensus-critical.
 
 ---
 
-## 16. Quorum model
+## 18. Quorum model before PoS activation
 
-IBFT needs a quorum to finalize a block.
+Before PoS activation, quorum is validator-count based.
 
-The current public baseline supports two quorum formulas:
+The backend supports two count-based quorum formulas:
 
 1. legacy quorum
 2. optimal quorum
@@ -457,11 +553,34 @@ The active formula depends on the configured quorum switch block.
 
 Default behavior uses the optimal formula unless a configuration explicitly sets a different switch boundary.
 
+For practical current operation before PoS activation, count-based quorum is:
+
+```text
+ceil(2N / 3)
+```
+
+with the classic IBFT special handling used by `OptimalQuorumSize`.
+
+For common validator counts:
+
+| Validators | Count-based quorum |
+|---:|---:|
+| 1 | 1 |
+| 2 | 2 |
+| 3 | 3 |
+| 4 | 3 |
+| 5 | 4 |
+| 6 | 4 |
+| 7 | 5 |
+| 8 | 6 |
+| 9 | 6 |
+| 10 | 7 |
+
 ---
 
-## 17. Fault tolerance
+## 19. Fault tolerance
 
-The maximum number of faulty validators is calculated as:
+The maximum number of Byzantine validators in the classic IBFT model is calculated as:
 
 ```text
 f = floor((n - 1) / 3)
@@ -471,7 +590,7 @@ Where:
 
 ```text
 n = number of validators
-f = maximum tolerated faulty validators
+f = maximum tolerated Byzantine validators
 ```
 
 Examples:
@@ -499,120 +618,9 @@ If more than `f` validators behave Byzantine, safety assumptions no longer hold.
 
 ---
 
-## 18. Legacy quorum formula
+## 20. Voting power before PoS activation
 
-Legacy quorum is:
-
-```text
-legacyQuorum = 2f + 1
-```
-
-Where:
-
-```text
-f = floor((n - 1) / 3)
-```
-
-Examples:
-
-| Validators | f | Legacy quorum |
-|---:|---:|---:|
-| 1 | 0 | 1 |
-| 2 | 0 | 1 |
-| 3 | 0 | 1 |
-| 4 | 1 | 3 |
-| 5 | 1 | 3 |
-| 6 | 1 | 3 |
-| 7 | 2 | 5 |
-
-Legacy quorum is retained for compatibility where explicitly configured.
-
-It should not be assumed as the preferred current rule unless the active configuration selects it.
-
----
-
-## 19. Optimal quorum formula
-
-Optimal quorum is:
-
-```text
-optimalQuorum = ceil(2N / 3)
-```
-
-Special case:
-
-```text
-If f = 0, the entire validator set is required.
-```
-
-Examples:
-
-| Validators | Optimal quorum |
-|---:|---:|
-| 1 | 1 |
-| 2 | 2 |
-| 3 | 3 |
-| 4 | 3 |
-| 5 | 4 |
-| 6 | 4 |
-| 7 | 5 |
-| 8 | 6 |
-| 9 | 6 |
-| 10 | 7 |
-
-For the current public baseline, this is the practical default unless the network configuration explicitly selects legacy behavior before a switch block.
-
-Operationally:
-
-```text
-Commit evidence must reach the configured quorum threshold.
-```
-
-For unweighted baseline IBFT, quorum is validator-count based.
-
----
-
-## 20. Quorum intuition
-
-For common validator counts:
-
-```text
-4 validators  -> 3 commits required
-5 validators  -> 4 commits required
-6 validators  -> 4 commits required
-7 validators  -> 5 commits required
-```
-
-This is why a 4-validator IBFT network can tolerate one faulty/offline validator but not two.
-
-With 4 validators:
-
-```text
-required quorum = 3
-```
-
-If two validators are offline:
-
-```text
-only 2 validators remain
-2 < 3
-no quorum
-block finalization stalls
-```
-
-This is expected IBFT behavior.
-
-It is not a txpool problem.
-
-It is not a proposer problem alone.
-
-It is insufficient quorum.
-
----
-
-## 21. Voting power in current public baseline
-
-In the current public baseline, voting power is unweighted.
+Before the PoS transition, voting power is unit-based.
 
 Each validator has voting power:
 
@@ -630,40 +638,96 @@ This means:
 
 - each validator contributes equally
 - quorum is validator-count based
-- staking amount does not affect IBFT voting power in the public baseline
-- delegation does not affect IBFT voting power in the public baseline
-
-Stake-weighted voting belongs to the staking-enabled development / preview track until officially activated.
+- staking amount does not affect pre-PoS IBFT voting power
+- delegation does not affect pre-PoS IBFT voting power
 
 ---
 
-## 22. Stake-weighted voting development / preview
+## 21. Voting power after PoS activation
 
-A staking-enabled development track introduces weighted voting power.
+From the PoS activation height, the node verifies committed power through PoS-aware voting-power logic.
 
-In that mode:
+At a high level:
 
-- voting power is derived from effective staking state
-- validator power can differ between validators
-- committed seal verification remains cryptographic
-- quorum acceptance depends on collected voting power
+- the active validator set is obtained through the PoS validator store
+- stake snapshots are used when stake-weighted mode is active
+- uptime weights can affect effective voting power
+- total voting power is summed across the active validator set
+- collected voting power is summed from committed seal signers
 - the collected power must reach the weighted quorum threshold
-- parent committed seals also require weighted verification
-- missing effective stake data is consensus-critical
-- validator set transitions are epoch-boundary sensitive
 
-This behavior is not part of the current public baseline unless activated by an official staking-enabled release and published configuration.
-
-Public-facing description:
+The node computes voting powers using:
 
 ```text
-Unweighted IBFT is the current public baseline.
-Stake-weighted IBFT voting is development / preview until official activation.
+effective stake * uptime-derived effective weight / nominal weight
 ```
+
+The implementation guarantees a minimum voting power of `1` when stake is positive, weight is positive and integer scaling would otherwise round to zero.
+
+If effective stake data is missing for a stake-weighted validator, the block must not pass weighted power verification.
 
 ---
 
-## 23. Commit seals
+## 22. First PoS boundary behavior
+
+The published PoS activation block is:
+
+```text
+5446500
+```
+
+At PoS heights, the node performs weighted committed-power verification.
+
+The effective voting-power snapshot uses the parent header.
+
+Because the parent of block `5446500` is block `5446499`, which is still PoA, the first PoS block is a boundary case.
+
+Operational interpretation:
+
+| Height | IBFT mode for height | Parent mode | Voting-power snapshot behavior |
+|---:|---|---|---|
+| `5446499` | PoA | PoA | Unit voting |
+| `5446500` | PoS | PoA | PoS verification path with parent-based unit voting snapshot |
+| `5446501` and later | PoS | PoS | Stake-weighted voting snapshot where staking data is available |
+
+This boundary behavior is intentional and code-driven.
+
+---
+
+## 23. Weighted quorum formula
+
+In PoS weighted mode, quorum is based on total voting power.
+
+The weighted quorum threshold is:
+
+```text
+weightedQuorum = ceil((2 * totalVotingPower) / 3)
+```
+
+The integer-safe implementation is equivalent to:
+
+```text
+weightedQuorum = (2 * totalVotingPower + 2) / 3
+```
+
+A committed block passes weighted quorum if:
+
+```text
+collectedVotingPower >= weightedQuorum
+```
+
+Invalid cases:
+
+- total voting power is zero
+- collected voting power is zero
+- collected voting power is below threshold
+- required stake snapshot is missing
+- committed seals are structurally invalid
+- committed seals belong to non-validators
+
+---
+
+## 24. Commit seals
 
 During commit, validators sign the proposal.
 
@@ -685,11 +749,33 @@ block inserted
 
 The node verifies committed seals when importing or validating finalized blocks.
 
+In PoA mode, signer-level committed seal verification enforces count-based quorum.
+
+In PoS mode, signer-level verification remains a structural and cryptographic guard, while weighted committed-power verification is the quorum acceptance rule.
+
 A finalized header must contain enough valid committed seal evidence for the configured quorum rule.
 
 ---
 
-## 24. BLS validator sealing
+## 25. Parent committed seals
+
+The node can verify parent committed seals.
+
+Parent committed seals provide evidence for the parent block commitment inside the child header context where required.
+
+Important behavior:
+
+- genesis has no parent committed seals
+- non-genesis parent seals are verified where required
+- parent committed seal verification depends on the signer and validator set active for the parent
+- in PoS mode, parent committed seals require weighted committed-power verification
+- missing parent committed seals in PoS weighted mode are invalid where the code requires them
+
+This is consensus-critical because invalid commit evidence must not be accepted.
+
+---
+
+## 26. BLS validator sealing
 
 The published XGR Chain genesis uses BLS validator sealing.
 
@@ -708,7 +794,7 @@ Normal applications should use standard block and receipt RPC.
 
 ---
 
-## 25. IBFT extra data
+## 27. IBFT extra data
 
 IBFT stores consensus metadata in the block header extra-data field.
 
@@ -721,7 +807,7 @@ Conceptually, IBFT extra data can contain:
 - parent committed seals
 - round number
 
-The exact encoding is node-implementation specific.
+The exact encoding is implementation-specific.
 
 External tools should not depend on undocumented offsets.
 
@@ -729,24 +815,7 @@ Use node RPC and explorer/indexer logic designed for the active release.
 
 ---
 
-## 26. Parent committed seals
-
-The node can verify parent committed seals.
-
-Parent committed seals provide evidence for the parent block commitment inside the child header context where required.
-
-Important behavior:
-
-- genesis has no parent committed seals
-- non-genesis parent seals are verified where required
-- parent committed seal verification depends on the signer and validator set active for the parent
-- in weighted development mode, parent committed seals also require weighted power verification
-
-This is consensus-critical because invalid commit evidence must not be accepted.
-
----
-
-## 27. Finalized block insertion
+## 28. Finalized block insertion
 
 After consensus reaches commit quorum, the block is inserted.
 
@@ -767,7 +836,7 @@ This protects the node from storing malformed consensus headers.
 
 ---
 
-## 28. Sync interaction
+## 29. Sync interaction
 
 The IBFT backend also runs a syncer.
 
@@ -789,7 +858,7 @@ This avoids wasting work on a height that has already been finalized by the netw
 
 ---
 
-## 29. TxPool sealing mode
+## 30. TxPool sealing mode
 
 The consensus backend toggles txpool sealing based on validator activity.
 
@@ -804,7 +873,7 @@ Full nodes and RPC nodes should follow the chain without attempting block produc
 
 ---
 
-## 30. Block time
+## 31. Block time
 
 The consensus backend uses configured block time for round timeout and block production timing.
 
@@ -827,14 +896,22 @@ Operational meaning:
 
 ---
 
-## 31. Epoch behavior
+## 32. Epoch and micro-epoch behavior
 
-IBFT uses an epoch size from chain configuration.
+XGR2.0 mainnet uses PoS micro/macro epoch configuration.
 
-Published XGR Chain configuration currently uses:
+Published values:
+
+| Field | Value |
+|---|---:|
+| `microEpochSize` | `25` |
+| `macroEpochMicroFactor` | `40` |
+| Derived macro epoch size | `1000` blocks |
+
+The derived macro epoch size is:
 
 ```text
-epochSize = 500
+25 * 40 = 1000 blocks
 ```
 
 The backend computes epoch number conceptually as:
@@ -852,45 +929,38 @@ The backend checks whether a block is the last block of an epoch as:
 blockNumber > 0 && blockNumber % epochSize == 0
 ```
 
-IBFT epochs are consensus housekeeping / validator-set boundary concepts.
-
-Staking-specific micro/macro epochs are separate development / preview concepts unless officially activated.
-
----
-
-## 32. Validator set source
-
-The validator set is retrieved through the active fork manager for a given height.
-
-The consensus backend updates the active modules for the pending height:
-
-- signer
-- validator set
-- hooks
-
-Conceptually:
+For XGR2.0 PoS, `epochSize` is derived from:
 
 ```text
-pendingHeight = currentHead + 1
-
-signer     = forkManager.getSigner(pendingHeight)
-validators = forkManager.getValidators(pendingHeight)
-hooks      = forkManager.getHooks(pendingHeight)
+microEpochSize * macroEpochMicroFactor
 ```
 
-Validator-set consistency is consensus-critical.
-
-If nodes derive different validator sets for the same height, they can disagree about:
-
-- active validators
-- proposer
-- quorum
-- committed seal validity
-- block validity
+Do not document the old `epochSize = 500` as the active XGR2.0 mainnet epoch size.
 
 ---
 
-## 33. Consensus hooks
+## 33. Uptime accounting
+
+In PoS mode, the pre-commit path records deterministic uptime using the parent header.
+
+The parent header is used because it is already sealed and final in the local context.
+
+This avoids non-determinism during block construction.
+
+Uptime-related configuration:
+
+| Field | Value |
+|---|---:|
+| `microEpochInactivityDecayBps` | `9000` |
+| `microEpochNominalWeightUnits` | `10000` |
+
+Effective voting power can be affected by uptime-derived weights.
+
+This is consensus-relevant in PoS weighted mode.
+
+---
+
+## 34. Consensus hooks
 
 The IBFT implementation uses hooks to extend consensus behavior at defined points.
 
@@ -910,24 +980,23 @@ Hook behavior is consensus-critical when it affects block validity or state tran
 
 ---
 
-## 34. Public baseline vs development behavior
+## 35. PoA vs PoS consensus behavior
 
-| Area | Current public baseline | Development / preview staking mode |
+| Area | PoA phase | PoS phase |
 |---|---|---|
-| Voting power | Equal power, `1` per validator | Effective stake-derived power |
-| Quorum | Validator-count quorum | Weighted quorum |
-| Validator set | Configured IBFT validator set | Staking-aware validator set |
-| Delegation | Not part of public baseline consensus | Can affect effective stake where activated |
-| FeePool split | Not part of public baseline consensus | Can activate with PoS fork where configured |
-| Micro-epoch uptime | Not part of public baseline consensus | Can affect effective weights where activated |
-| Commit seal verification | Count-based quorum | Cryptographic seal check plus weighted power check |
-| Parent committed seals | Standard IBFT verification | Weighted parent committed power verification where active |
-
-Development / preview behavior becomes operational only through an official release and published configuration.
+| Mainnet block range | `0` to `5446499` | `5446500` and later |
+| IBFT type | `PoA` | `PoS` |
+| Validator type | `bls` | `bls` |
+| Validator set source | Genesis/static IBFT validator set | PoS validator store |
+| Voting power | Unit voting | Effective stake / uptime weighted after parent PoS activation |
+| Quorum | Count-based | Weighted committed power |
+| Delegation | Not consensus-active | Can contribute through staking rules |
+| Parent committed seals | Standard IBFT verification | Structural verification plus weighted committed-power verification |
+| Epoch size | Legacy PoA context | `microEpochSize * macroEpochMicroFactor` |
 
 ---
 
-## 35. Safety assumptions
+## 36. Safety assumptions
 
 IBFT safety depends on:
 
@@ -948,14 +1017,15 @@ Safety can be compromised by:
 - inconsistent genesis/configuration
 - inconsistent fork activation
 - inconsistent validator set calculation
-- invalid fallback behavior
 - accepting missing or invalid commit evidence
 - non-deterministic state transition
 - key compromise
+- wrong PoS stake snapshot
+- wrong uptime weighting state
 
 ---
 
-## 36. Liveness assumptions
+## 37. Liveness assumptions
 
 IBFT liveness depends on enough validators being online and able to communicate.
 
@@ -971,8 +1041,9 @@ Liveness can fail if:
 - P2P connectivity is broken
 - state execution diverges
 - signer/key material is unavailable
+- weighted committed power is below threshold
 
-For a 4-validator unweighted baseline network:
+For a 4-validator equal-weight case:
 
 ```text
 quorum = 3
@@ -988,7 +1059,7 @@ The chain should not finalize blocks without quorum.
 
 ---
 
-## 37. Operational monitoring
+## 38. Operational monitoring
 
 Validator operators should monitor:
 
@@ -1006,10 +1077,18 @@ Validator operators should monitor:
 - proposer seal errors
 - committed seal errors
 - parent committed seal errors
+- PoS active status
+- active validator set
+- validator self-stake
+- delegated stake
+- effective voting power
+- current epoch and micro-epoch
+- current pending epoch rewards
+- staking contract balance
 - txpool pressure
 - CPU, memory, disk and network usage
 
-Important metrics themes:
+Important metrics and signals:
 
 | Metric / signal | Meaning |
 |---|---|
@@ -1021,18 +1100,20 @@ Important metrics themes:
 | round-change logs | Consensus progress problems |
 | block import errors | Execution or consensus mismatch |
 | signer errors | Validator key problem |
+| PoS overview RPC | Validator/stake/epoch visibility |
 
 ---
 
-## 38. Common failure modes
+## 39. Common failure modes
 
-### 38.1 No block production
+### 39.1 No block production
 
 Likely causes:
 
 - not enough online validators
 - proposer offline
 - quorum unavailable
+- weighted voting power unavailable
 - validator networking broken
 - validators disagree on validator set
 - validators reject proposals
@@ -1049,11 +1130,12 @@ validator logs
 round-change logs
 signer logs
 peer connectivity
+PoS overview RPC
 ```
 
 ---
 
-### 38.2 Repeated round changes
+### 39.2 Repeated round changes
 
 Likely causes:
 
@@ -1065,6 +1147,7 @@ Likely causes:
 - validator offline
 - validator key unavailable
 - validators disagree on state or validator set
+- insufficient weighted committed power
 
 A few round changes can happen during transient faults.
 
@@ -1072,7 +1155,7 @@ Persistent round changes require operator investigation.
 
 ---
 
-### 38.3 Proposal rejected
+### 39.3 Proposal rejected
 
 Likely causes:
 
@@ -1082,18 +1165,21 @@ Likely causes:
 - proposer not in validator set
 - invalid IBFT extra data
 - invalid committed seal data
+- invalid parent committed seal data
 - invalid transaction root
 - invalid receipt root
 - invalid state root
 - gas used mismatch
 - hook verification failure
 - fork mismatch
+- PoS stake snapshot mismatch
+- uptime weighting mismatch
 
 A proposal rejected by honest validators should not finalize.
 
 ---
 
-### 38.4 Node follows chain but does not propose
+### 39.4 Node follows chain but does not propose
 
 Likely causes:
 
@@ -1101,14 +1187,15 @@ Likely causes:
 - validator key address differs from configured validator address
 - sealing disabled
 - wrong data directory / wrong secrets
-- validator deactivated in staking-enabled mode
+- validator deactivated in PoS mode
+- validator stake no longer qualifies
 - node is running as full/RPC node
 
 Check whether the local signer address is in the current validator set.
 
 ---
 
-### 38.5 Chain stalls after validator loss
+### 39.5 Chain stalls after validator loss
 
 Likely cause:
 
@@ -1116,7 +1203,7 @@ Likely cause:
 online validator count or online voting power below quorum
 ```
 
-Example with 4 unweighted validators:
+Example with 4 equal-weight validators:
 
 ```text
 required quorum = 3
@@ -1136,7 +1223,7 @@ The chain must not finalize without quorum.
 
 ---
 
-### 38.6 Different nodes show different heads
+### 39.6 Different nodes show different heads
 
 Likely causes:
 
@@ -1148,6 +1235,9 @@ Likely causes:
 - peer isolation
 - node failed to sync
 - post-upgrade incompatibility
+- different genesis file
+- wrong PoS activation settings
+- wrong micro/macro epoch settings
 
 Checks:
 
@@ -1158,19 +1248,22 @@ Checks:
 - compare fork schedule
 - inspect block import errors
 - inspect consensus logs
+- inspect PoS overview RPC
 
 ---
 
-## 39. Operator checklist
+## 40. Operator checklist
 
 For validator nodes:
 
 - correct binary version
 - correct published chain configuration
+- correct genesis file
 - correct validator key
 - stable network key
 - sufficient peer connectivity
 - signer address in validator set
+- validator stake/delegation state valid after PoS activation
 - JSON-RPC not publicly exposed unless intended
 - gRPC internal only
 - debug internal only
@@ -1191,25 +1284,46 @@ For non-validator full/RPC nodes:
 - node follows current head
 - no consensus signing expected
 
+Configuration values to verify:
+
+| Field | Required value |
+|---|---|
+| `params.chainID` | `1643` |
+| `params.engine.ibft.blockTime` | `2000000000` |
+| `params.engine.ibft.microEpochSize` | `25` |
+| `params.engine.ibft.macroEpochMicroFactor` | `40` |
+| `params.engine.ibft.microEpochInactivityDecayBps` | `9000` |
+| `params.engine.ibft.microEpochNominalWeightUnits` | `10000` |
+| PoA range | `0` to `5446499` |
+| PoS `from` | `5446500` |
+| PoS `deployment` | `5446500` |
+| PoS min validators | `4` |
+| PoS max validators | `25` |
+
 ---
 
-## 40. Summary
+## 41. Summary
 
-| Topic | Current public baseline |
+| Topic | XGR2.0 mainnet behavior |
 |---|---|
 | Consensus protocol | IBFT |
 | Finality | Deterministic after commit quorum |
-| Validator voting power | `1` per validator |
-| Quorum default | `ceil(2N/3)` with full-set requirement for `N <= 3` |
-| Fault tolerance | `floor((N - 1) / 3)` Byzantine validators |
-| Proposer selection | Deterministic rotation based on previous proposer and round |
-| Validator sealing | BLS-based in published XGR Chain configuration |
-| Header consensus data | IBFT extra data |
-| Block time target | Approximately 2 seconds in published configuration |
-| Epoch size | `500` blocks in published configuration |
+| Validator sealing | BLS |
+| Pre-cutover validator model | PoA/static IBFT validator set |
+| PoA range | `0` to `5446499` |
+| PoS activation | `5446500` |
+| PoS deployment | `5446500` |
+| PoS validator model | Delegated PoS |
+| Validator limits | min `4`, max `25` |
+| Pre-PoS voting power | Unit power per validator |
+| PoS voting power | Effective stake and uptime-weighted power |
+| Weighted quorum | `ceil(2 * totalVotingPower / 3)` |
+| Block time target | Approximately 2 seconds |
+| Micro epoch size | `25` blocks |
+| Macro epoch factor | `40` |
+| Derived macro epoch size | `1000` blocks |
 | Full/RPC node sealing | Should be disabled |
-| Stake-weighted voting | Development / preview until official activation |
 
 IBFT protects safety by requiring quorum.
 
-If quorum is unavailable, finality must stop rather than accepting invalid or insufficiently supported blocks.
+If quorum or weighted committed power is unavailable, finality must stop rather than accepting invalid or insufficiently supported blocks.
