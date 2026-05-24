@@ -84,14 +84,31 @@
       }
     },
     "chainID": 1643,
-    "engine": {
-      "ibft": {
-        "blockTime": 2000000000,
-        "epochSize": 500,
+"engine": {
+  "ibft": {
+    "blockTime": 2000000000,
+    "microEpochSize": 25,
+    "macroEpochMicroFactor": 40,
+    "microEpochInactivityDecayBps": 9000,
+    "microEpochNominalWeightUnits": 10000,
+    "types": [
+      {
         "type": "PoA",
-        "validator_type": "bls"
+        "validator_type": "bls",
+        "from": 0,
+        "to": 5446499
+      },
+      {
+        "type": "PoS",
+        "validator_type": "bls",
+        "from": 5446500,
+        "deployment": 5446500,
+        "minValidatorCount": 4,
+        "maxValidatorCount": 25
       }
-    },
+    ]
+  }
+},
     "blockGasTarget": 0,
     "engineRegistryAddress": "0x72cbbb5c95662510da052b98add933ff99ec820f",
     "bootstrapEngineEOA": "0x0000000000000000000000000000000000000000",
