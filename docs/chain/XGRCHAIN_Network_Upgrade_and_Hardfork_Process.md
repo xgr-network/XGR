@@ -1,10 +1,10 @@
 # XGR Chain — Network Upgrade & Hardfork Process
 
 **Document ID:** XGRCHAIN-NETWORK-UPGRADE  
-**Last updated:** 2026-05-03  
+**Last updated:** 2026-05-24  
 **Audience:** Node operators, validators, release managers, protocol developers, auditors  
-**Implementation status:** Current public baseline with development/preview handling for not-yet-released protocol changes  
-**Source of truth:** Public `xgr-network/xgr-node` releases, published XGR Chain configuration, release artifacts, and official XGR Network operator announcements
+**Implementation status:** XGR2.0 mainnet baseline with delegated PoS active  
+**Source of truth:** `xgr-network/XGR` `main` branch `genesis/mainnet/genesis.json`, public `xgr-network/xgr-node` branch `XGR2.0`, and official XGR Network operator announcements
 
 ---
 
@@ -25,28 +25,87 @@ It covers:
 - rollback boundaries
 - monitoring during activation
 - post-upgrade validation
-- development / preview handling for not-yet-released protocol changes
+- configuration replacement rules
+- staking / PoS upgrade handling
+- fee-model upgrade handling
+- RPC-impacting upgrade handling
 
 This document is written for production network coordination.
 
 It is not a local development guide.
 
+It does not define XDaLa process behavior, XRC standards, UI behavior or application-layer workflows.
+
 ---
 
-## 2. Network upgrade categories
+## 2. Current XGR2.0 mainnet upgrade state
+
+XGR2.0 has already activated delegated PoS on mainnet.
+
+The published mainnet genesis defines:
+
+| Phase | Type | Validator type | From | To | Deployment |
+|---|---|---|---:|---:|---:|
+| Pre-PoS phase | `PoA` | `bls` | `0` | `5446499` | n/a |
+| XGR2.0 PoS phase | `PoS` | `bls` | `5446500` | n/a | `5446500` |
+
+The active PoS cutover block is:
+
+```text
+5446500
+```
+
+The active PoS deployment block is:
+
+```text
+5446500
+```
+
+The active PoS validator limits are:
+
+| Field | Value |
+|---|---:|
+| `minValidatorCount` | `4` |
+| `maxValidatorCount` | `25` |
+
+The active PoS epoch configuration is:
+
+| Field | Value |
+|---|---:|
+| `microEpochSize` | `25` |
+| `macroEpochMicroFactor` | `40` |
+| Derived macro epoch size | `1000` blocks |
+| `microEpochInactivityDecayBps` | `9000` |
+| `microEpochNominalWeightUnits` | `10000` |
+
+The active chain ID is:
+
+```text
+1643
+```
+
+The current upgrade baseline is therefore:
+
+```text
+XGR2.0 delegated PoS mainnet active
+```
+
+---
+
+## 3. Network upgrade categories
 
 Not every upgrade has the same risk.
 
-| Upgrade type | Description | Consensus risk |
+| Upgrade type | Description | Coordination level |
 |---|---|---|
-| Operational upgrade | Logging, metrics, CLI usability, non-consensus bug fixes | Low if execution/consensus behavior is unchanged |
-| RPC upgrade | Adds or changes non-consensus RPC behavior | Low to medium depending on clients |
+| Operational upgrade | Logging, metrics, CLI usability, non-consensus bug fixes | Low if execution and consensus behavior are unchanged |
+| RPC upgrade | Adds or changes non-consensus read behavior | Low to medium depending on public clients |
 | Performance upgrade | Improves execution, networking, storage or txpool performance without changing results | Medium if not carefully tested |
 | Configuration upgrade | Changes runtime configuration or published chain configuration | Medium to high depending on field |
 | Hardfork upgrade | Changes block validity, transaction validity, state transition or consensus behavior | High |
 | Validator-set upgrade | Changes validator participation, voting power or epoch behavior | High |
-| Fee-model upgrade | Changes gas/base-fee/min-fee/burn/donation/reward behavior | High |
-| Staking/PoS upgrade | Activates staking, delegation or stake-weighted validator behavior | High |
+| Fee-model upgrade | Changes gas, base fee, minimum fee, fee pool or reward behavior | High |
+| Staking / PoS upgrade | Changes staking, delegation, validator eligibility or voting power behavior | High |
 
 The upgrade process must match the risk level.
 
@@ -56,9 +115,9 @@ A hardfork requires coordinated release and activation.
 
 ---
 
-## 3. Hardfork definition
+## 4. Hardfork definition
 
-A hardfork is a protocol change that makes upgraded nodes follow different block-validity, transaction-validity or state-transition rules from older nodes after a defined activation point.
+A hardfork is a protocol change that makes upgraded nodes follow different block-validity, transaction-validity or state-transition rules from non-upgraded nodes after a defined activation point.
 
 A hardfork can change:
 
@@ -70,7 +129,6 @@ A hardfork can change:
 - receipt generation
 - log generation
 - state transition behavior
-- block reward behavior
 - validator-set behavior
 - consensus voting rules
 - epoch transition logic
@@ -82,7 +140,7 @@ Any change that can make two nodes disagree about whether a block is valid is ha
 
 ---
 
-## 4. Fork activation model
+## 5. Fork activation model
 
 XGR Chain uses a block-height-based fork activation model.
 
@@ -94,7 +152,7 @@ params.forks
 
 Each fork entry defines an activation block.
 
-Conceptually:
+The code-level activation rule is:
 
 ```text
 fork is active when currentBlock >= fork.block
@@ -120,9 +178,9 @@ All nodes participating in the same network must use the same effective fork sch
 
 ---
 
-## 5. Published mainnet fork configuration
+## 6. Published mainnet fork configuration
 
-The published mainnet configuration currently activates the following forks from block `0`:
+The published mainnet configuration activates the following fork features from block `0`:
 
 | Fork / feature | Activation block |
 |---|---:|
@@ -139,7 +197,7 @@ The published mainnet configuration currently activates the following forks from
 | `quorumcalcalignment` | `0` |
 | `txHashWithType` | `0` |
 
-The published mainnet configuration currently activates the following forks from block `1208500`:
+The published mainnet configuration activates the following fork features from block `1208500`:
 
 | Fork / feature | Activation block |
 |---|---:|
@@ -154,84 +212,115 @@ A different fork schedule means different execution rules.
 
 ---
 
-## 6. Public baseline fork support
+## 7. PoS activation as network upgrade
 
-The public `xgr-network/xgr-node` baseline supports the fork names used by the published mainnet configuration.
+The XGR2.0 PoS activation is encoded in the IBFT engine configuration, not as a normal EVM fork entry in `params.forks`.
 
-Public baseline fork set includes:
+The published mainnet IBFT schedule is:
 
-| Fork / feature | Status |
-|---|---|
-| `homestead` | Public baseline |
-| `byzantium` | Public baseline |
-| `constantinople` | Public baseline |
-| `petersburg` | Public baseline |
-| `istanbul` | Public baseline |
-| `london` | Public baseline |
-| `londonfix` | Public baseline |
-| `EIP150` | Public baseline |
-| `EIP155` | Public baseline |
-| `EIP158` | Public baseline |
-| `quorumcalcalignment` | Public baseline |
-| `txHashWithType` | Public baseline |
-| `EIP2930` | Public baseline |
-| `EIP2929` | Public baseline |
-| `EIP3860` | Public baseline |
-| `EIP3651` | Public baseline |
+```text
+PoA: from 0 to 5446499
+PoS: from 5446500
+```
 
-A fork name being supported by the node binary does not mean it is active on the network.
+Operational meaning:
 
-Network activation depends on the published chain configuration.
+| Block range | Consensus participation model |
+|---:|---|
+| `0` to `5446499` | Pre-PoS IBFT validator set |
+| `5446500` and later | Delegated PoS validator participation with IBFT finality |
+
+The activation point is deterministic and block-height based.
+
+All validators and infrastructure nodes must run a compatible XGR2.0 node release for the PoS phase.
 
 ---
 
-## 7. Development and preview fork support
+## 8. FeePoolSplit alignment with PoS activation
 
-Some fork features can exist in development before they are part of the public baseline or the published mainnet configuration.
+The XGR2.0 node contains explicit alignment logic for `feePoolSplit`.
 
-Example:
+The rule is:
 
-| Fork / feature | Status |
-|---|---|
-| `feePoolSplit` | Development / preview until included in an official public release and activated through published configuration |
+```text
+feePoolSplit must activate at the first PoS IBFT fork block.
+```
 
-A development fork feature is not production-active merely because it exists in development code.
+Behavior:
 
-A feature becomes operational only when all required conditions are met:
+- the node scans the IBFT fork schedule
+- it finds the first `PoS` entry
+- if `feePoolSplit` already exists and its block differs from the first PoS block, initialization fails
+- if `feePoolSplit` is missing and a PoS fork exists, the node sets `feePoolSplit` internally to the first PoS block
 
-1. the feature is included in an official node release
-2. release notes describe the behavior
-3. the published chain configuration activates it, if activation is configuration-based
-4. validators and operators are instructed to upgrade
-5. the activation block or activation condition is reached
+For XGR2.0 mainnet:
 
-Until then, it must be treated as development / preview.
+```text
+first PoS block = 5446500
+feePoolSplit effective block = 5446500
+```
+
+Operators must not manually add or edit `feePoolSplit` to a different block.
+
+A mismatch is consensus-relevant because fee and reward behavior can affect state transition.
 
 ---
 
-## 8. What requires hardfork coordination
+## 9. Supported fork names in XGR2.0
+
+The XGR2.0 node supports the fork names used by the published mainnet configuration and internal fee-pool alignment.
+
+Supported fork constants include:
+
+| Fork / feature |
+|---|
+| `homestead` |
+| `byzantium` |
+| `constantinople` |
+| `petersburg` |
+| `istanbul` |
+| `london` |
+| `londonfix` |
+| `EIP150` |
+| `EIP155` |
+| `EIP158` |
+| `quorumcalcalignment` |
+| `txHashWithType` |
+| `EIP2930` |
+| `EIP2929` |
+| `EIP3860` |
+| `EIP3651` |
+| `feePoolSplit` |
+
+A fork name being supported by the node binary does not by itself define a public network activation block.
+
+Network activation depends on the published chain configuration and deterministic node alignment logic.
+
+---
+
+## 10. What requires hardfork coordination
 
 Treat a change as hardfork-level if it affects any of the following:
 
 | Area | Examples |
 |---|---|
-| Transaction validity | New tx type, fee validation, chain ID rules, nonce handling |
+| Transaction validity | New transaction type, fee validation, chain ID rules, nonce handling |
 | EVM execution | Opcode behavior, gas schedule, precompile behavior |
 | State transition | Balance changes, storage changes, log/receipt differences |
 | Block validity | Header fields, base fee, gas limit, extra data, seal validation |
 | Consensus behavior | Proposal validation, commit rules, round logic, quorum behavior |
 | Validator set | Join/leave behavior, activation/deactivation, voting power |
-| Staking behavior | Delegation, self-stake, epoch effectiveness, slashing, rewards |
-| Fee accounting | Base fee, min fee, burn, donation, fee pool, rewards |
+| Staking behavior | Delegation, self-stake, epoch effectiveness, reward ineligibility, rewards |
+| Fee accounting | Base fee, minimum fee, fee pool, rewards |
 | Fork schedule | Activation block, fork-specific parameters |
 | Protocol registry behavior | Configured protocol addresses or registry-dependent behavior |
 | RPC-generated protocol actions | Any RPC-generated transaction or action that affects consensus state |
 
-If old and new nodes can disagree about block validity, the change requires coordinated activation.
+If non-upgraded and upgraded nodes can disagree about block validity, the change requires coordinated activation.
 
 ---
 
-## 9. What usually does not require hardfork coordination
+## 11. What usually does not require hardfork coordination
 
 Some changes may not require a hardfork if they do not affect consensus, execution results or network-wide deterministic behavior.
 
@@ -243,7 +332,7 @@ Examples:
 | Logging improvement | No hardfork |
 | Metrics improvement | No hardfork |
 | CLI help text | No hardfork |
-| Non-consensus RPC read endpoint | Usually no hardfork |
+| Non-consensus read-only RPC endpoint | Usually no hardfork |
 | Dashboard-only formatting | No hardfork |
 | Internal refactor with identical behavior | No hardfork if verified |
 | Performance optimization with identical output | No hardfork if verified |
@@ -251,15 +340,15 @@ Examples:
 
 These changes still need testing.
 
-A “non-consensus” change can become dangerous if it accidentally changes state transition, block validation or transaction validation.
+A non-consensus change can become dangerous if it accidentally changes state transition, block validation or transaction validation.
 
 ---
 
-## 10. Published configuration vs runtime flags
+## 12. Published configuration versus runtime flags
 
 The published chain configuration defines network behavior.
 
-Runtime flags define local node behavior.
+Runtime flags define how a local node process runs.
 
 Examples of published configuration fields:
 
@@ -293,26 +382,26 @@ Consensus-critical changes must be deterministic across the network.
 
 ---
 
-## 11. Configuration update model
+## 13. Configuration update model
 
 There are two different cases.
 
-### 11.1 Fork schedule already published
+### 13.1 Activation already published
 
-If the fork schedule is already present in the published chain configuration, operators usually need to run a compatible node release before the activation block.
+If the activation schedule is already present in the published chain configuration, operators need to run a compatible node release before the activation block.
 
 In this case:
 
-- all nodes already know the activation block
-- upgraded binaries are required before activation
-- older binaries may fail at or after activation
-- validators must coordinate rollout before the fork block
+- all nodes know the activation block
+- compatible binaries are required before activation
+- incompatible binaries may fail at or after activation
+- validators must coordinate rollout before the activation block
 
-### 11.2 Fork schedule added after launch
+### 13.2 Activation added through a new published configuration
 
-If a new fork entry is added after network launch, this is a coordinated network upgrade.
+If a new fork entry or consensus activation entry is added after network launch, this is a coordinated network upgrade.
 
-All participating nodes must use the same effective fork schedule before reaching the activation block.
+All participating nodes must use the same effective fork or consensus activation schedule before reaching the activation block.
 
 A mismatch can cause:
 
@@ -322,11 +411,11 @@ A mismatch can cause:
 - inconsistent state
 - chain split
 
-Operators must not locally modify the fork schedule unless the update is part of an official network upgrade.
+Operators must not locally modify the fork or consensus schedule unless the update is part of an official network upgrade.
 
 ---
 
-## 12. Activation block selection
+## 14. Activation block selection
 
 A safe activation block should:
 
@@ -335,7 +424,7 @@ A safe activation block should:
 - avoid known maintenance windows
 - avoid high-risk external deadlines
 - avoid periods of known network instability
-- leave time for testnet/staging validation
+- leave time for testnet or staging validation
 - be clearly announced
 - be deterministic and unambiguous
 
@@ -352,7 +441,7 @@ The activation block must be communicated as an exact block number.
 
 ---
 
-## 13. Release artifacts
+## 15. Release artifacts
 
 A production network upgrade should provide clear release artifacts.
 
@@ -375,21 +464,21 @@ Operators should not rely on informal build names or unpublished commits for pro
 
 ---
 
-## 14. Release readiness checklist
+## 16. Release readiness checklist
 
 Before announcing a hardfork activation, verify:
 
 - implementation is complete
-- pre-fork behavior is unchanged
-- post-fork behavior is correct
+- pre-activation behavior is unchanged
+- post-activation behavior is correct
 - activation boundary is tested
 - block import across activation works
 - full sync from genesis across activation works
-- validator nodes can propose and verify post-fork blocks
-- RPC nodes can follow post-fork blocks
-- explorer/indexer dependencies are known
-- gas/fee behavior is verified if affected
-- staking/validator behavior is verified if affected
+- validator nodes can propose and verify post-activation blocks
+- RPC nodes can follow post-activation blocks
+- explorer and indexer dependencies are known
+- gas and fee behavior is verified if affected
+- staking and validator behavior is verified if affected
 - release artifacts are reproducible
 - release notes are complete
 - activation block is selected
@@ -399,106 +488,50 @@ Before announcing a hardfork activation, verify:
 
 A hardfork release should not be activated based only on unit tests.
 
-Boundary and replay behavior matter.
+It should be validated with integration tests, end-to-end tests and activation-boundary tests.
 
 ---
 
-## 15. Test requirements
+## 17. Validator rollout
 
-Testing must match the risk of the change.
+Validator rollout is the most important part of a consensus-affecting upgrade.
 
-Minimum hardfork test cases:
+Validators should:
 
-| Case | Expected behavior |
-|---|---|
-| block `forkBlock - 1` | Old behavior |
-| block `forkBlock` | New behavior active |
-| block `forkBlock + 1` | New behavior remains active |
-| missing fork config | Deterministic behavior according to release design |
-| mismatched fork params | Explicit failure or deterministic behavior |
-| fresh sync across activation | Same canonical chain |
-| block import across activation | Same state root and receipts |
-| validator proposal after activation | Accepted by upgraded validators |
-| old binary after activation | Fails predictably if rules are incompatible |
+- install the required binary before activation
+- verify the correct published configuration
+- verify validator key material
+- verify peer connectivity
+- verify local head
+- verify chain ID
+- verify service health
+- verify logs
+- confirm readiness before activation
+- remain reachable during the activation window
 
-Additional tests for consensus changes:
+The target state for a hardfork is:
 
-- validator-set transition tests
-- quorum tests
-- proposer selection tests
-- round-change tests
-- snapshot/replay tests
-- network restart tests
-- mixed-upgrade simulations where safe and useful
+```text
+All validators upgraded before activation.
+```
 
-Additional tests for staking/PoS changes:
+For XGR2.0 PoS operation, validators must also verify:
 
-- validator join
-- validator activation
-- validator deactivation
-- delegation
-- undelegation
-- reward attribution
-- slashing / reward ineligibility
-- micro/macro epoch boundaries
-- stake-weighted voting behavior
-- liveness under offline validators
+- PoS active state after block `5446500`
+- validator presence in the active validator set
+- staking active status
+- delegated stake visibility where relevant
+- epoch and micro-epoch values
+- reward and fee-pool behavior
+- PoS monitoring RPC output
 
 ---
 
-## 16. Validator rollout
+## 18. RPC and indexer rollout
 
-Validator operators should upgrade before the activation block.
+RPC and indexer operators should upgrade before users depend on post-activation behavior.
 
-Recommended validator rollout steps:
-
-1. Read release notes.
-2. Confirm required version.
-3. Confirm activation block.
-4. Back up validator key material.
-5. Back up service configuration.
-6. Verify release artifact checksum.
-7. Install the new binary.
-8. Confirm binary version.
-9. Confirm the node uses the published chain configuration.
-10. Restart the node during the agreed rollout window.
-11. Verify peer connectivity.
-12. Verify block height.
-13. Verify validator participation.
-14. Monitor logs.
-15. Remain available during activation.
-
-Useful checks:
-
-```bash
-/opt/xgr/bin/xgrchain version
-```
-
-```bash
-/opt/xgr/bin/xgrchain server --help
-```
-
-```bash
-curl -s -X POST http://127.0.0.1:8545 \
-  -H 'content-type: application/json' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
-```
-
-```bash
-curl -s -X POST http://127.0.0.1:8545 \
-  -H 'content-type: application/json' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
-```
-
-Validator nodes should not be upgraded blindly without verifying the target release and activation block.
-
----
-
-## 17. Full node and RPC rollout
-
-Full nodes and RPC nodes should also upgrade before activation when the upgrade affects execution, RPC compatibility or fork behavior.
-
-RPC/indexer operators should verify:
+RPC and indexer operators should verify:
 
 - node version
 - chain ID
@@ -507,10 +540,11 @@ RPC/indexer operators should verify:
 - peer count
 - transaction receipt behavior
 - block import behavior
-- explorer/indexer compatibility
+- explorer and indexer compatibility
 - public RPC latency
 - error rate
 - logs around activation
+- affected RPC methods
 
 Public RPC infrastructure should not lag behind consensus-critical upgrades.
 
@@ -518,19 +552,19 @@ A stale RPC node can mislead users, wallets, explorers and dashboards even if va
 
 ---
 
-## 18. Mixed-version risk
+## 19. Mixed-version risk
 
-During rollout, the network may temporarily contain old and new node versions.
+During rollout, the network may temporarily contain different node versions.
 
-Mixed versions are acceptable only before activation if old and new nodes still agree on block validity.
+Mixed versions are acceptable only before activation if the different versions still agree on block validity.
 
 At or after activation:
 
 - upgraded nodes follow new rules
-- old nodes may reject valid new-rule blocks
-- old validators may fail to participate correctly
-- old RPC nodes may stop syncing
-- old explorers may show stale or wrong data
+- non-upgraded nodes may reject valid new-rule blocks
+- non-upgraded validators may fail to participate correctly
+- non-upgraded RPC nodes may stop syncing
+- non-upgraded explorers may show stale or wrong data
 
 For hardforks, the target state must be:
 
@@ -541,12 +575,12 @@ All validators upgraded before activation.
 For RPC infrastructure, the target state should be:
 
 ```text
-All public and indexing nodes upgraded before activation or before users depend on post-fork behavior.
+All public and indexing nodes upgraded before activation or before users depend on post-activation behavior.
 ```
 
 ---
 
-## 19. Chain split risk
+## 20. Chain split risk
 
 A chain split can occur when nodes disagree on consensus-critical rules.
 
@@ -555,7 +589,7 @@ Common causes:
 | Cause | Example |
 |---|---|
 | Different fork block | Node A activates at block X, node B at block Y |
-| Missing fork support | Old binary cannot validate post-fork blocks |
+| Missing fork support | Non-compatible binary cannot validate post-activation blocks |
 | Different fork parameters | Same fork name and block, different params |
 | Different published config | Operators use different config files |
 | Non-deterministic behavior | Local clock/environment affects block validity |
@@ -575,35 +609,35 @@ Chain split prevention requires:
 
 ---
 
-## 20. Rollback boundaries
+## 21. Rollback boundaries
 
 Rollback depends on activation state.
 
-### 20.1 Before activation
+### 21.1 Before activation
 
 Before the activation block, rollback may be possible if:
 
 - the new rules have not activated
 - validators coordinate
-- the network has not processed post-fork blocks
+- the network has not processed post-activation blocks
 - the previous binary remains compatible with current chain state
 - the published instructions clearly allow rollback
 
 Before activation, rollback usually means replacing the binary and/or delaying the planned activation through a coordinated update.
 
-### 20.2 At or after activation
+### 21.2 At or after activation
 
 After activation, rollback is dangerous.
 
 A simple downgrade may fail if:
 
-- the node has processed post-fork blocks
+- the node has processed post-activation blocks
 - state was changed under new rules
 - receipts/logs differ under new rules
 - validator set behavior changed
 - fee accounting changed
 - transaction validation changed
-- the old binary cannot import the canonical head
+- the previous binary cannot import the canonical head
 
 After activation, reversing behavior is usually another network upgrade.
 
@@ -611,7 +645,7 @@ Operators must not downgrade after activation unless official instructions expli
 
 ---
 
-## 21. Incident handling during activation
+## 22. Incident handling during activation
 
 If activation fails, first classify the symptom.
 
@@ -642,7 +676,7 @@ Do not make multiple simultaneous emergency changes.
 
 ---
 
-## 22. Activation monitoring
+## 23. Activation monitoring
 
 Monitor before, during and after activation.
 
@@ -662,17 +696,18 @@ Critical signals:
 | CPU/memory/disk | Shows infrastructure saturation |
 | Explorer/indexer height | Shows downstream compatibility |
 | Receipt/log behavior | Shows execution/result compatibility |
+| PoS overview RPC | Shows validator, stake, delegation and epoch state after PoS activation |
 
 For hardforks, monitoring should cover:
 
 - at least several epochs or operational windows before activation
 - the activation block itself
 - several blocks immediately after activation
-- enough time to confirm explorer/indexer/RPC stability
+- enough time to confirm explorer, indexer and RPC stability
 
 ---
 
-## 23. Post-activation validation
+## 24. Post-activation validation
 
 After activation, verify:
 
@@ -683,11 +718,23 @@ After activation, verify:
 - node logs do not show block import failures
 - head hashes match across trusted nodes
 - RPC nodes follow the same head
-- explorers/indexers follow the same head
+- explorers and indexers follow the same head
 - transaction receipts are generated correctly
 - affected RPC methods behave as expected
-- gas/fee behavior matches release expectations
-- staking/validator behavior matches release expectations, if applicable
+- gas and fee behavior matches release expectations
+- staking and validator behavior matches release expectations, if applicable
+
+For XGR2.0 PoS, verify:
+
+- head is above block `5446500`
+- PoS overview reports `posActive = true`
+- `posFromBlock` equals `5446500`
+- epoch size resolves to `1000`
+- micro-epoch size resolves to `25` unless runtime guard disables it due to validator-count conditions
+- minimum validators resolve to `4`
+- maximum validators resolve to `25`
+- validator set matches expected PoS state
+- fee-pool and staking contract balances are readable
 
 Post-activation validation must include both consensus nodes and infrastructure nodes.
 
@@ -695,13 +742,13 @@ A successful validator activation is incomplete if public RPC and explorers are 
 
 ---
 
-## 24. Configuration replacement rules
+## 25. Configuration replacement rules
 
 Operators must not casually replace the chain configuration file on a production node.
 
 There are different cases.
 
-### 24.1 Same genesis, new binary
+### 25.1 Same genesis, new binary
 
 If the published chain configuration remains unchanged and the upgrade is binary-only:
 
@@ -710,16 +757,16 @@ If the published chain configuration remains unchanged and the upgrade is binary
 - restart the node
 - verify sync and health
 
-### 24.2 Same genesis, fork already scheduled
+### 25.2 Same genesis, activation already scheduled
 
-If the fork schedule is already in the published configuration:
+If the fork or consensus activation schedule is already in the published configuration:
 
 - install a compatible binary before activation
 - keep the published chain configuration
-- do not locally edit fork values
-- verify the binary can process the scheduled fork
+- do not locally edit activation values
+- verify the binary can process the scheduled activation
 
-### 24.3 Updated published configuration
+### 25.3 Updated published configuration
 
 If XGR Network publishes an updated configuration:
 
@@ -730,7 +777,7 @@ If XGR Network publishes an updated configuration:
 - verify chain ID and fork schedule
 - monitor activation
 
-### 24.4 Local edits
+### 25.4 Local edits
 
 Local edits to network-defining fields create risk.
 
@@ -739,6 +786,7 @@ Do not locally edit:
 - chain ID
 - fork activation blocks
 - consensus engine parameters
+- PoA/PoS schedule
 - genesis allocations
 - validator genesis data
 - protocol registry addresses
@@ -758,27 +806,29 @@ It is fine to configure local:
 
 ---
 
-## 25. Staking / PoS upgrades
+## 26. Staking / PoS upgrades
 
-Staking / PoS activation is hardfork-level or coordinated network-upgrade-level behavior.
-
-It can affect:
+Staking / PoS changes are high-risk network upgrades because they can affect:
 
 - validator eligibility
 - validator set selection
 - voting power
 - quorum calculation
 - reward distribution
-- slashing or reward ineligibility
+- reward ineligibility
 - activation/deactivation timing
 - delegation accounting
 - epoch-boundary logic
 - consensus snapshots
 - dashboard and endpoint behavior
 
-Until activated through an official release and published configuration, staking/PoS features are development / preview.
+For XGR2.0 mainnet, delegated PoS is already active from block:
 
-A staking activation must define:
+```text
+5446500
+```
+
+A future staking / PoS change must define:
 
 - activation block or activation condition
 - minimum required node version
@@ -795,7 +845,7 @@ Validators and RPC/indexer operators must upgrade consistently.
 
 ---
 
-## 26. Fee-model upgrades
+## 27. Fee-model upgrades
 
 Fee-model upgrades require special care.
 
@@ -806,8 +856,6 @@ They can affect:
 - base fee
 - minimum base fee
 - priority fee behavior
-- burn behavior
-- donation behavior
 - fee-pool behavior
 - validator reward accounting
 - explorer fee display
@@ -820,36 +868,37 @@ Fee-model release notes must specify:
 - activation block
 - affected transaction types
 - base-fee behavior
-- min-fee behavior
+- minimum-fee behavior
 - fee distribution behavior
 - txpool behavior
 - expected explorer display
 - compatibility with existing wallets
 
-If a feature such as `feePoolSplit` is present only in development, it remains development / preview until included in an official release and activated by published configuration.
+For XGR2.0, `feePoolSplit` is internally aligned to the first PoS block.
+
+Operators must not configure it to any other block.
 
 ---
 
-## 27. RPC-impacting upgrades
+## 28. RPC-impacting upgrades
 
 Some upgrades do not change consensus but still affect clients.
 
 Examples:
 
-- new RPC endpoint
-- removed RPC endpoint
+- new public RPC endpoint
+- removed public RPC endpoint
 - changed response field
 - changed field name
 - changed error behavior
 - changed quantity encoding
 - changed namespace exposure
-- changed debug/txpool behavior
+- changed debug or txpool behavior
 - changed XGR extension endpoint
 
 RPC-impacting upgrades should define:
 
-- whether the endpoint is public baseline or extension
-- whether it is development / preview
+- whether the endpoint is public baseline or internal/operator-only
 - expected method name
 - request schema
 - response schema
@@ -857,19 +906,13 @@ RPC-impacting upgrades should define:
 - compatibility notes
 - endpoint exposure policy
 
-Examples of release-dependent XGR extension areas:
-
-- XDaLa endpoints
-- staking endpoints
-- validator monitoring endpoints
-- grant management endpoints
-- orchestration/session endpoints
-
 Client-facing schema changes should be treated as breaking unless explicitly backward-compatible.
+
+For public PoS RPC, the code-backed endpoint reference is the authoritative public schema document.
 
 ---
 
-## 28. Upgrade communication
+## 29. Upgrade communication
 
 An operator-facing upgrade announcement should include:
 
@@ -879,7 +922,7 @@ An operator-facing upgrade announcement should include:
 | Required by | Validators, RPC nodes, indexers, all nodes |
 | Activation block | Exact block number, if applicable |
 | Activation type | Binary-only, config update, hardfork, staking activation, fee change |
-| Minimum required version | Old versions that become unsafe/incompatible |
+| Minimum required version | Versions that become unsafe/incompatible |
 | Configuration changes | Exact published config file or diff |
 | Operator action | Commands or high-level steps |
 | Risk level | Low / medium / high |
@@ -893,7 +936,7 @@ Use exact versions and exact blocks.
 
 ---
 
-## 29. Operator checklist
+## 30. Operator checklist
 
 Before upgrade:
 
@@ -937,16 +980,17 @@ After upgrade:
 
 ---
 
-## 30. Summary
+## 31. Summary
 
 | Topic | Rule |
 |---|---|
 | Fork activation | Block-height based through published configuration |
 | Active fork condition | `currentBlock >= fork.block` |
-| Current public baseline | Supports published mainnet fork set |
-| Development features | Not production-active until official release and activation |
-| `feePoolSplit` | Development / preview until public release and published activation |
-| Staking / PoS | Development / preview until official activation |
+| XGR2.0 PoS activation | block `5446500` |
+| XGR2.0 PoS deployment | block `5446500` |
+| XGR2.0 PoS epoch size | `25 * 40 = 1000` blocks |
+| XGR2.0 validator limits | min `4`, max `25` |
+| `feePoolSplit` | Internally aligned to the first PoS block |
 | Validator rollout | Must complete before hardfork activation |
 | Configuration edits | Only use published configuration updates |
 | Mixed versions | Safe only before activation if behavior remains compatible |
