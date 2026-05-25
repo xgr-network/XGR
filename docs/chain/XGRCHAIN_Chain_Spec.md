@@ -3,44 +3,54 @@
 **Document ID:** XGRCHAIN-SPEC  
 **Last updated:** 2026-05-24  
 **Audience:** Protocol integrators, node operators, auditors, infrastructure engineers  
-**Implementation status:** XGR2.0 mainnet baseline with delegated PoS active  
-**Source of truth:** Published XGR Chain mainnet configuration, public `xgr-network/xgr-node` branch `XGR2.0`, and official XGR Network operator announcements
+**Release baseline:** `xgr-node` release tag `v2.0.5`  
+**Mainnet genesis source:** `xgr-network/XGR` branch `main`, path `genesis/mainnet/genesis.json`  
+**Node implementation:** `xgr-network/xgr-node`  
+**Scope:** Chain-level protocol and network specification only
 
 ---
 
 ## 1. Scope
 
-This document defines the chain-level specification for **XGR Chain**.
+This document defines the chain-level specification for XGR Chain.
 
 It covers:
 
 - network identity
+- published mainnet configuration
 - EVM compatibility
-- account and transaction model
+- account model
+- transaction model
 - transaction signing and replay protection
 - execution model
+- block model
 - fork activation configuration
-- genesis-level parameters
-- consensus-layer relationship
-- delegated PoS activation status
+- consensus relationship
+- delegated PoS activation boundary
 - validator and delegation model at chain level
-- timing and block parameters
-- genesis block semantics
+- epoch and micro-epoch model
+- genesis state
 - bootnodes and peer discovery
 - gas and fee model at specification level
 - chain parameter fields
 - JSON-RPC surfaces relevant to chain operation
-- chain-level integration boundaries for XDaLa and XRC components
+- integration boundary for application-layer systems
 
-This document is the protocol-level overview of XGR Chain.
+This document does not define:
 
-Exact operator commands, service files, key handling, runtime flags, monitoring, backups and troubleshooting belong to node-operation documentation.
+- node installation commands
+- validator onboarding commands
+- service files
+- monitoring setup
+- XDaLa process semantics
+- XRC standards
+- UI behavior
 
-Exact endpoint schemas belong to their respective RPC references.
+Node operation belongs to the node-operation runbook.
 
-Exact gas accounting and fee distribution details belong to the dedicated gas specification.
+Exact PoS RPC schemas belong to the staking / PoS endpoint reference.
 
-XDaLa-specific process semantics, rule syntax, orchestration logic, encryption/grant flows and XRC standard definitions are outside the scope of this document and belong to their own documentation.
+Exact gas accounting and fee distribution details belong to the dedicated gas and fee documentation.
 
 ---
 
@@ -50,48 +60,40 @@ XDaLa-specific process semantics, rule syntax, orchestration logic, encryption/g
 |---|---|
 | Network name | `xgrchain` |
 | Chain ID | `1643` |
+| Chain ID hex | `0x66b` |
 | Native execution model | EVM-compatible |
-| Standard RPC namespace | `eth_*`, `net_*`, `web3_*` |
-| XGR extension RPC namespace | `xgr_*` where supported by the active node release |
-| Native token decimals | 18 |
+| Standard RPC namespaces | `eth_*`, `net_*`, `web3_*` |
+| Native token decimals | `18` |
 | Transaction replay protection | EIP-155 chain ID |
 | Consensus finality | IBFT deterministic finality |
-| Validator participation model | Delegated PoS active from XGR2.0 cutover |
+| Validator participation from block `5446500` | Delegated PoS |
+| Public node release baseline | `xgr-node v2.0.5` |
 
-Transactions must be signed for the configured XGR Chain ID:
+Transactions must be signed for:
 
 ```text
 chainId = 1643
 ```
 
-The chain ID is part of the signing domain.
-
-A transaction signed for a different chain ID is not valid for XGR Chain.
+A transaction signed for a different chain ID is not valid for XGR Chain mainnet.
 
 ---
 
-## 3. Public baseline and release status
+## 3. Public node baseline
 
-XGR Chain separates:
-
-1. the public node implementation
-2. the published mainnet configuration
-3. active chain-level protocol behavior
-4. XGR application-layer systems documented elsewhere
-
-The current public node baseline for the delegated PoS rollout is:
+The public node implementation is:
 
 ```text
-xgr-network/xgr-node
+https://github.com/xgr-network/xgr-node
 ```
 
-Reference branch:
+Current public release baseline:
 
 ```text
-XGR2.0
+v2.0.5
 ```
 
-This baseline provides:
+The public release baseline provides:
 
 - EVM execution
 - IBFT consensus networking
@@ -101,7 +103,7 @@ This baseline provides:
 - staking lifecycle handling
 - epoch and micro-epoch accounting
 - standard Ethereum JSON-RPC
-- PoS monitoring RPC methods
+- public PoS monitoring RPC methods
 - genesis/configuration loading
 - transaction validation
 - transaction execution
@@ -109,19 +111,43 @@ This baseline provides:
 - peer networking
 - local node operation primitives
 
-The previous classification of staking and delegated PoS as development or preview is obsolete for the XGR2.0 mainnet baseline.
+The public `v2.0.5` build is a standalone chain node.
+
+It does not require:
+
+```text
+xgrEngine
+XDaLa
+engine_embedded build mode
+```
+
+XDaLa and XRC are application-layer topics and are not specified in this chain-level document.
 
 ---
 
-## 4. Published configuration
+## 4. Published mainnet configuration
 
-The published chain configuration defines:
+The published mainnet genesis is maintained in:
+
+```text
+Repository: xgr-network/XGR
+Branch:     main
+Path:       genesis/mainnet/genesis.json
+```
+
+Raw reference path:
+
+```text
+https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json
+```
+
+The published configuration defines:
 
 - chain ID
 - genesis block
 - initial allocation
 - consensus engine configuration
-- validator set at genesis
+- initial validator data
 - fork activation schedule
 - PoS activation point
 - epoch and micro-epoch parameters
@@ -129,40 +155,65 @@ The published chain configuration defines:
 - gas and base-fee genesis fields
 - configured protocol addresses where applicable
 
-A node joins the published XGR Chain network by running a compatible node release with the published genesis configuration.
+A node joins the published XGR Chain network by running a compatible node release with this published chain configuration.
 
-A node with a different network-defining configuration is not running the same chain.
+A node with different network-defining configuration is not running the same chain.
 
 ---
 
-## 5. PoA to delegated PoS transition
+## 5. Chain configuration schema
 
-XGR Chain originally operated with an IBFT validator set configured through genesis.
+The public node chain schema contains:
 
-With XGR2.0, delegated PoS was rolled out to mainnet.
+```json
+{
+  "name": "xgrchain",
+  "genesis": {},
+  "params": {},
+  "bootnodes": []
+}
+```
 
-The mainnet delegated PoS cutover block is:
+Runtime genesis allocation is defined in:
+
+```text
+genesis.alloc
+```
+
+The published mainnet genesis also contains a top-level `alloc` object that mirrors `genesis.alloc`.
+
+The node runtime allocation source is `genesis.alloc`.
+
+---
+
+## 6. PoA to delegated PoS transition
+
+The published mainnet genesis defines the IBFT type schedule as:
+
+| Phase | Type | Validator type | From | To | Deployment |
+|---|---|---|---:|---:|---:|
+| Initial phase | `PoA` | `bls` | `0` | `5446499` | n/a |
+| Delegated PoS phase | `PoS` | `bls` | `5446500` | n/a | `5446500` |
+
+Delegated PoS activation block:
 
 ```text
 5446500
 ```
 
-Interpretation:
+Delegated PoS deployment block:
 
-| Phase | Block range | Validator model |
-|---|---:|---|
-| Pre-XGR2.0 | before `5446500` | Genesis/static IBFT validator set |
-| XGR2.0 and later | from `5446500` onward | Delegated PoS validator participation with IBFT finality |
+```text
+5446500
+```
 
-IBFT remains the consensus finality mechanism.
+IBFT remains the deterministic-finality consensus mechanism.
 
-Delegated PoS defines validator participation, staking, delegation and validator-set evolution after the cutover.
-
-The cutover block is network-defining. Documentation, tooling and operator material must use block `5446500`.
+Delegated PoS defines validator participation, staking, delegation and validator-set evolution from block `5446500`.
 
 ---
 
-## 6. EVM compatibility
+## 7. EVM compatibility
 
 XGR Chain executes Ethereum-compatible smart contracts through an EVM-compatible execution pipeline.
 
@@ -181,13 +232,13 @@ Supported compatibility areas include:
 - Ethereum-style transaction signatures
 - Ethereum-compatible JSON-RPC for common wallet, explorer and infrastructure operations
 
-The chain is intended to be usable with standard EVM tooling, subject to the active fork configuration and XGR-specific fee behavior.
+Ordinary transfers and contract calls use standard EVM transaction envelopes.
 
-Delegated PoS does not require a non-standard Ethereum wallet transaction envelope for ordinary transfers and contract calls.
+Delegated PoS does not require a special wallet-side transaction envelope for normal user transactions.
 
 ---
 
-## 7. Account model
+## 8. Account model
 
 XGR Chain uses the Ethereum-style account model.
 
@@ -199,14 +250,14 @@ Account state includes:
 - contract code, if present
 - contract storage, if present
 
-Two account categories exist at execution level:
+Execution-level account categories:
 
 | Account type | Description |
 |---|---|
 | Externally owned account | Controlled by a private key; can sign transactions |
 | Contract account | Contains EVM bytecode and storage; executed by transactions or calls |
 
-Balances are denominated in wei.
+Balances are denominated in wei:
 
 ```text
 1 XGR = 10^18 wei
@@ -214,35 +265,38 @@ Balances are denominated in wei.
 
 ---
 
-## 8. Transaction model
+## 9. Transaction model
 
-XGR Chain supports the standard Ethereum transaction model used by EVM-compatible wallets and tooling.
+XGR Chain supports the standard Ethereum transaction model used by EVM wallets and tooling.
 
-Supported public transaction categories include:
+Public transaction categories:
 
-| Transaction category | Support | Notes |
+| Transaction category | Code-level type | Support |
 |---|---|---|
-| Legacy transaction | Yes | Uses `gasPrice` |
-| EIP-155 protected transaction | Yes | Uses chain ID replay protection |
-| Access-list transaction | Yes, when active by fork configuration | Uses EIP-2930 access list semantics |
-| Dynamic fee / type-2 transaction | Yes | Uses `maxFeePerGas` and `maxPriorityFeePerGas` |
-| Contract creation | Yes | `to` is empty / nil |
-| Contract call | Yes | `to` is set and calldata may be present |
-| Value transfer | Yes | Transfers native balance between accounts |
+| Legacy transaction | `LegacyTx` / `0x00` | Yes |
+| Access-list transaction | `AccessListTx` / `0x01` | Yes when active by fork configuration |
+| Dynamic-fee transaction | `DynamicFeeTx` / `0x02` | Yes |
+| Contract creation | `to == nil` | Yes |
+| Contract call | `to != nil` with optional calldata | Yes |
+| Value transfer | `value > 0`, empty calldata, non-contract-creation | Yes |
 
-The node implementation also contains an internal state transaction type used by system-level execution paths.
+The node also defines:
 
-Internal state transactions are not normal wallet transactions.
+| Internal type | Code-level type | Purpose |
+|---|---|---|
+| State transaction | `StateTx` / `0x7f` | Internal system-level execution paths |
 
-For PoS epoch finalization, the node implementation uses a deterministic internal system transaction shape for receipt/log indexing.
+The deterministic PoS epoch-finalization system transaction uses internal `StateTx` shape for receipt/log indexing.
+
+Internal state transactions are not ordinary wallet transactions.
 
 ---
 
-## 9. Transaction signing and replay protection
+## 10. Transaction signing and replay protection
 
 XGR Chain uses EIP-155 chain ID replay protection.
 
-For XGR Chain mainnet:
+Mainnet signing domain:
 
 ```text
 chainId = 1643
@@ -252,37 +306,35 @@ For typed transactions, the transaction chain ID must match the configured chain
 
 For protected legacy transactions, the `v` value encodes the chain ID according to EIP-155.
 
-The effective signing domain is therefore chain-specific.
-
-A transaction signed for another chain ID must not be accepted as a valid XGR Chain transaction.
+Transactions signed for another chain ID must not be accepted as valid mainnet XGR Chain transactions.
 
 ---
 
-## 10. Transaction fee fields
+## 11. Transaction fee fields
 
 XGR Chain supports Ethereum-style fee fields according to transaction type and active fork configuration.
 
 | Field | Used by | Meaning |
 |---|---|---|
 | `gasPrice` | Legacy transactions | Price per gas unit |
-| `maxFeePerGas` | Dynamic fee transactions | Maximum total fee per gas unit |
-| `maxPriorityFeePerGas` | Dynamic fee transactions | Maximum priority fee per gas unit |
+| `maxFeePerGas` | Dynamic-fee transactions | Maximum total fee per gas unit |
+| `maxPriorityFeePerGas` | Dynamic-fee transactions | Maximum priority fee per gas unit |
 | `gasLimit` | All transactions | Maximum gas the sender allows the transaction to consume |
 | `value` | Value transfers / contract calls | Native amount transferred with the transaction |
 
-For dynamic fee transactions, effective gas price follows the EIP-1559-style relation:
+For dynamic-fee transactions, the effective gas price follows the EIP-1559-style relation:
 
 ```text
 effectiveGasPrice = min(maxFeePerGas, maxPriorityFeePerGas + baseFee)
 ```
 
-XGR Chain may apply XGR-specific base-fee, minimum-fee and fee-distribution behavior depending on the active release and configuration.
+XGR Chain has XGR-specific base-fee, minimum-fee and fee-distribution behavior.
 
 Detailed fee behavior belongs to the dedicated gas and fee documentation.
 
 ---
 
-## 11. Execution model
+## 12. Execution model
 
 XGR Chain executes transactions through an EVM-compatible state transition pipeline.
 
@@ -291,7 +343,7 @@ For each valid block:
 1. the proposer selects and orders transactions
 2. the proposer builds a candidate block
 3. transactions are executed against the parent state
-4. account balances, nonces, storage and contract code are updated
+4. balances, nonces, storage and contract code are updated
 5. logs and receipts are produced
 6. gas usage and fee accounting are applied
 7. the resulting state root is committed into the block header
@@ -300,11 +352,11 @@ For each valid block:
 
 The proposer does not control valid state unilaterally.
 
-A block is only valid if other validators can independently reproduce and verify the state transition.
+A block is only valid if validators can independently reproduce and verify the state transition.
 
 ---
 
-## 12. Block model
+## 13. Block model
 
 A block contains:
 
@@ -322,11 +374,9 @@ A block contains:
 - consensus-specific extra data
 - transactions
 
-The genesis block is block `0`.
+Genesis is block `0`.
 
-The published genesis block defines the initial header fields.
-
-Known published genesis header values:
+Published genesis header values:
 
 | Field | Value |
 |---|---|
@@ -347,31 +397,29 @@ Changing genesis header values defines a different network.
 
 ---
 
-## 13. Execution fork configuration
+## 14. Fork activation model
 
-XGR Chain uses a fork activation model.
+XGR Chain uses block-number-based fork activation.
 
-Forks are activated by block number.
-
-A fork is active for a block when:
-
-```text
-blockNumber >= configuredForkBlock
-```
-
-Fork activation is defined in the published chain configuration under:
+Forks are defined under:
 
 ```text
 params.forks
 ```
 
-Nodes must use the same fork activation schedule to remain execution-compatible with the published network.
+A fork is active when:
+
+```text
+blockNumber >= configuredForkBlock
+```
+
+All nodes on the same network must use the same effective fork schedule.
 
 ---
 
-## 14. Forks active from block 0
+## 15. Forks active from block `0`
 
-The following execution features are active from genesis in the published chain configuration:
+The published mainnet configuration activates the following execution features from genesis:
 
 | Fork / feature | Activation block |
 |---|---:|
@@ -388,13 +436,11 @@ The following execution features are active from genesis in the published chain 
 | `quorumcalcalignment` | `0` |
 | `txHashWithType` | `0` |
 
-This means XGR Chain starts with a modern EVM baseline from block `0`.
-
 ---
 
-## 15. Forks active from block 1208500
+## 16. Forks active from block `1208500`
 
-The following execution features activate at block `1208500`:
+The published mainnet configuration activates:
 
 | Fork / EIP | Activation block | Purpose |
 |---|---:|---|
@@ -403,25 +449,32 @@ The following execution features activate at block `1208500`:
 | `EIP3860` | `1208500` | Initcode metering / initcode size limit |
 | `EIP3651` | `1208500` | Warm `COINBASE` behavior |
 
-Nodes must use the same fork activation schedule to remain execution-compatible with the published network.
+---
+
+## 17. FeePoolSplit alignment
+
+`feePoolSplit` is a supported fork constant in the node.
+
+For XGR2.0, the node aligns `feePoolSplit` to the first PoS IBFT fork.
+
+For mainnet:
+
+```text
+first PoS block = 5446500
+feePoolSplit effective block = 5446500
+```
+
+If `feePoolSplit` is explicitly configured to a different block than the first PoS block, node initialization must fail.
+
+If it is absent and a PoS fork exists, the node sets it internally to the first PoS block.
 
 ---
 
-## 16. Future fork entries
+## 18. Consensus layer
 
-The node codebase may contain support for additional fork constants or feature flags before those features are activated on the published network.
+XGR Chain uses IBFT as its deterministic-finality consensus protocol.
 
-A fork feature is part of the active chain specification only when it is present in the published chain configuration or activated by an official network upgrade.
-
-This rule prevents code-level availability from being confused with network-level activation.
-
----
-
-## 17. Consensus layer
-
-XGR Chain uses **IBFT** as its deterministic-finality consensus protocol.
-
-The consensus engine is configured under:
+Consensus engine path:
 
 ```text
 params.engine.ibft
@@ -435,36 +488,19 @@ IBFT provides:
 - quorum-based block commitment
 - deterministic finality once a block is committed
 
-Target block time in the published configuration is approximately:
+Published block time:
+
+```text
+params.engine.ibft.blockTime = 2000000000 ns
+```
+
+This is approximately:
 
 ```text
 2 seconds
 ```
 
-IBFT is still the consensus finality layer after delegated PoS activation.
-
-Delegated PoS changes validator-set participation and weighting, not the finality protocol itself.
-
----
-
-## 18. Consensus and execution relationship
-
-Consensus and execution are separate but linked.
-
-Execution determines whether a block is valid.
-
-Consensus determines whether a valid block becomes finalized.
-
-High-level flow:
-
-1. the proposer builds a candidate block
-2. the EVM execution pipeline computes the resulting state
-3. validators independently verify the candidate block
-4. validators participate in IBFT consensus
-5. once quorum is reached, the block is committed
-6. the committed block is final under IBFT assumptions
-
-A validator must not vote for a block whose state transition it cannot verify.
+IBFT remains the finality layer after delegated PoS activation.
 
 ---
 
@@ -472,11 +508,9 @@ A validator must not vote for a block whose state transition it cannot verify.
 
 XGR Chain uses an IBFT validator set.
 
-Before the XGR2.0 cutover, validator participation is based on the genesis/static IBFT validator model.
+From block `5446500`, validator participation is driven by delegated PoS state.
 
-From block `5446500`, delegated PoS validator participation is active.
-
-The delegated PoS validator model includes:
+At chain-spec level, delegated PoS includes:
 
 - validator self-stake
 - validator minimum stake requirements
@@ -491,13 +525,13 @@ The delegated PoS validator model includes:
 
 The active validator set is consensus-critical.
 
-Validators that are not in the active validator set do not have IBFT voting authority for the corresponding block range.
+Validators not in the active validator set do not have IBFT voting authority for the corresponding block range.
 
 ---
 
 ## 20. Delegation model
 
-Delegated PoS supports delegator participation.
+Delegated PoS supports delegation to validators.
 
 At chain-spec level, delegation includes:
 
@@ -512,9 +546,9 @@ At chain-spec level, delegation includes:
 - maximum delegated stake per validator where configured
 - commission basis points where configured
 
-Delegation affects staking-state accounting according to the active staking rules.
+Exact public RPC response schemas belong to the staking / PoS endpoint reference.
 
-Exact endpoint schemas and return fields belong to the staking / PoS endpoint reference.
+Exact operator commands belong to the node-operation runbook.
 
 ---
 
@@ -522,43 +556,45 @@ Exact endpoint schemas and return fields belong to the staking / PoS endpoint re
 
 XGR2.0 uses epoch-based staking semantics.
 
-At a high level:
+Mainnet PoS epoch configuration:
 
-- validator joins do not become consensus-effective immediately in the same block
-- validator joins become effective at an epoch boundary according to staking rules
-- validator deactivations become effective at an epoch boundary according to staking rules
-- delegation changes can affect active delegated stake according to epoch rules
-- micro-epoch accounting is used for uptime-related weighting where configured
-- PoS RPC views expose epoch and micro-epoch fields
+| Parameter | Value |
+|---|---:|
+| `microEpochSize` | `25` |
+| `macroEpochMicroFactor` | `40` |
+| Derived macro epoch size | `1000` blocks |
+| `microEpochInactivityDecayBps` | `9000` |
+| `microEpochNominalWeightUnits` | `10000` |
 
-The node resolves PoS epoch size from PoS-specific IBFT engine configuration when PoS is active.
-
-For PoS mode, epoch sizing is derived from:
+PoS epoch size is derived from:
 
 ```text
 microEpochSize * macroEpochMicroFactor
 ```
 
-Operators and integrators must not assume the legacy IBFT `epochSize` field applies unchanged after PoS activation.
+For mainnet:
+
+```text
+25 * 40 = 1000 blocks
+```
+
+Validator joins, deactivations and delegation effects are interpreted through the active staking and epoch rules.
 
 ---
 
 ## 22. Timing and block parameters
 
-Current chain-level timing and block parameters include:
-
 | Parameter | Value |
 |---|---|
-| Target block time | ~2.0 seconds |
+| Target block time | approximately 2 seconds |
 | `params.engine.ibft.blockTime` | `2000000000` ns |
-| Genesis block gas limit | `60,000,000` |
+| Genesis gas limit | `60,000,000` |
 | Genesis difficulty | `0x1` |
 | Genesis parent hash | `0x0000000000000000000000000000000000000000000000000000000000000000` |
 | Genesis mix hash | `0x0000000000000000000000000000000000000000000000000000000000000000` |
 | Genesis timestamp | `0x0` |
 | Delegated PoS activation block | `5446500` |
-
-Legacy IBFT epoch values and PoS epoch values must be interpreted through the active chain configuration for the relevant block range.
+| PoS macro epoch size | `1000` blocks |
 
 ---
 
@@ -585,11 +621,7 @@ Initial balances are defined in:
 genesis.alloc
 ```
 
-Balances are denominated in wei:
-
-```text
-1 XGR = 10^18 wei
-```
+Balances are denominated in wei.
 
 The top-level allocation in the published genesis mirrors the genesis allocation.
 
@@ -611,17 +643,11 @@ Published genesis allocation entries:
 | `0x4675EdCa3c4637E68Ed1C1776a11EB5c9828F056` | `3141592653580000000000000000` | `3,141,592,653.58` |
 | `0x7818A59b2D279Fe3444B75dcE1A443C1b124c161` | `1380649000000000000000000000` | `1,380,649,000` |
 
-These balances are part of the published genesis state.
-
-Changing them defines a different network.
-
 ---
 
 ## 25. Bootnodes and networking
 
-Bootnodes are defined as libp2p multiaddresses in the published chain configuration.
-
-Published bootnode entry:
+Published mainnet bootnode:
 
 ```text
 /ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck
@@ -631,27 +657,27 @@ Bootnodes provide initial peer discovery.
 
 They do not grant validator authority.
 
-A node can use bootnodes to discover peers, but consensus participation depends on the active validator-set rules.
+Consensus participation depends on active validator-set rules.
 
 ---
 
 ## 26. Gas and fee model
 
-XGR Chain supports Ethereum-style transaction fee fields while applying XGR-specific fee behavior according to active configuration and release behavior.
+XGR Chain supports Ethereum-style transaction fee fields and XGR-specific fee behavior.
 
 High-level fee fields:
 
 | Topic | XGR behavior |
 |---|---|
 | Legacy fee field | `gasPrice` |
-| Dynamic fee fields | `maxFeePerGas`, `maxPriorityFeePerGas` |
+| Dynamic-fee fields | `maxFeePerGas`, `maxPriorityFeePerGas` |
 | Base fee field | Present in block/genesis model |
 | Genesis base fee | `0x0` |
 | Genesis gas limit | `60,000,000` |
 | Transaction pool price limit | Runtime node setting |
 | Fee policy | XGR-specific and release/configuration-dependent |
 
-The published genesis contains:
+Published genesis fee-related fields:
 
 | Field | Value |
 |---|---|
@@ -662,23 +688,11 @@ The published genesis contains:
 | `params.burnContract` | `null` |
 | `params.burnContractDestinationAddress` | `0x0000000000000000000000000000000000000000` |
 
-Gas and fee behavior must be interpreted together with:
-
-- active transaction type
-- active fork configuration
-- base-fee behavior
-- minimum-fee behavior
-- txpool admission rules
-- fee accounting and distribution logic
-- configured registry values where supported
-
 ---
 
 ## 27. Minimum base fee and fee-policy constants
 
-The public node baseline includes XGR-specific constants for fee behavior.
-
-Relevant constants include:
+The public `v2.0.5` node includes these XGR-specific constants:
 
 | Constant | Value | Meaning |
 |---|---:|---|
@@ -686,9 +700,7 @@ Relevant constants include:
 | `CriticalGasThresholdPct` | `80` | Utilization threshold below which base fee remains at minimum behavior |
 | `EmergencyBaseFeeChangeDenom` | `4` | Maximum emergency base-fee ramp denominator |
 
-These values are part of XGR-specific fee behavior.
-
-Effective fee behavior can also depend on registry-provided values where supported by the active release stack.
+Effective fee behavior can also depend on active release behavior and configured registry values where supported.
 
 ---
 
@@ -708,41 +720,33 @@ The chain parameter schema includes:
 | `contractDeployerBlockList` | Contract deployer block-list configuration |
 | `transactionsAllowList` | Transaction allow-list configuration |
 | `transactionsBlockList` | Transaction block-list configuration |
-| `bridgeAllowList` | Bridge-related allow-list field retained in schema |
-| `bridgeBlockList` | Bridge-related block-list field retained in schema |
+| `bridgeAllowList` | Bridge-related allow-list field in chain parameter schema |
+| `bridgeBlockList` | Bridge-related block-list field in chain parameter schema |
 | `burnContract` | Burn-contract map by activation block |
 | `burnContractDestinationAddress` | Burn-contract destination address |
 
-Whether a field has runtime effect depends on whether it is configured and supported by the active release behavior.
+Whether a field has runtime effect depends on whether it is configured in the published network configuration and supported by active release behavior.
 
 ---
 
 ## 29. EngineRegistry and configured protocol addresses
 
-The published chain configuration includes configured protocol address fields where applicable.
-
-Known published values:
+Published values:
 
 | Field | Value |
 |---|---|
 | `params.engineRegistryAddress` | `0x72cbbb5c95662510da052b98add933ff99ec820f` |
 | `params.bootstrapEngineEOA` | `0x0000000000000000000000000000000000000000` |
 
-The public node baseline includes these fields in chain parameters.
-
-During chain import, genesis-provided registry/bootstrap values are applied when present.
-
-The registry address is a configured protocol address for XGR-specific runtime behavior where supported by the active release stack.
-
 A zero bootstrap EOA means no non-zero bootstrap EOA is configured in the published genesis.
+
+The registry address is a configured protocol address for XGR-specific runtime behavior where supported by the active release.
 
 ---
 
 ## 30. Access control configuration fields
 
-The chain parameter type supports address-list configuration fields for access-control behavior.
-
-Supported parameter fields include:
+The chain parameter type supports these address-list configuration fields:
 
 | Field | Purpose |
 |---|---|
@@ -750,18 +754,16 @@ Supported parameter fields include:
 | `contractDeployerBlockList` | Contract deployer block-list configuration |
 | `transactionsAllowList` | Transaction allow-list configuration |
 | `transactionsBlockList` | Transaction block-list configuration |
-| `bridgeAllowList` | Bridge-related allow-list field retained in chain parameter schema |
-| `bridgeBlockList` | Bridge-related block-list field retained in chain parameter schema |
+| `bridgeAllowList` | Bridge-related allow-list field |
+| `bridgeBlockList` | Bridge-related block-list field |
 
-If the published configuration does not configure these address-list fields, they do not define additional mainnet restrictions by themselves.
+The published mainnet genesis does not configure these address-list fields.
 
-If future published configurations use these fields, their effect must be interpreted according to the active release behavior.
+If future published configurations use these fields, their effect must be interpreted according to active release behavior.
 
 ---
 
 ## 31. Burn contract configuration fields
-
-The chain parameter type supports burn-contract configuration fields.
 
 Published values:
 
@@ -776,24 +778,15 @@ Runtime behavior:
 - the zero address means no configured burn-contract redirection from this field
 - fee distribution can still depend on other active XGR fee logic and release behavior
 
-The published genesis therefore does not configure a burn contract map.
+The published mainnet genesis does not configure a burn contract map.
 
 ---
 
 ## 32. JSON-RPC surfaces
 
-XGR Chain exposes multiple RPC surfaces depending on node configuration and active release capabilities.
+XGR Chain exposes RPC surfaces depending on node configuration and active release capabilities.
 
 ### 32.1 Standard Ethereum-compatible RPC
-
-Used by:
-
-- wallets
-- explorers
-- scripts
-- infrastructure tools
-- indexers
-- applications
 
 Typical namespaces:
 
@@ -803,76 +796,52 @@ net_*
 web3_*
 ```
 
-This is the normal EVM compatibility surface.
+This is the normal EVM compatibility surface used by wallets, explorers, scripts, indexers and applications.
 
-### 32.2 PoS monitoring RPC
+### 32.2 Public PoS monitoring RPC
 
-XGR2.0 exposes PoS monitoring data through chain RPC methods.
+The public PoS monitoring methods are documented in the staking / PoS endpoint reference.
 
-PoS monitoring covers:
-
-- current block number
-- PoS active status
-- PoS activation block
-- epoch size
-- micro-epoch size
-- current epoch
-- last finalized epoch
-- validator self-stake
-- delegated raw stake
-- delegated active stake
-- total active current stake
-- validator active state
-- validator join/deactivation timing
-- delegator entries for a validator
-- delegation pool settings
-- staking contract balance
-- current pending epoch rewards
-
-Exact method names, parameters and return schemas belong to the staking / PoS endpoint reference.
-
-### 32.3 XGR extension RPC
-
-XGR Chain may expose XGR-specific RPC methods where supported by the active node release and enabled configuration.
-
-Typical namespace:
+Current public PoS methods:
 
 ```text
-xgr_*
+eth_getPosValidatorsOverview
+eth_getPosValidatorDelegators
 ```
 
-This document does not define XDaLa endpoint schemas or XRC-specific RPC behavior.
+These methods expose validator, stake, delegation, epoch and pool data.
 
-Those details belong to the respective XDaLa and XRC documentation.
+Exact method parameters and response schemas belong to the staking / PoS endpoint reference.
 
-### 32.4 Operator and diagnostic RPC
+### 32.3 Operator and diagnostic RPC
 
-Used for node and network diagnostics.
+Operator and diagnostic interfaces are used for:
 
-Examples of operational use cases:
-
-- peer inspection
 - syncing checks
 - block height checks
+- peer checks
 - transaction pool checks
-- consensus status where available
 - validator health checks where available
 
 Operator interfaces should be exposed carefully and are not automatically intended for public RPC.
 
 ---
 
-## 33. XDaLa and XRC integration boundary
+## 33. Application-layer boundary
 
-XGR Chain provides the EVM-compatible execution, settlement and RPC substrate that XDaLa and XRC components can use.
+XGR Chain provides:
 
-At chain-spec level, the boundary is:
+- EVM execution
+- consensus
+- finality
+- gas accounting
+- blocks
+- transactions
+- receipts
+- chain state
+- chain RPC
 
-| Layer | Responsibility |
-|---|---|
-| XGR Chain | EVM execution, consensus, finality, gas, blocks, transactions, receipts, chain state and chain RPC |
-| XDaLa | Process validation, orchestration and application-layer execution semantics |
-| XRC standards | Standardized rule, process or contract formats built above the chain layer |
+Application-layer systems may build on top of this chain substrate.
 
 This chain specification does not define:
 
@@ -884,9 +853,7 @@ This chain specification does not define:
 - application-specific workflow semantics
 - UI behavior
 
-Those topics remain in their own documentation.
-
-This document only states the chain-level dependency boundary.
+Those topics remain outside this chain-level specification.
 
 ---
 
@@ -895,12 +862,14 @@ This document only states the chain-level dependency boundary.
 The chain specification is defined by:
 
 - published genesis configuration
-- active public node release or branch
+- active public node release
 - activated fork schedule
 - official operator announcements
 - deployed protocol contracts where applicable
 
-Local runtime flags can change how a node process behaves, but they do not redefine the network.
+Local runtime flags can change how a node process behaves.
+
+They do not redefine the network.
 
 Examples of local runtime behavior:
 
@@ -918,30 +887,27 @@ Examples of network-defining behavior:
 - chain ID
 - genesis block header
 - genesis allocation
-- consensus engine config
+- consensus engine configuration
 - PoS activation block
 - validator set rules
 - fork activation schedule
 - configured registry addresses
-- bootnodes in published genesis
+- published bootnodes
 
-A node with a different network-defining configuration is not running the same chain.
+A node with different network-defining configuration is not running the same chain.
 
 ---
 
-## 35. Active and inactive feature handling
+## 35. Feature-status rule
 
-For chain-level specification, feature status is determined as follows:
+For this public chain specification, a feature is part of mainnet only if it is:
 
-| Situation | Status |
-|---|---|
-| Present in public release and activated by published configuration | Active baseline |
-| Present in public release but not activated by published configuration | Available but inactive |
-| Present only in development code | Development / preview |
-| Documented for future activation | Preview / upcoming |
-| Activated by official release and configuration update | Active after upgrade |
+1. implemented in the active public node release, and
+2. enabled by the published mainnet configuration or official network upgrade.
 
-For XGR2.0 mainnet, delegated PoS and delegated staking are active chain-level features from block `5446500`.
+Code-level existence alone is not a public mainnet guarantee.
+
+This document does not advertise unconfigured, experimental or application-layer behavior as chain-level mainnet functionality.
 
 ---
 
@@ -951,25 +917,30 @@ For XGR2.0 mainnet, delegated PoS and delegated staking are active chain-level f
 |---|---|
 | Network name | `xgrchain` |
 | Chain ID | `1643` |
+| Chain ID hex | `0x66b` |
+| Public node baseline | `xgr-node v2.0.5` |
 | Execution model | EVM-compatible |
 | Standard RPC | `eth_*`, `net_*`, `web3_*` |
-| XGR extension RPC | `xgr_*` where supported by active release |
-| Native decimals | 18 |
+| Native decimals | `18` |
 | Consensus finality | IBFT |
-| Validator model before block `5446500` | Genesis/static IBFT validator set |
+| Validator model before block `5446500` | Initial IBFT validator set |
 | Validator model from block `5446500` | Delegated PoS |
-| Target block time | ~2 seconds |
+| Target block time | approximately 2 seconds |
 | IBFT `blockTime` | `2000000000` ns |
+| Micro epoch size | `25` blocks |
+| Macro epoch micro factor | `40` |
+| PoS macro epoch size | `1000` blocks |
 | Genesis gas limit | `60,000,000` |
 | Genesis difficulty | `0x1` |
 | Genesis base fee | `0x0` |
 | Forks from block `0` | Homestead, Byzantium, Constantinople, Petersburg, Istanbul, London, LondonFix, EIP-150, EIP-155, EIP-158, QuorumCalcAlignment, txHashWithType |
 | Forks from block `1208500` | EIP-2930, EIP-2929, EIP-3860, EIP-3651 |
-| Public transaction types | Legacy, AccessList, DynamicFee |
-| Internal transaction type | StateTx |
+| Public transaction types | `LegacyTx`, `AccessListTx`, `DynamicFeeTx` |
+| Internal transaction type | `StateTx` |
+| Public PoS RPC methods | `eth_getPosValidatorsOverview`, `eth_getPosValidatorDelegators` |
 | EngineRegistry address | `0x72cbbb5c95662510da052b98add933ff99ec820f` |
 | Bootstrap Engine EOA | `0x0000000000000000000000000000000000000000` |
 | Bootnode count | `1` |
 | Staking / PoS | Active from block `5446500` |
-| Delegated staking | Active from XGR2.0 PoS cutover |
-| XDaLa/XRC details | Separate documentation; only chain boundary defined here |
+| Delegated staking | Active from PoS cutover |
+| XDaLa/XRC details | Outside this chain specification |
