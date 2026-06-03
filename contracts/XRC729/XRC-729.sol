@@ -19,6 +19,9 @@ contract XRC729 {
     // --- Registry name ---
     string public nameXRC = "XGR_XRC729";
 
+    /// @dev Schema/version marker for explorer/MCP indexing.
+    string public schemaVersion = "xrc729-ostc@1";
+
     // --- Executors (optional ACL; does NOT affect OSTC mutability) ---
     address[] private executorList;
     mapping(address => uint256) private executorIndex; // 1-based; 0 == not present
@@ -30,18 +33,62 @@ contract XRC729 {
     // ID -> JSON
     mapping(string => string) private ostcJSON;
 
+    // ID -> content hash/version/update time
+    mapping(string => bytes32) private ostcHash;
+    mapping(string => uint256) private ostcVersion;
+    mapping(string => uint64) private ostcUpdatedAt;
+
     // Listing of all IDs
     string[] private ostcIds;
 
     // 1-based index mapping for O(1) swap-delete; 0 == not present
     mapping(string => uint256) private ostcIndex;
 
+    // --- Existing events ---
     event OSTCSet(string indexed id);
     event OSTCDeleted(string indexed id);
+
+    // --- Explorer / MCP index events ---
+    event XRC729Deployed(
+        address indexed xrc729Address,
+        address indexed owner,
+        bytes32 indexed nameHash,
+        string nameXRC,
+        string schemaVersion
+    );
+
+    event OSTCUpdated(
+        address indexed xrc729Address,
+        address indexed owner,
+        bytes32 indexed ostcIdHash,
+        bytes32 ostcHash,
+        string id,
+        uint256 version,
+        uint64 updatedAt
+    );
+
+    event OSTCDeletedIndexed(
+        address indexed xrc729Address,
+        address indexed owner,
+        bytes32 indexed ostcIdHash,
+        bytes32 previousOstcHash,
+        string id,
+        uint256 previousVersion
+    );
 
     // --- Constructor ---
     constructor() {
         owner = msg.sender;
+
+        emit OwnershipTransferred(address(0), msg.sender);
+
+        emit XRC729Deployed(
+            address(this),
+            msg.sender,
+            keccak256(bytes(nameXRC)),
+            nameXRC,
+            schemaVersion
+        );
     }
 
     // --- Ownership management ---
@@ -50,13 +97,13 @@ contract XRC729 {
     /// @param newOwner The address of the new owner.
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "XRC729: zero address");
-        
+
         // If new owner was an executor, remove them (owner is implicitly authorized)
         uint256 idx1b = executorIndex[newOwner];
         if (idx1b != 0) {
             _removeExecutorInternal(newOwner);
         }
-        
+
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
@@ -67,11 +114,14 @@ contract XRC729 {
     /// @param exec The address to add as executor.
     function addExecutor(address exec) external onlyOwner {
         require(exec != owner, "XRC729: owner cannot be executor");
+
         if (executorIndex[exec] != 0) {
             return; // Already present
         }
+
         executorList.push(exec);
         executorIndex[exec] = executorList.length; // 1-based
+
         emit ExecutorAdded(exec);
     }
 
@@ -84,17 +134,20 @@ contract XRC729 {
     /// @dev Internal executor removal with swap-delete pattern.
     function _removeExecutorInternal(address exec) internal {
         uint256 idx1b = executorIndex[exec];
+
         if (idx1b == 0) {
             return; // Not present
         }
 
         uint256 idx = idx1b - 1;
         uint256 last = executorList.length - 1;
+
         if (idx != last) {
             address moved = executorList[last];
             executorList[idx] = moved;
             executorIndex[moved] = idx + 1;
         }
+
         executorList.pop();
         delete executorIndex[exec];
 
@@ -107,10 +160,9 @@ contract XRC729 {
         return executorList;
     }
 
-	function isExecutor(address a) external view returns (bool) {
-		return executorIndex[a] != 0;
-	}
-
+    function isExecutor(address a) external view returns (bool) {
+        return executorIndex[a] != 0;
+    }
 
     // --- OSTC management ---
 
@@ -120,8 +172,23 @@ contract XRC729 {
             ostcIds.push(id);
             ostcIndex[id] = ostcIds.length; // 1-based
         }
+
         ostcJSON[id] = json;
+        ostcHash[id] = keccak256(bytes(json));
+        ostcVersion[id] += 1;
+        ostcUpdatedAt[id] = uint64(block.timestamp);
+
         emit OSTCSet(id);
+
+        emit OSTCUpdated(
+            address(this),
+            msg.sender,
+            keccak256(bytes(id)),
+            ostcHash[id],
+            id,
+            ostcVersion[id],
+            ostcUpdatedAt[id]
+        );
     }
 
     /// @notice Creates or updates an OSTC under the given ID.
@@ -137,6 +204,9 @@ contract XRC729 {
         uint256 idx1b = ostcIndex[id];
         require(idx1b != 0, "XRC729: not found");
 
+        bytes32 previousHash = ostcHash[id];
+        uint256 previousVersion = ostcVersion[id];
+
         uint256 idx = idx1b - 1;
         uint256 last = ostcIds.length - 1;
 
@@ -145,12 +215,25 @@ contract XRC729 {
             ostcIds[idx] = moved;
             ostcIndex[moved] = idx + 1;
         }
+
         ostcIds.pop();
 
         delete ostcIndex[id];
         delete ostcJSON[id];
+        delete ostcHash[id];
+        delete ostcVersion[id];
+        delete ostcUpdatedAt[id];
 
         emit OSTCDeleted(id);
+
+        emit OSTCDeletedIndexed(
+            address(this),
+            msg.sender,
+            keccak256(bytes(id)),
+            previousHash,
+            id,
+            previousVersion
+        );
     }
 
     // --- Read functions ---
@@ -167,6 +250,22 @@ contract XRC729 {
     function getOSTC(string calldata id) external view returns (string memory) {
         require(ostcIndex[id] != 0, "XRC729: not found");
         return ostcJSON[id];
+    }
+
+    /// @notice Returns index metadata for an OSTC by ID.
+    function getOSTCMeta(
+        string calldata id
+    )
+        external
+        view
+        returns (
+            bytes32 hash,
+            uint256 version,
+            uint64 updatedAt
+        )
+    {
+        require(ostcIndex[id] != 0, "XRC729: not found");
+        return (ostcHash[id], ostcVersion[id], ostcUpdatedAt[id]);
     }
 
     /// @notice Checks if an OSTC exists.
