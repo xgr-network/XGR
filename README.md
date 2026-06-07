@@ -25,6 +25,20 @@ XDaLa is designed for use cases that require deterministic behavior, regulatory 
 
 ---
 
+## AI and MCP Access
+
+The XGR MCP Gateway is the AI-native access layer to the XGR stack.
+
+It exposes XGRChain data, XDaLa sessions, Explorer evidence, XRC standards, schemas and authoring knowledge as semantic Model Context Protocol tools. MCP-compatible agents can inspect deployed workflows, draft and validate XDaLa process bundles, and prepare human-in-the-loop handoffs for local wallet signing.
+
+The gateway never holds private keys, never signs transactions and never takes custody.
+
+- Mainnet MCP: https://mcp.xgr.network/mcp
+- Testnet MCP: https://mcp.testnet.xgr.network/mcp
+- MCP documentation: https://xgr.network/docs/mcp_overview/
+
+---
+
 ## Repository Contents
 
 ### Specifications
@@ -74,9 +88,10 @@ This repository is intended for:
 
 ## Project Status
 
-- XGRChain: Testnet and mainnet preparation  
-- XDaLa: Active specification and implementation phase  
-- Standards: Draft and review status  
+- XGRChain: Mainnet live, testnet available
+- XDaLa: Active specification and implementation phase
+- MCP Gateway: Phase 1 live, read tools and handoff preparation available
+- Standards: Draft and review status
 
 The repository reflects the public and stable interface of the system.
 
@@ -118,6 +133,11 @@ These are the canonical entry points for the public ecosystem. If you are unsure
 - Documentation Hub: https://xgr.network/docs
 - Testnet Faucet: https://faucet.xgr.network
 - Explorer: https://explorer.xgr.network
+
+### MCP
+
+- MCP Gateway Mainnet: https://mcp.xgr.network/mcp
+- MCP Gateway Testnet: https://mcp.testnet.xgr.network/mcp
 
 ---
 
