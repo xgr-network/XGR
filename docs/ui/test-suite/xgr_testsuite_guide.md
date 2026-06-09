@@ -618,8 +618,6 @@ The compare panel supports:
 
 The panel matches plans by title. If one side has no matching plan, it shows a missing partner warning.
 
-![Compare results upload](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/17-compare-results.png)
-
 ![Compare results details](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/17-compare-results-details.png)
 
 ### What to check in a comparison
