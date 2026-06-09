@@ -1,10 +1,8 @@
-# XGR Test Suite Deep HowTo
+# XGR Test Suite
 
 The XGR Test Suite is the workspace for building, validating, deploying, running and reviewing reproducible XGR test cases. It connects bundle import, test plan editing, signer alias preparation, setup contracts, multi-session scenarios, BundleDeploy handoff, Start Sessions execution and result analysis in one guided flow.
 
 Use this guide to understand the full workflow from an imported XRC-137 / XRC-729 bundle to a runnable test plan. It explains how to configure runtime payloads, owner and executor aliases, setup contracts, expected timeline checks, API save checks, contract read checks and scenario wake-up flows so a user can create reliable tests without knowing the internal implementation.
-
-All screenshots are stored under `pictures/ui/test-suite/`.
 
 ---
 
