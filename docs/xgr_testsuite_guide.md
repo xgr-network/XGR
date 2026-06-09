@@ -4,6 +4,8 @@ The XGR Test Suite is the workspace for building, validating, deploying, running
 
 Use this guide to understand the full workflow from an imported XRC-137 / XRC-729 bundle to a runnable test plan. It explains how to configure runtime payloads, owner and executor aliases, setup contracts, expected timeline checks, API save checks, contract read checks and scenario wake-up flows so a user can create reliable tests without knowing the internal implementation.
 
+All screenshots are stored under `pictures/ui/test-suite/`.
+
 ---
 
 ## 1. First orientation: the three top menu cards
@@ -13,7 +15,7 @@ The Test Suite starts with three cards:
 | Card | What the user does there |
 |---|---|
 | **Wallet connect** | Connect or switch the active wallet, check chain and RPC context. |
-| **Signer context** | Prepare local signer and named alias signers. |
+| **Signer context** | Prepare the local signer and named alias signers. |
 | **Action** | Choose the workbench, for example Bundle import, Plan import or Scenarios. |
 
 ![Top menu overview](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/01-top-menu-overview.png)
@@ -35,7 +37,7 @@ Steps:
 
 ### Signer context
 
-Use **Signer context** when a plan uses named actors or aliases.
+Use **Signer context** when a plan uses named actors or aliases. This is important for multi-user tests, scenario runs and tests where owner, starter and executor are not the same identity.
 
 The scenario example uses two actor aliases:
 
@@ -52,7 +54,7 @@ To prepare aliases:
 4. Add missing aliases manually with **+ Add New Signer**.
 5. Store the private key or seed encrypted.
 6. Unlock the alias for the required TTL.
-7. Confirm that no alias is shown as missing or locked.
+7. Confirm that no required alias is shown as missing or locked.
 
 A plan cannot be handed to Start Sessions if required aliases are missing or locked.
 
@@ -88,9 +90,10 @@ Steps:
 4. Load one or multiple bundle JSON files.
 5. Open **Review prepared bundles**.
 6. Select one prepared bundle.
-7. Check the summary: steps, rules, API calls, contract reads, payload fields.
+7. Check the summary: steps, rules, API calls, contract reads, payload fields, onValid/onInvalid outputs and execution contracts.
 8. Click **Create this plan** to create one local plan.
 9. Use **Create all plans** when every prepared bundle should become a local plan.
+10. Use **Deploy selected** when the prepared bundle should first go through BundleDeploy.
 
 ![Bundle import](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/05-bundle-import.png)
 
@@ -309,8 +312,6 @@ Expectations define what must happen during execution.
 
 A timeline entry checks one expected step occurrence.
 
-Fields:
-
 | Field | Example | Meaning |
 |---|---|---|
 | Group label | `fulfill_order #1` | Readable label for the expectation. |
@@ -373,15 +374,6 @@ Steps:
 11. Enter expected value `5`.
 12. Save the plan.
 
-Available operator types:
-
-| Data type | Typical operators |
-|---|---|
-| Numeric | `=`, `!=`, `>`, `>=`, `<`, `<=` |
-| Boolean | `=`, `!=`, `exists`, `missing` |
-| String | `=`, `!=`, `contains`, `not contains`, `starts with`, `ends with`, `regex` |
-| Any field | `exists`, `missing` |
-
 ### API saves checks
 
 API saves checks verify values saved from an API response.
@@ -431,13 +423,11 @@ Steps:
 7. Enter `42`.
 8. Save the plan.
 
-If no field is available, the selected step does not have contract read save aliases.
-
 ---
 
 ## 7. Scenarios
 
-Use **Scenarios** when several sessions must work together.
+Use **Scenarios** when several sessions must work together. A scenario can import or reuse test plans, define actor aliases, set payload data, configure wake-up rules, validate the whole scenario package and then run a multi-session flow.
 
 Scenario example:
 
@@ -446,28 +436,40 @@ Scenario example:
 | `order_process` | `order_kyc_bestellprozess_v1` | `receive_order` | `owner` | `fulfill_order` |
 | `kyc_worker` | `kyc_order_wakeup_process_v1` | `arm_kyc_request` | `owner1` | `notify_order_kyc_valid` |
 
-![Scenarios](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios.png)
+### Scenario import and sources
 
-The scenario uses these step types:
+Use **Scenario import** when the scenario JSON already contains the scenario, embedded plans and bundle data.
 
-| Step type | What it does |
+Steps:
+
+1. Open **Action → Scenarios**.
+2. Use the import area to load a scenario JSON file.
+3. Check the detected scenario title.
+4. Check the imported plan count and bundle count.
+5. Save or replace the local Test Suite workspace when the scenario should be the active working set.
+
+![Scenario import](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-import.png)
+
+Use **Sources** to inspect which scenario JSON, embedded plans and bundle source data were imported.
+
+![Scenario sources](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-sources.png)
+
+### Scenario flow menu
+
+The scenario flow is split into dedicated editing areas. Work left to right:
+
+| Area | Purpose |
 |---|---|
-| `startSession` | Starts a session from a plan. |
-| `waitForStep` | Waits until a session step reaches a status. |
-| `assertSession` | Checks the final session result and timeline. |
+| **Data / WakeUp** | Runtime payload data and wake-up permissions. |
+| **Sessions** | `startSession` and `waitForStep` flow steps. |
+| **Timeline checks** | Expected steps and statuses inside sessions. |
+| **Asserts** | Final session assertions. |
+| **Validate / Export** | Validate the scenario and export the package. |
+| **Run** | Start and monitor the scenario run. |
 
-Example flow:
+![Scenario flow menu](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-Flow-Menu.png)
 
-1. Start KYC worker with `arm_kyc_request` as `owner1`.
-2. Wait until the KYC worker reaches `wait_for_kyc_request` with status `waiting`.
-3. Start order process with `receive_order` as `owner`.
-4. Wait until `request_kyc` is done.
-5. Wait until `wait_for_kyc_result` is waiting.
-6. Wait until the KYC worker sends `notify_order_kyc_valid`.
-7. Assert the order session final step `fulfill_order`.
-8. Assert the KYC worker final step `notify_order_kyc_valid`.
-
-### Scenario wake-up configuration
+### Data and WakeUp
 
 The scenario uses `__wakeUp` in the start payload. This allows one session to wake a waiting step in another session.
 
@@ -492,18 +494,67 @@ Meaning:
 - `owner1` is allowed to perform the wake-up.
 - The wake-up must come from the `NotifyOrderKycValid` XRC-137 contract in the `kyc_worker` plan.
 
-To build this manually:
+![Scenario Data and WakeUp](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-DataAndWakeup-PayloadAndWakeup.png)
 
-1. Create or import both plans.
-2. Set actor aliases.
-3. Configure start step and starter alias per plan.
-4. Add a `startSession` step for the waiting session.
-5. Add a `waitForStep` step for the waiting state.
-6. Add the second `startSession`.
-7. Add the `__wakeUp` data to the payload of the session that should be woken.
-8. Add wait steps for expected progress.
-9. Add assert steps for final sessions.
-10. Run the scenario.
+### Session flow steps
+
+The scenario uses these step types:
+
+| Step type | What it does |
+|---|---|
+| `startSession` | Starts a session from a plan. |
+| `waitForStep` | Waits until a session step reaches a status. |
+| `assertSession` | Checks the final session result and timeline. |
+
+Example flow:
+
+1. Start KYC worker with `arm_kyc_request` as `owner1`.
+2. Wait until the KYC worker reaches `wait_for_kyc_request` with status `waiting`.
+3. Start order process with `receive_order` as `owner`.
+4. Wait until `request_kyc` is done.
+5. Wait until `wait_for_kyc_result` is waiting.
+6. Wait until the KYC worker sends `notify_order_kyc_valid`.
+7. Assert the order session final step `fulfill_order`.
+8. Assert the KYC worker final step `notify_order_kyc_valid`.
+
+![Scenario session flow](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-Flow-Sessions.png)
+
+### Timeline checks and asserts
+
+Timeline checks define which steps are expected during a session and with which status. Use them to check that positive paths appear and negative paths do not appear.
+
+![Scenario timeline checks](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-Flow-Sessions-TimelineChecks.png)
+
+Asserts validate the final state of a session, for example final status and final step.
+
+![Scenario asserts](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-Flow-Sessions-Asserts.png)
+
+### Validate, export and run
+
+Before running or sharing a scenario:
+
+1. Validate the scenario package.
+2. Confirm that all referenced plans, actors, bundles and wake-up references resolve.
+3. Export the scenario package if another user should run the same flow.
+4. Run the scenario from the Run panel.
+
+![Validate and export scenario](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-ValidateAndExport.png)
+
+![Scenario run empty](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run.png)
+
+When the scenario is running or finished, use the graph and detail panel to inspect the current state.
+
+![Scenario run filled](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run-filled.png)
+
+![Scenario run expanded view with details](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run-Expand-View-with-Details.png)
+
+### Review scenario results in List Sessions
+
+After a scenario run, the results can be inspected in **List Sessions** and the **Testplan monitor**. Use this to review the step monitor, receipt details and final status after leaving the scenario runner.
+
+![Scenario result in List Sessions monitor](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run-Result-in-Listsession-Testplanmonitor.png)
+
+![Scenario result monitor detail](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run-Result-in-Listsession-Testplanmonitor-Detail.png)
 
 ---
 
@@ -545,14 +596,75 @@ Steps:
 
 ---
 
-## 10. Analyze and compare results
+## 10. Compare results
 
-After execution:
+Use **Compare results** when you have two exported run bundles and want to see how a candidate run differs from a baseline run.
 
-- Use **Analyze results** for one result bundle.
-- Use **Compare results** for two result bundles.
+The compare panel supports:
 
-Analyze can help find:
+| Function | What it does |
+|---|---|
+| **Load result → Baseline bundle** | Imports the first result bundle. |
+| **Load result → Candidate bundle** | Imports the second result bundle. |
+| **Download compare report** | Downloads a structured comparison report after both sides are loaded. |
+| **Structured / JSON view** | Switches between readable comparison cards and raw JSON diff view. |
+| **Plan filter** | Shows all plans, only plans with differences, only errors, missing partner plans or clean plans. |
+| **Current plan** | Selects the plan pair currently being compared. |
+| **Step filter** | Shows only differences, changed steps, errors, all steps or unchanged steps. |
+| **Prev / Next** | Moves through the filtered plan list. |
+| **Summary** | Shows timeline changes, final changes and scenario changes. |
+| **Final checks** | Compares final status and final step. |
+| **Scenario assertion compare** | Compares scenario-level assertion output when available. |
+| **Timeline diff** | Compares every matched step, including expectation changes and actual observed changes. |
+| **Expand visible / Collapse visible** | Opens or closes the filtered timeline rows. |
+
+The panel matches plans by title. If one side has no matching plan, it shows a missing partner warning.
+
+![Compare results upload](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/17-compare-results.png)
+
+![Compare results details](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/17-compare-results-details.png)
+
+### What to check in a comparison
+
+1. Load the old run as **Baseline bundle**.
+2. Load the new run as **Candidate bundle**.
+3. Use **Plan filter → Only plans with differences** to focus on changed plans.
+4. Use **Step filter → Only changed steps** to focus on changed timeline entries.
+5. Open changed steps and compare:
+   - expected payload checks
+   - expected API saves checks
+   - expected contract read checks
+   - actual payload checks
+   - actual API saves checks
+   - actual contract read checks
+6. Download the compare report if the result should be archived or shared.
+
+---
+
+## 11. Analyze results
+
+Use **Analyze results** when you want to inspect one exported result bundle deeply.
+
+The analysis panel supports:
+
+| Function | What it does |
+|---|---|
+| **Load result bundle** | Imports one compact or long result bundle. |
+| **Download analysis** | Downloads a structured analysis JSON for the loaded result bundle. |
+| **Status summary** | Shows overall status and passed/pending/failed plan counts. |
+| **Plans summary** | Shows number of plans and percentage that passed. |
+| **Assertions summary** | Shows passed assertions versus total assertions. |
+| **Filtered rows** | Shows how many rows match the current filters. |
+| **Categories** | Groups findings by category and status. |
+| **Top findings** | Lists the most frequent findings. |
+| **Status filter** | Shows Problems, Failed, Pending, Passed or All. |
+| **Category filter** | Filters by result category. |
+| **Finding filter** | Filters by specific finding reason. |
+| **Search** | Searches title, bundle, session id, current status and current step. |
+| **Table column filters** | Filters plan, category, status, current, checks and finding columns. |
+| **Result detail** | Opens the selected row and shows structured expected-vs-actual data. |
+
+Analyze is best for debugging a single run. It can help find:
 
 - missing steps
 - invalid steps
@@ -565,13 +677,18 @@ Analyze can help find:
 
 ![Analyze results](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/18-analyze-results.png)
 
-Compare can help detect behavior changes between two runs.
+### Recommended analysis workflow
 
-![Compare results](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/17-compare-results.png)
+1. Load the result bundle.
+2. Start with **Problems** to see failed or pending rows first.
+3. Use **Category** and **Finding** to narrow the issue type.
+4. Use table filters if the result bundle is large.
+5. Open a row to inspect expected versus actual values.
+6. Download the analysis JSON if the result should be shared with support or stored with a test report.
 
 ---
 
-## 11. End-to-end recipes
+## 12. End-to-end recipes
 
 ### Recipe A: Contract read test
 
@@ -633,7 +750,7 @@ Goal: run an order process and a KYC worker that wake each other.
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Alias warning before running
 
