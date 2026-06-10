@@ -4,6 +4,17 @@ The XGR Test Suite is the workspace for building, validating, deploying, running
 
 Use this guide to understand the full workflow from an imported XRC-137 / XRC-729 bundle to a runnable test plan. It explains how to configure runtime payloads, owner and executor aliases, setup contracts, expected timeline checks, API save checks, contract read checks and scenario wake-up flows so a user can create reliable tests without knowing the internal implementation.
 
+A few terms are used throughout this guide:
+
+| Term | Meaning in the Test Suite |
+|---|---|
+| **Bundle** | Imported XRC-137 / XRC-729 deployment data. A bundle can be reviewed, deployed, or converted into a local test plan. |
+| **Test plan** | A runnable test definition. It contains start settings, payload data, aliases, setup contracts and expectations. |
+| **Scenario** | A coordinated flow that can start and observe several test plans/sessions, for example a KYC worker session and an order process session. |
+| **Result bundle** | Exported run output. Analyze uses one result bundle; Compare uses two result bundles. |
+| **Assertion / check** | A condition the Test Suite verifies. If the expected and actual values match, the check passes. If not, the result is failed or pending, depending on the data available. |
+| **Timeline check** | A check for a specific step occurrence during execution. It can verify whether the step exists, whether it is valid, which status it reached, and optional payload/API/contract-read values. |
+
 ---
 
 ## 1. First orientation: the three top menu cards
@@ -20,7 +31,7 @@ The Test Suite starts with three cards:
 
 ### Wallet connect
 
-Use **Wallet connect** before every deploy or run.
+Use **Wallet connect** before every deploy or run. The wallet and chain define the environment for all following actions. A plan can be valid as JSON but still fail in practice if the wallet is not connected to the environment where the bundle contracts exist.
 
 Steps:
 
@@ -31,13 +42,26 @@ Steps:
 5. Check RPC and explorer settings.
 6. Continue only when wallet and network match the contracts you want to use.
 
+What to verify:
+
+- The wallet is connected before a deploy or run is started.
+- The current chain is the intended chain for the imported/deployed contracts.
+- The connected account is not automatically the same as every test signer. If a plan uses aliases, prepare them in **Signer context**.
+
 ![Wallet connect](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/02-wallet-connect.png)
 
 ### Signer context
 
 Use **Signer context** when a plan uses named actors or aliases. This is important for multi-user tests, scenario runs and tests where owner, starter and executor are not the same identity.
 
-The scenario example uses two actor aliases:
+There are two signer concepts:
+
+| Signer concept | What it is used for |
+|---|---|
+| **Local signer** | A simple signer used when no named alias flow is required. |
+| **Alias signer** | A named signer such as `owner`, `owner1` or `owner2`. Plans and scenarios can refer to these names instead of hardcoding private keys. |
+
+Example when using two actor aliases:
 
 | Alias | Used for |
 |---|---|
@@ -48,19 +72,19 @@ To prepare aliases:
 
 1. Open **Signer context**.
 2. Select **Alias signers**.
-3. Click **Suggest aliases from imported plans**.
+3. Click **Suggest aliases from imported plans**. This creates alias entries from aliases referenced by imported plans.
 4. Add missing aliases manually with **+ Add New Signer**.
 5. Store the private key or seed encrypted.
 6. Unlock the alias for the required TTL.
 7. Confirm that no required alias is shown as missing or locked.
 
-A plan cannot be handed to Start Sessions if required aliases are missing or locked.
+A plan cannot be handed to Start Sessions if required aliases are missing or locked. This is intentional because the Test Suite must know which signer is allowed to start, deploy or execute the configured contract actions.
 
 ![Signer context](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/03-signer-context.png)
 
 ### Action
 
-Open **Action** and select what you want to do next.
+Open **Action** and select what you want to do next. The selected action controls the workbench below the top cards.
 
 | Action | Use case |
 |---|---|
@@ -69,6 +93,16 @@ Open **Action** and select what you want to do next.
 | **Scenarios** | Build or run multi-session scenarios. |
 | **Compare results** | Compare two exported result bundles. |
 | **Analyze results** | Inspect one result bundle deeply. |
+
+A good practical order is:
+
+1. Prepare wallet and signers.
+2. Choose an action.
+3. Import or create test data.
+4. Edit runtime, setup and expectations.
+5. Deploy/rebind when needed.
+6. Run.
+7. Analyze or compare results.
 
 ![Action selector](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/04-action-selector.png)
 
@@ -79,6 +113,8 @@ Open **Action** and select what you want to do next.
 ### Bundle import
 
 Use **Bundle import** if you start from a bundle and want the Test Suite to create a local test plan.
+
+A bundle is not yet a test plan. Bundle import first reads the bundle, then creates a prepared bundle entry. Only after review do you create one or more local test plans from it.
 
 Steps:
 
@@ -93,13 +129,25 @@ Steps:
 9. Use **Create all plans** when every prepared bundle should become a local plan.
 10. Use **Deploy selected** when the prepared bundle should first go through BundleDeploy.
 
+What the summary means:
+
+| Summary item | Meaning |
+|---|---|
+| **Steps** | XRC-729 step ids detected in the orchestration. These become selectable start/final/timeline steps. |
+| **Rules** | XRC-137 rules/contracts detected in the bundle. |
+| **API calls** | API calls found in XRC-137 rules. These may later provide API save aliases for expectations. |
+| **Contract reads** | Contract read definitions found in XRC-137 rules. These may later provide contract read aliases for expectations. |
+| **Payload fields** | Input fields accepted by the XRC-137 payload schema. These become runtime payload fields and input payload check fields. |
+| **OnValid / OnInvalid** | Output fields emitted by the rule paths, shown for review before creating a plan. |
+| **Execution contracts** | Contracts involved in the execution/deploy context. |
+
 ![Bundle import](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/05-bundle-import.png)
 
 ![Review bundle and create plan](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/06-review-bundle-create-plan.png)
 
 ### Plan import
 
-Use **Plan import** if you already have exported test plans.
+Use **Plan import** if you already have exported test plans. A plan file already contains the test plan structure, so you can directly manage and edit it after import.
 
 Steps:
 
@@ -109,7 +157,7 @@ Steps:
 4. Drop the JSON file or click **Open file system**.
 5. The imported plan appears in **Manage test plans**.
 
-This works for one plan or many plans in one file.
+This works for one plan or many plans in one file. A multi-plan file is useful when a team wants to share a complete regression pack.
 
 ![Plan import](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/13-plan-import.png)
 
@@ -123,7 +171,7 @@ To combine several plans into one file:
 4. Click **Export selected**.
 5. The downloaded JSON contains all checked plans.
 
-Use this for customer handoff, regression packs, or reusable test collections.
+Use this for customer handoff, regression packs, or reusable test collections. The exported file can be imported later through **Plan import**.
 
 ![Action bar multi export](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/08-action-bar-multi-export.png)
 
@@ -131,25 +179,38 @@ Use this for customer handoff, regression packs, or reusable test collections.
 
 ## 3. Manage local test plans
 
-The **Manage test plans** area is the central working area after import.
+The **Manage test plans** area is the central working area after import. It lets you select plans, run plans, export plans, edit plans and sync plans with bundles.
 
 Toolbar actions:
 
 | Toolbar tab | Button | What it does |
 |---|---|---|
-| **Run Plans** | Run selected | Opens checked plans for execution. |
-| **Run Plans** | Run all filtered | Runs all currently filtered plans. |
-| **Select Plans** | Select filtered | Checks all plans matching the current filter. |
+| **Run Plans** | Run selected | Opens checked plans for execution. Use this when only selected plans should run. |
+| **Run Plans** | Run all filtered | Runs all currently filtered plans. Use this after filtering a plan list. |
+| **Select Plans** | Select filtered | Checks all plans matching the current search/filter. |
 | **Select Plans** | Clear selected | Clears the current checked selection. |
 | **Export Plans** | Export selected | Exports checked plans into one JSON file. |
+| **Export Plans** | Export selected bundle | Exports the embedded bundle data from selected plans, when this action is available. |
 | **Export Plans** | Save bundles to Contract Manager | Extracts embedded bundles from selected plans and saves them to Contract Manager. |
 | **Edit Plans** | Add plan JSON | Imports additional plan JSON into the local workspace. |
-| **Edit Plans** | Replace selected | Replaces exactly one selected plan with another imported plan. |
+| **Edit Plans** | Replace selected | Replaces exactly one selected plan with another imported plan. This is disabled unless exactly one plan is selected. |
 | **Edit Plans** | Delete selected | Removes checked local plans. |
 | **Edit Plans** | Delete filtered | Removes all filtered local plans. |
-| **Bundle Sync** | Rebind selected | Rebinds selected plans to a newly deployed bundle. |
-| **Bundle Sync** | Validate selected | Validates selected plans against a bundle. |
+| **Bundle Sync** | Rebind selected | Rebinds selected plans to a newly deployed bundle. Use this after addresses changed. |
+| **Bundle Sync** | Validate selected | Validates selected plans against a bundle. Use this to verify that the plan still matches the bundle. |
 | **Bundle Sync** | Deploy bundles | Opens deploy flow for selected plans. |
+
+When one plan is open, the selected-plan action bar has its own actions:
+
+| Selected plan tab | Button | What it does |
+|---|---|---|
+| **Run Plan** | Open in Start Sessions | Opens the selected plan in Start Sessions for final review and execution. |
+| **Export Plan** | Export plan | Downloads the selected plan JSON. |
+| **Export Plan** | Save bundle to Contract Manager | Saves the selected plan's embedded bundle to Contract Manager. |
+| **Export Plan** | Deploy bundle | Opens BundleDeploy for the selected plan's embedded bundle. |
+| **Edit Plan** | Save local plan | Stores current local edits. |
+| **Edit Plan** | Duplicate | Creates a copy of the selected plan. |
+| **Edit Plan** | Delete | Removes the selected plan. |
 
 ![Manage test plans](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/07-manage-plans.png)
 
@@ -165,7 +226,7 @@ Open one local plan. The editor has three main tabs:
 
 ### Runtime → Start setup
 
-Start setup defines how the session starts.
+Start setup defines how the session starts and which final result is expected.
 
 Example from the scenario order plan:
 
@@ -176,6 +237,16 @@ Example from the scenario order plan:
 | Expected final step | `fulfill_order` |
 | Expected final status | `done` |
 | Max total gas | `0` |
+
+Field details:
+
+| Field | What the user should enter |
+|---|---|
+| **Start step** | Select the first XRC-729 step that should be triggered. This must be one of the steps detected from the plan/bundle. |
+| **Starter alias** | Enter the alias that should start the session. If this alias is set, prepare it in **Signer context**. |
+| **Expected final step** | Select the step where the run should finish. Use `Any` only when the exact final step is not part of the test requirement. |
+| **Expected final status** | Select the status that should be reached, for example `done`. The editor supports final statuses such as running, waiting, done and aborted. |
+| **Max total gas** | Enter the gas limit if the plan needs it. `0` means no explicit total gas limit is configured in the plan. |
 
 Steps:
 
@@ -192,7 +263,7 @@ Steps:
 
 ### Runtime → Payload
 
-Payload is the data sent into the start step.
+Payload is the data sent into the start step. Payload fields are tied to the selected start step schema. If the selected start step has no payload fields, the editor shows that no payload fields are available.
 
 Example from the order scenario start payload:
 
@@ -219,6 +290,8 @@ How to fill payload values:
    - object/array: valid JSON
 5. Use the default toggle only when the schema default should be used.
 6. Save the plan.
+
+When a field is disabled, it is not sent explicitly. The editor marks it as default active. Enable it again when you want to send a concrete value.
 
 For the contract read example, enter:
 
@@ -257,6 +330,8 @@ How to set custom executors:
 8. Ensure all aliases are stored and unlocked.
 9. Save the plan.
 
+Why this matters: a real multi-user test often needs more than one identity. The owner may deploy or own the setup, the starter may start a session, and a different executor may be allowed to execute a specific XRC-137 rule.
+
 ![Runtime aliases](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/10-runtime-aliases.png)
 
 ---
@@ -264,6 +339,8 @@ How to set custom executors:
 ## 5. Setup contracts for contract reads
 
 Use **Setup contracts** when a test needs a helper contract deployed or supplied before the run.
+
+A common use case is an XRC-137 rule that contains a contract read target like `${addr:readContract}`. The Test Suite must resolve this placeholder before the run. It can do this by deploying a setup contract or by using a fixed address.
 
 Contract read example:
 
@@ -277,6 +354,19 @@ Contract read example:
 | Deploy signer alias | `owner` |
 
 The XRC-137 reads from `${addr:readContract}`. The setup contract must therefore create or provide the address behind `readContract`.
+
+Setup contract fields:
+
+| Field | What it means |
+|---|---|
+| **Address key** | The key used inside placeholders, for example `readContract` for `${addr:readContract}`. |
+| **Mode** | Choose **Deploy Solidity** when the Test Suite should deploy source code, or **Use fixed address** when the contract already exists. |
+| **Contract name** | The Solidity contract name to deploy. |
+| **Deploy strategy** | **Deploy if missing** deploys when no address is available. **Deploy always** deploys a fresh instance. |
+| **Fixed address** | Used only in fixed address mode. It must be a valid EVM address. |
+| **Solidity source** | Source code used for deploy mode. |
+| **Deploy signer alias** | Alias used for deployment. The UI hint explains that `owner` uses the plan owner alias when configured. |
+| **Constructor args JSON / form** | Constructor arguments. If no constructor inputs exist, use `[]`. |
 
 Steps to configure a setup contract:
 
@@ -298,27 +388,43 @@ The relevant Solidity function in the example is:
 function getValue() public pure returns (uint256) { return 42; }
 ```
 
+When setup placeholders are ready, the Test Suite indicates that affected XRC-137 contracts can be redeployed and XRC-729 can be rebound before the run. If something is missing, the UI lists missing setup contracts or contracts that are not deployable yet.
+
 ![Setup contracts](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/11-setup-contracts.png)
 
 ---
 
 ## 6. Expectations
 
-Expectations define what must happen during execution.
+Expectations define what must happen during execution. In simple words, an expectation is a rule for the test result. If all required expectations pass, the run can be considered correct.
 
-### Timeline checks
+### What is a timeline check?
 
-A timeline entry checks one expected step occurrence.
+A timeline check verifies one expected step occurrence during execution. It answers questions like:
+
+- Did step `receive_order` appear?
+- Did it appear once or multiple times?
+- Was the step valid?
+- Did the step reach status `done`, `waiting`, `aborted` or any status?
+- Did the input payload contain the expected values?
+- Did API or contract read values match the expected values?
+
+A timeline entry is a group. A group can contain one or more alternatives. The match mode controls how alternatives are evaluated:
+
+| Match mode | Meaning |
+|---|---|
+| **anyOf** | At least one alternative must match. |
+| **allOf** | All alternatives in the group must match. |
 
 | Field | Example | Meaning |
 |---|---|---|
 | Group label | `fulfill_order #1` | Readable label for the expectation. |
-| Match mode | `allOf` | All alternatives must match. |
+| Match mode | `allOf` | How alternatives inside the group are evaluated. |
 | Step | `fulfill_order` | Step id to check. |
-| Occurrence | `1` | Which occurrence of the step to check. |
-| Expect step | `exists` / `not exists` | Whether the step should appear. |
-| Expected valid | `true` / `false` / `any` | Whether the rule result must be valid. |
-| Expected status | `done` / `waiting` / any | Optional status expectation. |
+| Occurrence | `1` | Which occurrence of the step to check. `1` means the first occurrence. |
+| Expect step | `exists` / `not exists` | Whether the step should appear. Use `not exists` for negative path checks. |
+| Expected valid | `true` / `false` / `any` | Whether the rule result must be valid. Use `any` if validity is not part of this test. |
+| Expected status | `done` / `waiting` / any | Optional status expectation. Use any status when only existence/validity matters. |
 
 Order process example:
 
@@ -348,9 +454,9 @@ Steps to create a timeline entry:
 
 ### Input payload checks
 
-Input payload checks verify the actual input payload of a step.
+Input payload checks verify the actual input payload of a step. They are useful when a step may exist and be valid, but you also need to prove that the right data was used.
 
-Contract read example checks:
+Example: the step can be checked for `AmountA = 50` and `AmountB = 5`.
 
 | Field | Operator | Expected value |
 |---|---|---|
@@ -372,9 +478,20 @@ Steps:
 11. Enter expected value `5`.
 12. Save the plan.
 
+Operator behavior:
+
+| Field type | Operators shown by the editor |
+|---|---|
+| Numeric | `=`, `!=`, `exists`, `missing`, `>`, `>=`, `<`, `<=` |
+| Boolean | `=`, `!=`, `exists`, `missing` |
+| String-like | `=`, `!=`, `exists`, `missing`, `contains`, `not contains`, `starts with`, `ends with`, `regex` |
+| Object / array / JSON | existence-style checks only |
+
+The expected value is parsed based on the field type. For example `true` / `false` become booleans, numeric strings become numbers for numeric fields, and JSON objects/arrays are parsed when valid JSON is entered.
+
 ### API saves checks
 
-API saves checks verify values saved from an API response.
+API saves checks verify values saved from an API response. The selectable fields come from the XRC-137 API extract aliases for the selected step. If the selected step has no API extract aliases, the editor shows that no API save aliases are available.
 
 API example:
 
@@ -395,11 +512,11 @@ Steps:
 7. Enter `true`.
 8. Save the plan.
 
-If no field is available, the selected step does not have API extract aliases.
+Use API saves checks only for values saved by the rule's API extract map. Do not type arbitrary field names; choose from the available fields in the editor.
 
 ### Contract read checks
 
-Contract read checks verify values saved from `contractReads.saveAs`.
+Contract read checks verify values saved from `contractReads.saveAs`. They are similar to API saves checks, but the value comes from a contract read instead of an API response.
 
 Contract read example:
 
@@ -421,11 +538,15 @@ Steps:
 7. Enter `42`.
 8. Save the plan.
 
+If no field is available, the selected step has no contract read save aliases in the imported XRC-137 `contractReads.saveAs` map.
+
 ---
 
 ## 7. Scenarios
 
 Use **Scenarios** when several sessions must work together. A scenario can import or reuse test plans, define actor aliases, set payload data, configure wake-up rules, validate the whole scenario package and then run a multi-session flow.
+
+A scenario is not just one plan. It is a flow around several plans. The scenario editor turns imported scenario data into sources and flow steps. Supported flow concepts include starting sessions, waiting for steps and asserting sessions.
 
 Scenario example:
 
@@ -448,7 +569,7 @@ Steps:
 
 ![Scenario import](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-import.png)
 
-Use **Sources** to inspect which scenario JSON, embedded plans and bundle source data were imported.
+Use **Sources** to inspect which scenario JSON, embedded plans and bundle source data were imported. A source is a plan/bundle reference that the scenario can use later in its flow. This is where users can confirm that the scenario points to the expected plans before running it.
 
 ![Scenario sources](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-sources.png)
 
@@ -492,6 +613,13 @@ Meaning:
 - `owner1` is allowed to perform the wake-up.
 - The wake-up must come from the `NotifyOrderKycValid` XRC-137 contract in the `kyc_worker` plan.
 
+In practice, check this carefully before running:
+
+1. The actor alias in `allow` must exist in **Signer context**.
+2. The referenced plan key, for example `kyc_worker`, must exist in the scenario sources.
+3. The referenced contract alias, for example `NotifyOrderKycValid`, must exist in that plan/bundle.
+4. The waiting step must match the step that should be woken.
+
 ![Scenario Data and WakeUp](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-DataAndWakeup-PayloadAndWakeup.png)
 
 ### Session flow steps
@@ -500,9 +628,9 @@ The scenario uses these step types:
 
 | Step type | What it does |
 |---|---|
-| `startSession` | Starts a session from a plan. |
-| `waitForStep` | Waits until a session step reaches a status. |
-| `assertSession` | Checks the final session result and timeline. |
+| `startSession` | Starts a session from a plan/source. It creates a real session that can later be waited on or asserted. |
+| `waitForStep` | Waits until a named session reaches a specific step and status. Use this to coordinate multi-session flows. |
+| `assertSession` | Checks the final result of a session. This is the scenario-level assertion step. |
 
 Example flow:
 
@@ -521,9 +649,17 @@ Example flow:
 
 Timeline checks define which steps are expected during a session and with which status. Use them to check that positive paths appear and negative paths do not appear.
 
+A scenario **assert** is a final verification for a started session. It can include:
+
+- expected final status
+- expected final step
+- expected timeline entries with step id, status, occurrence, existence and valid flag
+
+For example, an order scenario can assert that `fulfill_order` is reached and `cancel_order` is not reached.
+
 ![Scenario timeline checks](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-Flow-Sessions-TimelineChecks.png)
 
-Asserts validate the final state of a session, for example final status and final step.
+Asserts validate the final state of a session, for example final status and final step. If an assert fails, the scenario result is not just a visual warning; it means the scenario did not behave as defined.
 
 ![Scenario asserts](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-Flow-Sessions-Asserts.png)
 
@@ -536,11 +672,13 @@ Before running or sharing a scenario:
 3. Export the scenario package if another user should run the same flow.
 4. Run the scenario from the Run panel.
 
+Validation should be used before a handoff because it checks whether the scenario references still point to the data that exists in the workspace.
+
 ![Validate and export scenario](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-ValidateAndExport.png)
 
 ![Scenario run empty](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run.png)
 
-When the scenario is running or finished, use the graph and detail panel to inspect the current state.
+When the scenario is running or finished, use the graph and detail panel to inspect the current state. The runner shows scenario status, started session count and event count, and provides **Run scenario** and **Clear run** actions.
 
 ![Scenario run filled](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run-filled.png)
 
@@ -549,6 +687,8 @@ When the scenario is running or finished, use the graph and detail panel to insp
 ### Review scenario results in List Sessions
 
 After a scenario run, the results can be inspected in **List Sessions** and the **Testplan monitor**. Use this to review the step monitor, receipt details and final status after leaving the scenario runner.
+
+A receipt detail is useful when a step did not pass because it shows the data observed during execution. Use it together with the Test Suite expectations to understand whether the problem is the test definition, the runtime payload or the actual contract/API result.
 
 ![Scenario result in List Sessions monitor](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-run-Result-in-Listsession-Testplanmonitor.png)
 
@@ -574,6 +714,8 @@ Steps:
 10. Use **Validate selected** to verify the plan against the new deployed bundle.
 11. Open in Start Sessions or run the selected plan.
 
+Use this path when the plan still has embedded bundle data and you need fresh deployed addresses before execution. After deployment, rebind/validate keeps the test plan aligned with the deployed contract addresses.
+
 ![BundleDeploy](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/14-bundledeploy.png)
 
 ---
@@ -590,6 +732,8 @@ Steps:
 6. Review the runtime draft.
 7. Start the session.
 
+The review step is important. It is the last place to confirm start step, payload, starter alias and expected result before the session is started.
+
 ![Start Sessions](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/15-start-sessions.png)
 
 ---
@@ -602,12 +746,12 @@ The compare panel supports:
 
 | Function | What it does |
 |---|---|
-| **Load result → Baseline bundle** | Imports the first result bundle. |
-| **Load result → Candidate bundle** | Imports the second result bundle. |
+| **Load result → Baseline bundle** | Imports the first result bundle. This is normally the older or trusted run. |
+| **Load result → Candidate bundle** | Imports the second result bundle. This is normally the new run you want to check. |
 | **Download compare report** | Downloads a structured comparison report after both sides are loaded. |
 | **Structured / JSON view** | Switches between readable comparison cards and raw JSON diff view. |
 | **Plan filter** | Shows all plans, only plans with differences, only errors, missing partner plans or clean plans. |
-| **Current plan** | Selects the plan pair currently being compared. |
+| **Current plan** | Selects the plan pair currently being compared. Plans are matched by title. |
 | **Step filter** | Shows only differences, changed steps, errors, all steps or unchanged steps. |
 | **Prev / Next** | Moves through the filtered plan list. |
 | **Summary** | Shows timeline changes, final changes and scenario changes. |
@@ -634,6 +778,14 @@ The panel matches plans by title. If one side has no matching plan, it shows a m
    - actual API saves checks
    - actual contract read checks
 6. Download the compare report if the result should be archived or shared.
+
+How to read the output:
+
+- **Expectation changed** means the configured expected value differs between baseline and candidate.
+- **Actual changed** means the observed runtime result differs between baseline and candidate.
+- **Left / Right** are the two imported result sides.
+- **Missing partner** means a plan title exists in one result bundle but not the other.
+- **JSON view** is useful when structured cards are not detailed enough and you need raw result differences.
 
 ---
 
@@ -682,6 +834,13 @@ Analyze is best for debugging a single run. It can help find:
 5. Open a row to inspect expected versus actual values.
 6. Download the analysis JSON if the result should be shared with support or stored with a test report.
 
+How to read the analysis:
+
+- **Status** is calculated from the result findings. Failed findings make the result failed; pending findings make it pending when no failure is present.
+- **Category** is inferred from the result title/bundle text and helps group results, for example XRC-137/API or XRC-729.
+- **Finding** is the reason detected by the analyzer, such as timeline failed, status mismatch, input failed, API failed, contract read failed, final check failed or scenario assertion failed.
+- **Expected vs actual** shows what the plan expected and what the run actually produced.
+
 ---
 
 ## 12. End-to-end recipes
@@ -710,6 +869,8 @@ Goal: prove that the helper contract returns `42` and the rule validates.
 18. Deploy or rebind if needed.
 19. Open in Start Sessions and run.
 
+Why these steps matter: the setup contract provides the address behind `${addr:readContract}`, the runtime payload sends the input values, and the expectations prove that both input data and contract read output match the expected result.
+
 ### Recipe B: API saves test
 
 Goal: prove that the API response saved `Ok = true`.
@@ -728,6 +889,8 @@ Goal: prove that the API response saved `Ok = true`.
 12. Enter `true`.
 13. Save and run.
 
+Why these steps matter: the test does not only check that the session finished. It also checks the decoded API save value from the receipt.
+
 ### Recipe C: KYC scenario
 
 Goal: run an order process and a KYC worker that wake each other.
@@ -744,11 +907,15 @@ Goal: run an order process and a KYC worker that wake each other.
 10. Assert both sessions.
 11. Confirm final steps `fulfill_order` and `notify_order_kyc_valid`.
 
+Why these steps matter: a scenario verifies coordination between multiple sessions. It checks not only one isolated final result, but also that the sessions wait, wake and finish in the expected sequence.
+
 ---
 
 ## 13. Troubleshooting
 
 ### Alias warning before running
+
+Cause: at least one alias referenced by the plan or scenario is missing, has no stored secret, or is locked.
 
 Fix:
 
@@ -760,7 +927,7 @@ Fix:
 
 ### API check has no selectable field
 
-The selected step has no API extract alias. Select the correct timeline step or check the imported XRC-137 API extract map.
+The selected step has no API extract alias. Select the correct timeline step or check the imported XRC-137 API extract map. API save checks can only use aliases saved by the underlying XRC-137.
 
 ### Contract read check has no selectable field
 
@@ -780,4 +947,4 @@ Fix:
 
 ### Run reaches wrong final step
 
-Open **Expectations**, check **Expected final step**, then compare timeline entries with the actual result.
+Open **Expectations**, check **Expected final step**, then compare timeline entries with the actual result. If the final step expectation is correct but the run ends somewhere else, inspect Analyze results to see the first failed or pending timeline finding.
