@@ -1,1 +1,2128 @@
-
+{
+  "kind": "xgr.multi-test-scenario",
+  "version": 1,
+  "id": "mscn_mq5hfb0tjubflt",
+  "title": "Order process waits for KYC and continues when KYC is valid - no callback trigger - v8",
+  "scenarios": [
+    {
+      "kind": "xgr.test-scenario",
+      "version": 1,
+      "id": "scn_mq5hf9b9mpnmqa",
+      "title": "Order process waits for KYC and continues when KYC is valid - no callback trigger - v8",
+      "plans": [
+        {
+          "key": "order_process",
+          "plan": {
+            "id": "tp_order_kyc_bestellprozess_order_kyc_wakeup_process_valid_kyc_path_no_callback_v8",
+            "title": "Order KYC wakeup process - valid KYC path - no callback trigger - v8",
+            "createdAt": 1780574400000,
+            "updatedAt": 1780939547057,
+            "metadata": {
+              "planId": "tp_order_kyc_bestellprozess_order_kyc_wakeup_process_valid_kyc_path_no_callback_v8",
+              "title": "Order KYC wakeup process - valid KYC path",
+              "generatedAt": "2026-06-05T14:10:00.000Z",
+              "ownerAlias": "owner",
+              "starterAlias": "owner",
+              "fixedReason": "Removed self-reference $session.id:order_session from the order start payload. RequestKyc now derives OrderSessionId from engine runtime meta [__sessionId] and forwards it to the KYC worker.",
+              "version": "fixed_v8_no_callback_trigger_self_sessionid_via_engine_meta",
+              "testSuiteScenarioSource": {
+                "key": "order_process",
+                "enabled": true,
+                "startStep": "receive_order",
+                "starterAlias": "owner",
+                "saveAs": "order_process"
+              }
+            },
+            "source": {
+              "bundleId": "order_kyc_bestellprozess_v1",
+              "ostcId": "order_kyc_bestellprozess",
+              "orchestration": "0xd5b21573A7401C244C44a773d5eA6dADca71E3e2",
+              "ostcHash": "0xa8be0a0bfc5aa94da9a04004bca2e7623efc1ccafa6e8cf94332963405aa0d4f",
+              "rawBundleJson": "{\n  \"format\": \"xgr-multi-bundle@1\",\n  \"createdAt\": \"2026-06-08T17:25:46.999Z\",\n  \"bundles\": [\n    {\n      \"bundleId\": \"order_kyc_bestellprozess_v1\",\n      \"items\": [\n        {\n          \"id\": \"receive_order\",\n          \"bundleId\": \"order_kyc_bestellprozess_v1\",\n          \"address\": \"0xD6a04941201f6755DBDd6334c535c91fc0bf0af5\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"ReceiveOrder\",\n            \"bundleId\": \"order_kyc_bestellprozess_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xD6a04941201f6755DBDd6334c535c91fc0bf0af5\"\n          },\n          \"name\": \"Receive order and forward KYC worker routing references\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"cartId\": {\n              \"type\": \"string\"\n            },\n            \"totalAmount\": {\n              \"type\": \"uint256\"\n            },\n            \"currency\": {\n              \"type\": \"string\",\n              \"default\": \"EUR\"\n            },\n            \"fullName\": {\n              \"type\": \"string\"\n            },\n            \"addressText\": {\n              \"type\": \"string\"\n            },\n            \"dateOfBirth\": {\n              \"type\": \"string\"\n            },\n            \"documentType\": {\n              \"type\": \"string\"\n            },\n            \"documentNumber\": {\n              \"type\": \"string\"\n            },\n            \"documentImageHash\": {\n              \"type\": \"string\"\n            },\n            \"selfieImageHash\": {\n              \"type\": \"string\"\n            },\n            \"pepMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"sanctionsMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"applicantConsent\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"KycRunner\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"KycSessionId\": {\n              \"type\": \"uint64\",\n              \"default\": 0\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\",\n              \"default\": 0\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"[cartId] != ''\",\n            \"[totalAmount] > 0\",\n            \"[fullName] != ''\",\n            \"[addressText] != ''\",\n            \"[dateOfBirth] != ''\",\n            \"[documentType] != ''\",\n            \"[documentNumber] != ''\",\n            \"[documentImageHash] != ''\",\n            \"[selfieImageHash] != ''\",\n            \"[applicantConsent] == true\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"cartId\": \"[cartId]\",\n              \"totalAmount\": \"[totalAmount]\",\n              \"currency\": \"[currency]\",\n              \"fullName\": \"[fullName]\",\n              \"addressText\": \"[addressText]\",\n              \"dateOfBirth\": \"[dateOfBirth]\",\n              \"documentType\": \"[documentType]\",\n              \"documentNumber\": \"[documentNumber]\",\n              \"documentImageHash\": \"[documentImageHash]\",\n              \"selfieImageHash\": \"[selfieImageHash]\",\n              \"pepMatch\": \"[pepMatch]\",\n              \"sanctionsMatch\": \"[sanctionsMatch]\",\n              \"livenessConfirmed\": \"[livenessConfirmed]\",\n              \"applicantConsent\": \"[applicantConsent]\",\n              \"orderStatus\": \"received\",\n              \"kycStatus\": \"pending\",\n              \"kycRequired\": true,\n              \"KycRunner\": \"[KycRunner]\",\n              \"KycSessionId\": \"[KycSessionId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"orderStatus\": \"rejected\",\n              \"rejectionReason\": \"Order or customer data is incomplete.\",\n              \"kycRequired\": false\n            }\n          }\n        },\n        {\n          \"id\": \"request_kyc\",\n          \"bundleId\": \"order_kyc_bestellprozess_v1\",\n          \"address\": \"0x31C3FAf88C3a457ced0d301A986123E3bBFfA409\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"RequestKyc\",\n            \"bundleId\": \"order_kyc_bestellprozess_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x31C3FAf88C3a457ced0d301A986123E3bBFfA409\"\n          },\n          \"name\": \"Wake KYC worker directly and derive order callback session from engine meta\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"cartId\": {\n              \"type\": \"string\"\n            },\n            \"totalAmount\": {\n              \"type\": \"uint256\"\n            },\n            \"currency\": {\n              \"type\": \"string\",\n              \"default\": \"EUR\"\n            },\n            \"fullName\": {\n              \"type\": \"string\"\n            },\n            \"addressText\": {\n              \"type\": \"string\"\n            },\n            \"dateOfBirth\": {\n              \"type\": \"string\"\n            },\n            \"documentType\": {\n              \"type\": \"string\"\n            },\n            \"documentNumber\": {\n              \"type\": \"string\"\n            },\n            \"documentImageHash\": {\n              \"type\": \"string\"\n            },\n            \"selfieImageHash\": {\n              \"type\": \"string\"\n            },\n            \"pepMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"sanctionsMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"applicantConsent\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"KycRunner\": {\n              \"type\": \"string\"\n            },\n            \"KycSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"[KycRunner] != ''\",\n            \"[KycSessionId] > 0\",\n            \"[OrderRunner] != ''\"\n          ],\n          \"onValid\": {\n            \"wakeUps\": [\n              {\n                \"runner\": \"[KycRunner]\",\n                \"sessionId\": \"[KycSessionId]\",\n                \"stepId\": \"wait_for_kyc_request\"\n              }\n            ],\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"cartId\": \"[cartId]\",\n              \"totalAmount\": \"[totalAmount]\",\n              \"currency\": \"[currency]\",\n              \"orderStatus\": \"waiting_for_kyc\",\n              \"kycStatus\": \"requested\",\n              \"kycRequestSent\": true,\n              \"KycRunner\": \"[KycRunner]\",\n              \"KycSessionId\": \"[KycSessionId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[__sessionId]\",\n              \"fullName\": \"[fullName]\",\n              \"addressText\": \"[addressText]\",\n              \"dateOfBirth\": \"[dateOfBirth]\",\n              \"documentType\": \"[documentType]\",\n              \"documentNumber\": \"[documentNumber]\",\n              \"documentImageHash\": \"[documentImageHash]\",\n              \"selfieImageHash\": \"[selfieImageHash]\",\n              \"pepMatch\": \"[pepMatch]\",\n              \"sanctionsMatch\": \"[sanctionsMatch]\",\n              \"livenessConfirmed\": \"[livenessConfirmed]\",\n              \"applicantConsent\": \"[applicantConsent]\",\n              \"kycRequestSource\": \"order_process\"\n            },\n            \"waitSec\": 60\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"orderStatus\": \"cancelled\",\n              \"kycStatus\": \"request_failed\",\n              \"rejectionReason\": \"KYC worker target or order runner was missing.\",\n              \"kycRequestSent\": false\n            }\n          }\n        },\n        {\n          \"id\": \"wait_for_kyc_result\",\n          \"bundleId\": \"order_kyc_bestellprozess_v1\",\n          \"address\": \"0xF1Ca18366473ab2d3bf839978d4309c36C478915\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"WaitForKycResult\",\n            \"bundleId\": \"order_kyc_bestellprozess_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xF1Ca18366473ab2d3bf839978d4309c36C478915\"\n          },\n          \"name\": \"WAITING: hold order up to 60s until KYC returns valid or rejected\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"cartId\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"totalAmount\": {\n              \"type\": \"uint256\",\n              \"default\": 0\n            },\n            \"currency\": {\n              \"type\": \"string\",\n              \"default\": \"EUR\"\n            },\n            \"kycApproved\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"kycStatus\": {\n              \"type\": \"string\",\n              \"default\": \"pending\"\n            },\n            \"kycReference\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"rejectionReason\": {\n              \"type\": \"string\",\n              \"default\": \"KYC result timed out or was rejected.\"\n            },\n            \"customerStatus\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"accountCanBeCreated\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"([kycApproved] == true) || ([customerStatus] == 'accepted' && [accountCanBeCreated] == true)\",\n            \"([kycStatus] == 'valid') || ([customerStatus] == 'accepted')\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"cartId\": \"[cartId]\",\n              \"totalAmount\": \"[totalAmount]\",\n              \"currency\": \"[currency]\",\n              \"kycApproved\": true,\n              \"kycStatus\": \"valid\",\n              \"kycReference\": \"[kycReference]\",\n              \"orderStatus\": \"kyc_passed\",\n              \"customerStatus\": \"accepted\",\n              \"accountCanBeCreated\": true\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"cartId\": \"[cartId]\",\n              \"totalAmount\": \"[totalAmount]\",\n              \"currency\": \"[currency]\",\n              \"kycApproved\": false,\n              \"kycStatus\": \"[kycStatus]\",\n              \"rejectionReason\": \"[rejectionReason]\",\n              \"orderStatus\": \"cancelled_after_kyc\"\n            }\n          }\n        },\n        {\n          \"id\": \"fulfill_order\",\n          \"bundleId\": \"order_kyc_bestellprozess_v1\",\n          \"address\": \"0x3791B56be73b84f1C1d24E614A36DA8792732701\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"FulfillOrder\",\n            \"bundleId\": \"order_kyc_bestellprozess_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x3791B56be73b84f1C1d24E614A36DA8792732701\"\n          },\n          \"name\": \"Continue and finalize order after valid KYC\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"cartId\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"totalAmount\": {\n              \"type\": \"uint256\",\n              \"default\": 0\n            },\n            \"currency\": {\n              \"type\": \"string\",\n              \"default\": \"EUR\"\n            },\n            \"kycApproved\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"kycStatus\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            },\n            \"orderStatus\": {\n              \"type\": \"string\"\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"[kycApproved] == true\",\n            \"[kycStatus] == 'valid'\",\n            \"[orderStatus] == 'kyc_passed'\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"orderStatus\": \"fulfilled\",\n              \"fulfillmentAllowed\": true\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"orderStatus\": \"fulfillment_blocked\",\n              \"fulfillmentAllowed\": false\n            }\n          }\n        },\n        {\n          \"id\": \"cancel_order\",\n          \"bundleId\": \"order_kyc_bestellprozess_v1\",\n          \"address\": \"0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"CancelOrderAfterKyc\",\n            \"bundleId\": \"order_kyc_bestellprozess_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f\"\n          },\n          \"name\": \"Cleanly end order after invalid KYC\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"kycApproved\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"kycStatus\": {\n              \"type\": \"string\",\n              \"default\": \"rejected\"\n            },\n            \"rejectionReason\": {\n              \"type\": \"string\",\n              \"default\": \"KYC rejected.\"\n            },\n            \"orderStatus\": {\n              \"type\": \"string\",\n              \"default\": \"cancelled_after_kyc\"\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"[kycApproved] == false\",\n            \"[rejectionReason] != ''\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"orderStatus\": \"cancelled\",\n              \"cancellationReason\": \"[rejectionReason]\",\n              \"cleanlyEnded\": true\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderStatus\": \"cancelled\",\n              \"cancellationReason\": \"KYC rejected.\",\n              \"cleanlyEnded\": true\n            }\n          }\n        },\n        {\n          \"id\": \"order_kyc_bestellprozess\",\n          \"bundleId\": \"order_kyc_bestellprozess_v1\",\n          \"meta\": {\n            \"type\": \"xrc729\",\n            \"alias\": \"OrderKycBestellprozess\",\n            \"bundleId\": \"order_kyc_bestellprozess_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xd5b21573A7401C244C44a773d5eA6dADca71E3e2\"\n          },\n          \"name\": \"Order process with direct KYC worker wakeup and 60s KYC result gate\",\n          \"structure\": {\n            \"receive_order\": {\n              \"rule\": \"0xD6a04941201f6755DBDd6334c535c91fc0bf0af5\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"request_kyc\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"cancel_order\"\n                ]\n              }\n            },\n            \"request_kyc\": {\n              \"rule\": \"0x31C3FAf88C3a457ced0d301A986123E3bBFfA409\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"wait_for_kyc_result\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"cancel_order\"\n                ]\n              }\n            },\n            \"wait_for_kyc_result\": {\n              \"rule\": \"0xF1Ca18366473ab2d3bf839978d4309c36C478915\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"fulfill_order\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"cancel_order\"\n                ]\n              }\n            },\n            \"fulfill_order\": {\n              \"rule\": \"0x3791B56be73b84f1C1d24E614A36DA8792732701\"\n            },\n            \"cancel_order\": {\n              \"rule\": \"0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f\"\n            }\n          },\n          \"address\": \"0xd5b21573A7401C244C44a773d5eA6dADca71E3e2\"\n        }\n      ]\n    }\n  ]\n}",
+              "rawXrc729Json": "{\n  \"id\": \"order_kyc_bestellprozess\",\n  \"bundleId\": \"order_kyc_bestellprozess_v1\",\n  \"meta\": {\n    \"type\": \"xrc729\",\n    \"alias\": \"OrderKycBestellprozess\",\n    \"bundleId\": \"order_kyc_bestellprozess_v1\",\n    \"version\": \"1.0.0\",\n    \"deployedAddress\": \"0xd5b21573A7401C244C44a773d5eA6dADca71E3e2\"\n  },\n  \"name\": \"Order process with direct KYC worker wakeup and 60s KYC result gate\",\n  \"structure\": {\n    \"receive_order\": {\n      \"rule\": \"0xD6a04941201f6755DBDd6334c535c91fc0bf0af5\",\n      \"onValid\": {\n        \"spawns\": [\n          \"request_kyc\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"cancel_order\"\n        ]\n      }\n    },\n    \"request_kyc\": {\n      \"rule\": \"0x31C3FAf88C3a457ced0d301A986123E3bBFfA409\",\n      \"onValid\": {\n        \"spawns\": [\n          \"wait_for_kyc_result\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"cancel_order\"\n        ]\n      }\n    },\n    \"wait_for_kyc_result\": {\n      \"rule\": \"0xF1Ca18366473ab2d3bf839978d4309c36C478915\",\n      \"onValid\": {\n        \"spawns\": [\n          \"fulfill_order\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"cancel_order\"\n        ]\n      }\n    },\n    \"fulfill_order\": {\n      \"rule\": \"0x3791B56be73b84f1C1d24E614A36DA8792732701\"\n    },\n    \"cancel_order\": {\n      \"rule\": \"0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f\"\n    }\n  },\n  \"address\": \"0xd5b21573A7401C244C44a773d5eA6dADca71E3e2\"\n}"
+            },
+            "runtime": {
+              "stepId": "receive_order",
+              "ostcId": "order_kyc_bestellprozess",
+              "orchestration": "0xd5b21573A7401C244C44a773d5eA6dADca71E3e2",
+              "ostcHash": "0xa8be0a0bfc5aa94da9a04004bca2e7623efc1ccafa6e8cf94332963405aa0d4f",
+              "maxTotalGas": 0,
+              "payload": {
+                "orderId": "ORD-KYC-1001",
+                "customerId": "CUST-KYC-1001",
+                "cartId": "CART-1001",
+                "totalAmount": 19900,
+                "currency": "EUR",
+                "fullName": "Anna Beispiel",
+                "addressText": "Musterstrasse 12, 10115 Berlin, DE",
+                "dateOfBirth": "1990-04-15",
+                "documentType": "passport",
+                "documentNumber": "DE-P-123456789",
+                "documentImageHash": "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+                "selfieImageHash": "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+                "pepMatch": false,
+                "sanctionsMatch": false,
+                "livenessConfirmed": true,
+                "applicantConsent": true,
+                "KycRunner": "",
+                "KycSessionId": 0,
+                "OrderRunner": "",
+                "OrderSessionId": 0
+              }
+            },
+            "expectations": {
+              "timeline": [
+                {
+                  "id": "exp_receive_order_1",
+                  "mode": "allOf",
+                  "label": "receive_order #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_receive_order_1",
+                      "stepId": "receive_order",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_request_kyc_2",
+                  "mode": "allOf",
+                  "label": "request_kyc #1 - direct KYC wakeup",
+                  "alternatives": [
+                    {
+                      "id": "expalt_request_kyc_2",
+                      "stepId": "request_kyc",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_wait_for_kyc_result_3",
+                  "mode": "allOf",
+                  "label": "wait_for_kyc_result #1 - 60s waiting gate",
+                  "alternatives": [
+                    {
+                      "id": "expalt_wait_for_kyc_result_3",
+                      "stepId": "wait_for_kyc_result",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_fulfill_order_4",
+                  "mode": "allOf",
+                  "label": "fulfill_order #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_fulfill_order_4",
+                      "stepId": "fulfill_order",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "done",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_cancel_order_5",
+                  "mode": "allOf",
+                  "label": "cancel_order #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_cancel_order_5",
+                      "stepId": "cancel_order",
+                      "occurrence": 1,
+                      "exist": false,
+                      "valid": null,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                }
+              ],
+              "finalStatuses": [
+                "done"
+              ],
+              "finalStep": "fulfill_order"
+            },
+            "analysis": {
+              "structure": {
+                "receive_order": {
+                  "rule": "0xD6a04941201f6755DBDd6334c535c91fc0bf0af5",
+                  "onValid": {
+                    "spawns": [
+                      "request_kyc"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "cancel_order"
+                    ]
+                  }
+                },
+                "request_kyc": {
+                  "rule": "0x31C3FAf88C3a457ced0d301A986123E3bBFfA409",
+                  "onValid": {
+                    "spawns": [
+                      "wait_for_kyc_result"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "cancel_order"
+                    ]
+                  }
+                },
+                "wait_for_kyc_result": {
+                  "rule": "0xF1Ca18366473ab2d3bf839978d4309c36C478915",
+                  "onValid": {
+                    "spawns": [
+                      "fulfill_order"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "cancel_order"
+                    ]
+                  }
+                },
+                "fulfill_order": {
+                  "rule": "0x3791B56be73b84f1C1d24E614A36DA8792732701"
+                },
+                "cancel_order": {
+                  "rule": "0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f"
+                }
+              },
+              "steps": [
+                {
+                  "stepId": "receive_order",
+                  "ruleRef": "0xD6a04941201f6755DBDd6334c535c91fc0bf0af5",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "cartId": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "uint256"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "default": "EUR"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "addressText": {
+                      "type": "string"
+                    },
+                    "dateOfBirth": {
+                      "type": "string"
+                    },
+                    "documentType": {
+                      "type": "string"
+                    },
+                    "documentNumber": {
+                      "type": "string"
+                    },
+                    "documentImageHash": {
+                      "type": "string"
+                    },
+                    "selfieImageHash": {
+                      "type": "string"
+                    },
+                    "pepMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "sanctionsMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "applicantConsent": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "KycRunner": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "KycSessionId": {
+                      "type": "uint64",
+                      "default": 0
+                    },
+                    "OrderRunner": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64",
+                      "default": 0
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "cartId": "",
+                    "totalAmount": 0,
+                    "currency": "EUR",
+                    "fullName": "",
+                    "addressText": "",
+                    "dateOfBirth": "",
+                    "documentType": "",
+                    "documentNumber": "",
+                    "documentImageHash": "",
+                    "selfieImageHash": "",
+                    "pepMatch": false,
+                    "sanctionsMatch": false,
+                    "livenessConfirmed": false,
+                    "applicantConsent": false,
+                    "KycRunner": "",
+                    "KycSessionId": 0,
+                    "OrderRunner": "",
+                    "OrderSessionId": 0
+                  },
+                  "ruleName": "ReceiveOrder"
+                },
+                {
+                  "stepId": "request_kyc",
+                  "ruleRef": "0x31C3FAf88C3a457ced0d301A986123E3bBFfA409",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "cartId": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "uint256"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "default": "EUR"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "addressText": {
+                      "type": "string"
+                    },
+                    "dateOfBirth": {
+                      "type": "string"
+                    },
+                    "documentType": {
+                      "type": "string"
+                    },
+                    "documentNumber": {
+                      "type": "string"
+                    },
+                    "documentImageHash": {
+                      "type": "string"
+                    },
+                    "selfieImageHash": {
+                      "type": "string"
+                    },
+                    "pepMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "sanctionsMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "applicantConsent": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "KycRunner": {
+                      "type": "string"
+                    },
+                    "KycSessionId": {
+                      "type": "uint64"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "cartId": "",
+                    "totalAmount": 0,
+                    "currency": "EUR",
+                    "fullName": "",
+                    "addressText": "",
+                    "dateOfBirth": "",
+                    "documentType": "",
+                    "documentNumber": "",
+                    "documentImageHash": "",
+                    "selfieImageHash": "",
+                    "pepMatch": false,
+                    "sanctionsMatch": false,
+                    "livenessConfirmed": false,
+                    "applicantConsent": false,
+                    "KycRunner": "",
+                    "KycSessionId": 0,
+                    "OrderRunner": "",
+                    "OrderSessionId": 0
+                  },
+                  "ruleName": "RequestKyc"
+                },
+                {
+                  "stepId": "wait_for_kyc_result",
+                  "ruleRef": "0xF1Ca18366473ab2d3bf839978d4309c36C478915",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "cartId": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "totalAmount": {
+                      "type": "uint256",
+                      "default": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "default": "EUR"
+                    },
+                    "kycApproved": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "kycStatus": {
+                      "type": "string",
+                      "default": "pending"
+                    },
+                    "kycReference": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "rejectionReason": {
+                      "type": "string",
+                      "default": "KYC result timed out or was rejected."
+                    },
+                    "customerStatus": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "accountCanBeCreated": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "cartId": "",
+                    "totalAmount": 0,
+                    "currency": "EUR",
+                    "kycApproved": false,
+                    "kycStatus": "pending",
+                    "kycReference": "",
+                    "rejectionReason": "KYC result timed out or was rejected.",
+                    "customerStatus": "",
+                    "accountCanBeCreated": false
+                  },
+                  "ruleName": "WaitForKycResult"
+                },
+                {
+                  "stepId": "fulfill_order",
+                  "ruleRef": "0x3791B56be73b84f1C1d24E614A36DA8792732701",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "cartId": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "totalAmount": {
+                      "type": "uint256",
+                      "default": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "default": "EUR"
+                    },
+                    "kycApproved": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "kycStatus": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "orderStatus": {
+                      "type": "string"
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "cartId": "",
+                    "totalAmount": 0,
+                    "currency": "EUR",
+                    "kycApproved": false,
+                    "kycStatus": "",
+                    "orderStatus": ""
+                  },
+                  "ruleName": "FulfillOrder"
+                },
+                {
+                  "stepId": "cancel_order",
+                  "ruleRef": "0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "kycApproved": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "kycStatus": {
+                      "type": "string",
+                      "default": "rejected"
+                    },
+                    "rejectionReason": {
+                      "type": "string",
+                      "default": "KYC rejected."
+                    },
+                    "orderStatus": {
+                      "type": "string",
+                      "default": "cancelled_after_kyc"
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "kycApproved": false,
+                    "kycStatus": "rejected",
+                    "rejectionReason": "KYC rejected.",
+                    "orderStatus": "cancelled_after_kyc"
+                  },
+                  "ruleName": "CancelOrderAfterKyc"
+                }
+              ],
+              "bundleId": "order_kyc_bestellprozess_v1",
+              "orchestrationId": "order_kyc_bestellprozess",
+              "logicalRefsByNode": {
+                "receive_order": "ReceiveOrder",
+                "request_kyc": "RequestKyc",
+                "wait_for_kyc_result": "WaitForKycResult",
+                "fulfill_order": "FulfillOrder",
+                "cancel_order": "CancelOrderAfterKyc"
+              },
+              "aliases": [
+                "ReceiveOrder",
+                "RequestKyc",
+                "WaitForKycResult",
+                "FulfillOrder",
+                "CancelOrderAfterKyc"
+              ],
+              "contracts": [
+                {
+                  "alias": "ReceiveOrder",
+                  "logicalRef": "ReceiveOrder",
+                  "label": "ReceiveOrder",
+                  "configHash": "",
+                  "address": "0xD6a04941201f6755DBDd6334c535c91fc0bf0af5"
+                },
+                {
+                  "alias": "RequestKyc",
+                  "logicalRef": "RequestKyc",
+                  "label": "RequestKyc",
+                  "configHash": "",
+                  "address": "0x31C3FAf88C3a457ced0d301A986123E3bBFfA409"
+                },
+                {
+                  "alias": "WaitForKycResult",
+                  "logicalRef": "WaitForKycResult",
+                  "label": "WaitForKycResult",
+                  "configHash": "",
+                  "address": "0xF1Ca18366473ab2d3bf839978d4309c36C478915"
+                },
+                {
+                  "alias": "FulfillOrder",
+                  "logicalRef": "FulfillOrder",
+                  "label": "FulfillOrder",
+                  "configHash": "",
+                  "address": "0x3791B56be73b84f1C1d24E614A36DA8792732701"
+                },
+                {
+                  "alias": "CancelOrderAfterKyc",
+                  "logicalRef": "CancelOrderAfterKyc",
+                  "label": "CancelOrderAfterKyc",
+                  "configHash": "",
+                  "address": "0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f"
+                }
+              ]
+            },
+            "bindings": {
+              "bundles": [
+                {
+                  "bundleId": "order_kyc_bestellprozess_v1",
+                  "orchestrationId": "order_kyc_bestellprozess",
+                  "xrc729Address": "0xd5b21573A7401C244C44a773d5eA6dADca71E3e2",
+                  "xrc137ByLogicalRef": {
+                    "ReceiveOrder": "0xD6a04941201f6755DBDd6334c535c91fc0bf0af5",
+                    "RequestKyc": "0x31C3FAf88C3a457ced0d301A986123E3bBFfA409",
+                    "WaitForKycResult": "0xF1Ca18366473ab2d3bf839978d4309c36C478915",
+                    "FulfillOrder": "0x3791B56be73b84f1C1d24E614A36DA8792732701",
+                    "CancelOrderAfterKyc": "0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f"
+                  },
+                  "contracts": [
+                    {
+                      "alias": "ReceiveOrder",
+                      "logicalRef": "ReceiveOrder",
+                      "label": "ReceiveOrder",
+                      "configHash": "",
+                      "address": "0xD6a04941201f6755DBDd6334c535c91fc0bf0af5"
+                    },
+                    {
+                      "alias": "RequestKyc",
+                      "logicalRef": "RequestKyc",
+                      "label": "RequestKyc",
+                      "configHash": "",
+                      "address": "0x31C3FAf88C3a457ced0d301A986123E3bBFfA409"
+                    },
+                    {
+                      "alias": "WaitForKycResult",
+                      "logicalRef": "WaitForKycResult",
+                      "label": "WaitForKycResult",
+                      "configHash": "",
+                      "address": "0xF1Ca18366473ab2d3bf839978d4309c36C478915"
+                    },
+                    {
+                      "alias": "FulfillOrder",
+                      "logicalRef": "FulfillOrder",
+                      "label": "FulfillOrder",
+                      "configHash": "",
+                      "address": "0x3791B56be73b84f1C1d24E614A36DA8792732701"
+                    },
+                    {
+                      "alias": "CancelOrderAfterKyc",
+                      "logicalRef": "CancelOrderAfterKyc",
+                      "label": "CancelOrderAfterKyc",
+                      "configHash": "",
+                      "address": "0xC4ac4AA4C638ED0a0cceeAbF65a5088eB24aa26f"
+                    }
+                  ]
+                }
+              ]
+            },
+            "testSetup": {
+              "contracts": []
+            },
+            "execution": {
+              "ownerAlias": "owner",
+              "starterAlias": "owner",
+              "xrc729Executors": [],
+              "xrc137ExecutorsByContractAlias": {
+                "ReceiveOrder": [],
+                "RequestKyc": [],
+                "WaitForKycResult": [],
+                "FulfillOrder": [],
+                "CancelOrderAfterKyc": []
+              }
+            }
+          }
+        },
+        {
+          "key": "kyc_worker",
+          "plan": {
+            "id": "tp_kyc_order_wakeup_process_kyc_worker_wakeup_process_valid_path_no_callback_v8",
+            "title": "KYC worker wakeup process - valid path - no callback trigger - v8",
+            "createdAt": 1780574400000,
+            "updatedAt": 1780939547071,
+            "metadata": {
+              "planId": "tp_kyc_order_wakeup_process_kyc_worker_wakeup_process_valid_path_no_callback_v8",
+              "title": "KYC worker wakeup process - valid path",
+              "generatedAt": "2026-06-05T14:10:00.000Z",
+              "ownerAlias": "owner1",
+              "starterAlias": "owner1",
+              "fixedReason": "Removed self-reference $session.id:order_session from the order start payload. RequestKyc now derives OrderSessionId from engine runtime meta [__sessionId] and forwards it to the KYC worker.",
+              "version": "fixed_v8_no_callback_trigger_self_sessionid_via_engine_meta",
+              "testSuiteScenarioSource": {
+                "key": "kyc_worker",
+                "enabled": true,
+                "startStep": "arm_kyc_request",
+                "starterAlias": "owner1",
+                "saveAs": "kyc_worker"
+              }
+            },
+            "source": {
+              "bundleId": "kyc_order_wakeup_process_v1",
+              "ostcId": "kyc_order_wakeup_process",
+              "orchestration": "0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682",
+              "ostcHash": "0x1694a758e9132c9a31c53da18cee4a2a75e57609920049a743037a4b09fc068c",
+              "rawBundleJson": "{\n  \"format\": \"xgr-multi-bundle@1\",\n  \"createdAt\": \"2026-06-08T17:25:46.999Z\",\n  \"bundles\": [\n    {\n      \"bundleId\": \"kyc_order_wakeup_process_v1\",\n      \"items\": [\n        {\n          \"id\": \"arm_kyc_request\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"ArmKycRequestWait\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74\"\n          },\n          \"name\": \"Arm KYC worker and wait up to 60s for order wakeup\",\n          \"payload\": {\n            \"WorkerMarker\": {\n              \"type\": \"string\",\n              \"default\": \"ready\"\n            }\n          },\n          \"rules\": [\n            \"1 == 1\"\n          ],\n          \"onValid\": {\n            \"waitSec\": 60,\n            \"payload\": {\n              \"WorkerMarker\": \"[WorkerMarker]\",\n              \"workerStatus\": \"waiting_for_order_kyc_request\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"workerStatus\": \"arm_failed\",\n              \"rejectionReason\": \"KYC worker could not be armed.\"\n            }\n          }\n        },\n        {\n          \"id\": \"wait_for_kyc_request\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"WaitForKycRequest\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B\"\n          },\n          \"name\": \"Receive KYC request from order process\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"cartId\": {\n              \"type\": \"string\"\n            },\n            \"totalAmount\": {\n              \"type\": \"uint256\"\n            },\n            \"currency\": {\n              \"type\": \"string\",\n              \"default\": \"EUR\"\n            },\n            \"fullName\": {\n              \"type\": \"string\"\n            },\n            \"addressText\": {\n              \"type\": \"string\"\n            },\n            \"dateOfBirth\": {\n              \"type\": \"string\"\n            },\n            \"documentType\": {\n              \"type\": \"string\"\n            },\n            \"documentNumber\": {\n              \"type\": \"string\"\n            },\n            \"documentImageHash\": {\n              \"type\": \"string\"\n            },\n            \"selfieImageHash\": {\n              \"type\": \"string\"\n            },\n            \"pepMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"sanctionsMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"applicantConsent\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"kycRequestSource\": {\n              \"type\": \"string\",\n              \"default\": \"order_process\"\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"[OrderRunner] != ''\",\n            \"[OrderSessionId] > 0\",\n            \"[fullName] != ''\",\n            \"[documentNumber] != ''\",\n            \"[applicantConsent] == true\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"cartId\": \"[cartId]\",\n              \"totalAmount\": \"[totalAmount]\",\n              \"currency\": \"[currency]\",\n              \"fullName\": \"[fullName]\",\n              \"addressText\": \"[addressText]\",\n              \"dateOfBirth\": \"[dateOfBirth]\",\n              \"documentType\": \"[documentType]\",\n              \"documentNumber\": \"[documentNumber]\",\n              \"documentImageHash\": \"[documentImageHash]\",\n              \"selfieImageHash\": \"[selfieImageHash]\",\n              \"pepMatch\": \"[pepMatch]\",\n              \"sanctionsMatch\": \"[sanctionsMatch]\",\n              \"livenessConfirmed\": \"[livenessConfirmed]\",\n              \"applicantConsent\": \"[applicantConsent]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"kycRequestReceived\": true,\n              \"rejectionReason\": \"\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"kycRequestReceived\": false,\n              \"rejectionReason\": \"KYC request wakeup payload is incomplete.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"collect_customer_information\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x28b56589043A07EB3897DB4d15c6459b695aa40F\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"CollectCustomerInformation\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x28b56589043A07EB3897DB4d15c6459b695aa40F\"\n          },\n          \"name\": \"Collect customer information and documents\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"fullName\": {\n              \"type\": \"string\"\n            },\n            \"addressText\": {\n              \"type\": \"string\"\n            },\n            \"dateOfBirth\": {\n              \"type\": \"string\"\n            },\n            \"documentType\": {\n              \"type\": \"string\"\n            },\n            \"documentNumber\": {\n              \"type\": \"string\"\n            },\n            \"documentImageHash\": {\n              \"type\": \"string\"\n            },\n            \"selfieImageHash\": {\n              \"type\": \"string\"\n            },\n            \"pepMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"sanctionsMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"applicantConsent\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[orderId] != ''\",\n            \"[customerId] != ''\",\n            \"[OrderRunner] != ''\",\n            \"[OrderSessionId] > 0\",\n            \"[fullName] != ''\",\n            \"[addressText] != ''\",\n            \"[dateOfBirth] != ''\",\n            \"[documentType] != ''\",\n            \"[documentNumber] != ''\",\n            \"[documentImageHash] != ''\",\n            \"[selfieImageHash] != ''\",\n            \"[applicantConsent] == true\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"fullName\": \"[fullName]\",\n              \"addressText\": \"[addressText]\",\n              \"dateOfBirth\": \"[dateOfBirth]\",\n              \"documentType\": \"[documentType]\",\n              \"documentNumber\": \"[documentNumber]\",\n              \"documentImageHash\": \"[documentImageHash]\",\n              \"selfieImageHash\": \"[selfieImageHash]\",\n              \"pepMatch\": \"[pepMatch]\",\n              \"sanctionsMatch\": \"[sanctionsMatch]\",\n              \"livenessConfirmed\": \"[livenessConfirmed]\",\n              \"collectionComplete\": true,\n              \"rejectionReason\": \"\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"rejectionReason\": \"Customer information or required documents are incomplete.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"verify_customer_data\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0xf195259D5DB24611967b4dEb937977D2d967cf4A\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"VerifyCustomerData\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xf195259D5DB24611967b4dEb937977D2d967cf4A\"\n          },\n          \"name\": \"Verify name, address and customer master data\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"fullName\": {\n              \"type\": \"string\"\n            },\n            \"addressText\": {\n              \"type\": \"string\"\n            },\n            \"dateOfBirth\": {\n              \"type\": \"string\"\n            }\n          },\n          \"rules\": [\n            \"[customerId] != ''\",\n            \"[fullName] != ''\",\n            \"[addressText] != ''\",\n            \"[dateOfBirth] != ''\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"customerDataValid\": true,\n              \"customerDataReference\": \"customer-data-check-passed\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"rejectionReason\": \"Name, address or customer data could not be verified.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"verify_identity_document\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0xe36d89e7E0BBA2E2F2A225109f3fA29967285296\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"VerifyIdentityDocument\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xe36d89e7E0BBA2E2F2A225109f3fA29967285296\"\n          },\n          \"name\": \"Verify personal identification document\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"documentType\": {\n              \"type\": \"string\"\n            },\n            \"documentNumber\": {\n              \"type\": \"string\"\n            },\n            \"documentImageHash\": {\n              \"type\": \"string\"\n            },\n            \"selfieImageHash\": {\n              \"type\": \"string\"\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[documentType] != ''\",\n            \"[documentNumber] != ''\",\n            \"[documentImageHash] != ''\",\n            \"[selfieImageHash] != ''\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"identityDocumentValid\": true,\n              \"identityDocumentReference\": \"identity-document-check-passed\",\n              \"livenessConfirmed\": \"[livenessConfirmed]\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"rejectionReason\": \"Personal identification document or live image could not be verified.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"screen_pep_sanctions\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"ScreenPepSanctions\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259\"\n          },\n          \"name\": \"Screen PEP and sanctions lists\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"pepMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"sanctionsMatch\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[pepMatch] == false\",\n            \"[sanctionsMatch] == false\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"pepSanctionsClear\": true,\n              \"screeningReference\": \"pep-sanctions-screening-clear\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"rejectionReason\": \"PEP or sanctions screening produced a blocking match.\",\n              \"resubmissionRequired\": false\n            }\n          }\n        },\n        {\n          \"id\": \"analyze_information_documents\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"AnalyzeInformationDocuments\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA\"\n          },\n          \"name\": \"Analyze submitted information and documents\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"customerDataValid\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"identityDocumentValid\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"pepSanctionsClear\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[customerId] != ''\",\n            \"[customerDataValid] == true\",\n            \"[identityDocumentValid] == true\",\n            \"[pepSanctionsClear] == true\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"analysisPassed\": true,\n              \"livenessConfirmed\": \"[livenessConfirmed]\",\n              \"analysisReference\": \"information-document-analysis-passed\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"rejectionReason\": \"Submitted information and documents did not pass combined analysis.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"live_verification\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x3D50434EC3b93aAD44393C9CfB14E6d82298c822\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"LiveVerification\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x3D50434EC3b93aAD44393C9CfB14E6d82298c822\"\n          },\n          \"name\": \"Live verification\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"analysisPassed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"livenessConfirmed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[customerId] != ''\",\n            \"[analysisPassed] == true\",\n            \"[livenessConfirmed] == true\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"liveVerificationPassed\": true,\n              \"accountCreationAllowed\": true\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"rejectionReason\": \"Live verification was not confirmed.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"customer_accepted\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"CustomerAccepted\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2\"\n          },\n          \"name\": \"Accept customer and allow account creation\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"liveVerificationPassed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"accountCreationAllowed\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[customerId] != ''\",\n            \"[liveVerificationPassed] == true\",\n            \"[accountCreationAllowed] == true\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"customerStatus\": \"accepted\",\n              \"accountCanBeCreated\": true,\n              \"kycReference\": \"kyc-valid-[customerId]\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"customerStatus\": \"rejected\",\n              \"rejectionReason\": \"Acceptance prerequisites were not met.\",\n              \"resubmissionRequired\": true\n            }\n          }\n        },\n        {\n          \"id\": \"customer_rejected\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"CustomerRejected\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2\"\n          },\n          \"name\": \"Reject customer and prepare KYC callback\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"rejectionReason\": {\n              \"type\": \"string\",\n              \"default\": \"KYC process rejected.\"\n            },\n            \"resubmissionRequired\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[OrderRunner] != ''\",\n            \"[OrderSessionId] > 0\",\n            \"[rejectionReason] != ''\"\n          ],\n          \"onValid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"customerStatus\": \"rejected\",\n              \"rejectionReason\": \"[rejectionReason]\",\n              \"resubmissionRequired\": \"[resubmissionRequired]\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"OrderRunner\": \"[OrderRunner]\",\n              \"OrderSessionId\": \"[OrderSessionId]\",\n              \"customerStatus\": \"rejected\",\n              \"rejectionReason\": \"KYC process rejected.\",\n              \"resubmissionRequired\": false\n            }\n          }\n        },\n        {\n          \"id\": \"notify_order_kyc_valid\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x73C703198fF53dd49391a7935f1bd91986401228\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"NotifyOrderKycValid\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x73C703198fF53dd49391a7935f1bd91986401228\"\n          },\n          \"name\": \"Wake order process with valid KYC result\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"customerStatus\": {\n              \"type\": \"string\",\n              \"default\": \"accepted\"\n            },\n            \"accountCanBeCreated\": {\n              \"type\": \"bool\",\n              \"default\": false\n            },\n            \"kycReference\": {\n              \"type\": \"string\",\n              \"default\": \"\"\n            }\n          },\n          \"rules\": [\n            \"[OrderRunner] != ''\",\n            \"[OrderSessionId] > 0\",\n            \"[customerStatus] == 'accepted'\",\n            \"[accountCanBeCreated] == true\"\n          ],\n          \"onValid\": {\n            \"wakeUps\": [\n              {\n                \"runner\": \"[OrderRunner]\",\n                \"sessionId\": \"[OrderSessionId]\",\n                \"stepId\": \"wait_for_kyc_result\",\n                \"payload\": {\n                  \"kycApproved\": true,\n                  \"kycStatus\": \"valid\",\n                  \"customerStatus\": \"accepted\",\n                  \"accountCanBeCreated\": true,\n                  \"rejectionReason\": \"\"\n                }\n              }\n            ],\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"notificationStatus\": \"kyc_valid_sent\",\n              \"customerStatus\": \"accepted\",\n              \"kycApproved\": true,\n              \"kycStatus\": \"valid\",\n              \"kycReference\": \"[kycReference]\",\n              \"rejectionReason\": \"\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"notificationStatus\": \"kyc_valid_notification_failed\",\n              \"customerStatus\": \"rejected\",\n              \"rejectionReason\": \"Could not notify order process about valid KYC.\"\n            }\n          }\n        },\n        {\n          \"id\": \"notify_order_kyc_invalid\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"address\": \"0x09478D772Aac6D36fEEE606035e8024027884540\",\n          \"meta\": {\n            \"type\": \"xrc137\",\n            \"alias\": \"NotifyOrderKycInvalid\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x09478D772Aac6D36fEEE606035e8024027884540\"\n          },\n          \"name\": \"Wake order process with invalid KYC result\",\n          \"payload\": {\n            \"orderId\": {\n              \"type\": \"string\"\n            },\n            \"customerId\": {\n              \"type\": \"string\"\n            },\n            \"OrderRunner\": {\n              \"type\": \"string\"\n            },\n            \"OrderSessionId\": {\n              \"type\": \"uint64\"\n            },\n            \"customerStatus\": {\n              \"type\": \"string\",\n              \"default\": \"rejected\"\n            },\n            \"rejectionReason\": {\n              \"type\": \"string\",\n              \"default\": \"KYC process rejected.\"\n            },\n            \"resubmissionRequired\": {\n              \"type\": \"bool\",\n              \"default\": false\n            }\n          },\n          \"rules\": [\n            \"[OrderRunner] != ''\",\n            \"[OrderSessionId] > 0\",\n            \"[rejectionReason] != ''\"\n          ],\n          \"onValid\": {\n            \"wakeUps\": [\n              {\n                \"runner\": \"[OrderRunner]\",\n                \"sessionId\": \"[OrderSessionId]\",\n                \"stepId\": \"wait_for_kyc_result\",\n                \"payload\": {\n                  \"kycApproved\": false,\n                  \"kycStatus\": \"rejected\",\n                  \"customerStatus\": \"rejected\",\n                  \"accountCanBeCreated\": false,\n                  \"rejectionReason\": \"KYC process rejected.\"\n                }\n              }\n            ],\n            \"payload\": {\n              \"orderId\": \"[orderId]\",\n              \"customerId\": \"[customerId]\",\n              \"notificationStatus\": \"kyc_invalid_sent\",\n              \"customerStatus\": \"rejected\",\n              \"rejectionReason\": \"[rejectionReason]\",\n              \"kycApproved\": false,\n              \"kycStatus\": \"rejected\",\n              \"kycReference\": \"\"\n            }\n          },\n          \"onInvalid\": {\n            \"payload\": {\n              \"notificationStatus\": \"kyc_invalid_notification_failed\",\n              \"customerStatus\": \"rejected\",\n              \"rejectionReason\": \"KYC rejected.\"\n            }\n          }\n        },\n        {\n          \"id\": \"kyc_order_wakeup_process\",\n          \"bundleId\": \"kyc_order_wakeup_process_v1\",\n          \"meta\": {\n            \"type\": \"xrc729\",\n            \"alias\": \"KycOrderWakeupProcess\",\n            \"bundleId\": \"kyc_order_wakeup_process_v1\",\n            \"version\": \"1.0.0\",\n            \"deployedAddress\": \"0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682\"\n          },\n          \"name\": \"KYC worker process woken directly by order and notifying order result\",\n          \"structure\": {\n            \"arm_kyc_request\": {\n              \"rule\": \"0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"wait_for_kyc_request\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"notify_order_kyc_invalid\"\n                ]\n              }\n            },\n            \"wait_for_kyc_request\": {\n              \"rule\": \"0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"collect_customer_information\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"collect_customer_information\": {\n              \"rule\": \"0x28b56589043A07EB3897DB4d15c6459b695aa40F\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"verify_customer_data\",\n                  \"verify_identity_document\",\n                  \"screen_pep_sanctions\"\n                ],\n                \"join\": {\n                  \"joinid\": \"analyze_information_documents\",\n                  \"mode\": \"all\",\n                  \"waitonjoin\": \"drain\",\n                  \"from\": [\n                    {\n                      \"node\": \"verify_customer_data\",\n                      \"when\": \"valid\"\n                    },\n                    {\n                      \"node\": \"verify_identity_document\",\n                      \"when\": \"valid\"\n                    },\n                    {\n                      \"node\": \"screen_pep_sanctions\",\n                      \"when\": \"valid\"\n                    }\n                  ]\n                }\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"verify_customer_data\": {\n              \"rule\": \"0xf195259D5DB24611967b4dEb937977D2d967cf4A\",\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"verify_identity_document\": {\n              \"rule\": \"0xe36d89e7E0BBA2E2F2A225109f3fA29967285296\",\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"screen_pep_sanctions\": {\n              \"rule\": \"0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259\",\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"analyze_information_documents\": {\n              \"rule\": \"0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"live_verification\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"live_verification\": {\n              \"rule\": \"0x3D50434EC3b93aAD44393C9CfB14E6d82298c822\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"customer_accepted\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"customer_accepted\": {\n              \"rule\": \"0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"notify_order_kyc_valid\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"customer_rejected\"\n                ]\n              }\n            },\n            \"customer_rejected\": {\n              \"rule\": \"0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2\",\n              \"onValid\": {\n                \"spawns\": [\n                  \"notify_order_kyc_invalid\"\n                ]\n              },\n              \"onInvalid\": {\n                \"spawns\": [\n                  \"notify_order_kyc_invalid\"\n                ]\n              }\n            },\n            \"notify_order_kyc_valid\": {\n              \"rule\": \"0x73C703198fF53dd49391a7935f1bd91986401228\"\n            },\n            \"notify_order_kyc_invalid\": {\n              \"rule\": \"0x09478D772Aac6D36fEEE606035e8024027884540\"\n            }\n          },\n          \"address\": \"0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682\"\n        }\n      ]\n    }\n  ]\n}",
+              "rawXrc729Json": "{\n  \"id\": \"kyc_order_wakeup_process\",\n  \"bundleId\": \"kyc_order_wakeup_process_v1\",\n  \"meta\": {\n    \"type\": \"xrc729\",\n    \"alias\": \"KycOrderWakeupProcess\",\n    \"bundleId\": \"kyc_order_wakeup_process_v1\",\n    \"version\": \"1.0.0\",\n    \"deployedAddress\": \"0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682\"\n  },\n  \"name\": \"KYC worker process woken directly by order and notifying order result\",\n  \"structure\": {\n    \"arm_kyc_request\": {\n      \"rule\": \"0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74\",\n      \"onValid\": {\n        \"spawns\": [\n          \"wait_for_kyc_request\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"notify_order_kyc_invalid\"\n        ]\n      }\n    },\n    \"wait_for_kyc_request\": {\n      \"rule\": \"0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B\",\n      \"onValid\": {\n        \"spawns\": [\n          \"collect_customer_information\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"collect_customer_information\": {\n      \"rule\": \"0x28b56589043A07EB3897DB4d15c6459b695aa40F\",\n      \"onValid\": {\n        \"spawns\": [\n          \"verify_customer_data\",\n          \"verify_identity_document\",\n          \"screen_pep_sanctions\"\n        ],\n        \"join\": {\n          \"joinid\": \"analyze_information_documents\",\n          \"mode\": \"all\",\n          \"waitonjoin\": \"drain\",\n          \"from\": [\n            {\n              \"node\": \"verify_customer_data\",\n              \"when\": \"valid\"\n            },\n            {\n              \"node\": \"verify_identity_document\",\n              \"when\": \"valid\"\n            },\n            {\n              \"node\": \"screen_pep_sanctions\",\n              \"when\": \"valid\"\n            }\n          ]\n        }\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"verify_customer_data\": {\n      \"rule\": \"0xf195259D5DB24611967b4dEb937977D2d967cf4A\",\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"verify_identity_document\": {\n      \"rule\": \"0xe36d89e7E0BBA2E2F2A225109f3fA29967285296\",\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"screen_pep_sanctions\": {\n      \"rule\": \"0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259\",\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"analyze_information_documents\": {\n      \"rule\": \"0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA\",\n      \"onValid\": {\n        \"spawns\": [\n          \"live_verification\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"live_verification\": {\n      \"rule\": \"0x3D50434EC3b93aAD44393C9CfB14E6d82298c822\",\n      \"onValid\": {\n        \"spawns\": [\n          \"customer_accepted\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"customer_accepted\": {\n      \"rule\": \"0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2\",\n      \"onValid\": {\n        \"spawns\": [\n          \"notify_order_kyc_valid\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"customer_rejected\"\n        ]\n      }\n    },\n    \"customer_rejected\": {\n      \"rule\": \"0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2\",\n      \"onValid\": {\n        \"spawns\": [\n          \"notify_order_kyc_invalid\"\n        ]\n      },\n      \"onInvalid\": {\n        \"spawns\": [\n          \"notify_order_kyc_invalid\"\n        ]\n      }\n    },\n    \"notify_order_kyc_valid\": {\n      \"rule\": \"0x73C703198fF53dd49391a7935f1bd91986401228\"\n    },\n    \"notify_order_kyc_invalid\": {\n      \"rule\": \"0x09478D772Aac6D36fEEE606035e8024027884540\"\n    }\n  },\n  \"address\": \"0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682\"\n}"
+            },
+            "runtime": {
+              "stepId": "arm_kyc_request",
+              "ostcId": "kyc_order_wakeup_process",
+              "orchestration": "0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682",
+              "ostcHash": "0x1694a758e9132c9a31c53da18cee4a2a75e57609920049a743037a4b09fc068c",
+              "maxTotalGas": 0,
+              "payload": {
+                "WorkerMarker": "ready"
+              }
+            },
+            "expectations": {
+              "timeline": [
+                {
+                  "id": "exp_arm_kyc_request_1",
+                  "mode": "allOf",
+                  "label": "arm_kyc_request #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_arm_kyc_request_1",
+                      "stepId": "arm_kyc_request",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_wait_for_kyc_request_2",
+                  "mode": "allOf",
+                  "label": "wait_for_kyc_request #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_wait_for_kyc_request_2",
+                      "stepId": "wait_for_kyc_request",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_collect_customer_information_3",
+                  "mode": "allOf",
+                  "label": "collect_customer_information #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_collect_customer_information_3",
+                      "stepId": "collect_customer_information",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_verify_customer_data_4",
+                  "mode": "allOf",
+                  "label": "verify_customer_data #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_verify_customer_data_4",
+                      "stepId": "verify_customer_data",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_verify_identity_document_5",
+                  "mode": "allOf",
+                  "label": "verify_identity_document #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_verify_identity_document_5",
+                      "stepId": "verify_identity_document",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_screen_pep_sanctions_6",
+                  "mode": "allOf",
+                  "label": "screen_pep_sanctions #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_screen_pep_sanctions_6",
+                      "stepId": "screen_pep_sanctions",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_analyze_information_documents_7",
+                  "mode": "allOf",
+                  "label": "analyze_information_documents #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_analyze_information_documents_7",
+                      "stepId": "analyze_information_documents",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_live_verification_8",
+                  "mode": "allOf",
+                  "label": "live_verification #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_live_verification_8",
+                      "stepId": "live_verification",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_customer_accepted_9",
+                  "mode": "allOf",
+                  "label": "customer_accepted #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_customer_accepted_9",
+                      "stepId": "customer_accepted",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_notify_order_kyc_valid_10",
+                  "mode": "allOf",
+                  "label": "notify_order_kyc_valid #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_notify_order_kyc_valid_10",
+                      "stepId": "notify_order_kyc_valid",
+                      "occurrence": 1,
+                      "exist": true,
+                      "valid": true,
+                      "status": "done",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_customer_rejected_11",
+                  "mode": "allOf",
+                  "label": "customer_rejected #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_customer_rejected_11",
+                      "stepId": "customer_rejected",
+                      "occurrence": 1,
+                      "exist": false,
+                      "valid": null,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                },
+                {
+                  "id": "exp_notify_order_kyc_invalid_12",
+                  "mode": "allOf",
+                  "label": "notify_order_kyc_invalid #1",
+                  "alternatives": [
+                    {
+                      "id": "expalt_notify_order_kyc_invalid_12",
+                      "stepId": "notify_order_kyc_invalid",
+                      "occurrence": 1,
+                      "exist": false,
+                      "valid": null,
+                      "status": "",
+                      "inputAssertions": [],
+                      "apiAssertions": [],
+                      "contractReadAssertions": []
+                    }
+                  ]
+                }
+              ],
+              "finalStatuses": [
+                "done"
+              ],
+              "finalStep": "notify_order_kyc_valid"
+            },
+            "analysis": {
+              "structure": {
+                "arm_kyc_request": {
+                  "rule": "0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74",
+                  "onValid": {
+                    "spawns": [
+                      "wait_for_kyc_request"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "notify_order_kyc_invalid"
+                    ]
+                  }
+                },
+                "wait_for_kyc_request": {
+                  "rule": "0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B",
+                  "onValid": {
+                    "spawns": [
+                      "collect_customer_information"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "collect_customer_information": {
+                  "rule": "0x28b56589043A07EB3897DB4d15c6459b695aa40F",
+                  "onValid": {
+                    "spawns": [
+                      "verify_customer_data",
+                      "verify_identity_document",
+                      "screen_pep_sanctions"
+                    ],
+                    "join": {
+                      "joinid": "analyze_information_documents",
+                      "mode": "all",
+                      "waitonjoin": "drain",
+                      "from": [
+                        {
+                          "node": "verify_customer_data",
+                          "when": "valid"
+                        },
+                        {
+                          "node": "verify_identity_document",
+                          "when": "valid"
+                        },
+                        {
+                          "node": "screen_pep_sanctions",
+                          "when": "valid"
+                        }
+                      ]
+                    }
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "verify_customer_data": {
+                  "rule": "0xf195259D5DB24611967b4dEb937977D2d967cf4A",
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "verify_identity_document": {
+                  "rule": "0xe36d89e7E0BBA2E2F2A225109f3fA29967285296",
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "screen_pep_sanctions": {
+                  "rule": "0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259",
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "analyze_information_documents": {
+                  "rule": "0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA",
+                  "onValid": {
+                    "spawns": [
+                      "live_verification"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "live_verification": {
+                  "rule": "0x3D50434EC3b93aAD44393C9CfB14E6d82298c822",
+                  "onValid": {
+                    "spawns": [
+                      "customer_accepted"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "customer_accepted": {
+                  "rule": "0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2",
+                  "onValid": {
+                    "spawns": [
+                      "notify_order_kyc_valid"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "customer_rejected"
+                    ]
+                  }
+                },
+                "customer_rejected": {
+                  "rule": "0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2",
+                  "onValid": {
+                    "spawns": [
+                      "notify_order_kyc_invalid"
+                    ]
+                  },
+                  "onInvalid": {
+                    "spawns": [
+                      "notify_order_kyc_invalid"
+                    ]
+                  }
+                },
+                "notify_order_kyc_valid": {
+                  "rule": "0x73C703198fF53dd49391a7935f1bd91986401228"
+                },
+                "notify_order_kyc_invalid": {
+                  "rule": "0x09478D772Aac6D36fEEE606035e8024027884540"
+                }
+              },
+              "steps": [
+                {
+                  "stepId": "arm_kyc_request",
+                  "ruleRef": "0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74",
+                  "payloadSchema": {
+                    "WorkerMarker": {
+                      "type": "string",
+                      "default": "ready"
+                    }
+                  },
+                  "payloadDefaults": {
+                    "WorkerMarker": "ready"
+                  },
+                  "ruleName": "ArmKycRequestWait"
+                },
+                {
+                  "stepId": "wait_for_kyc_request",
+                  "ruleRef": "0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "cartId": {
+                      "type": "string"
+                    },
+                    "totalAmount": {
+                      "type": "uint256"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "default": "EUR"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "addressText": {
+                      "type": "string"
+                    },
+                    "dateOfBirth": {
+                      "type": "string"
+                    },
+                    "documentType": {
+                      "type": "string"
+                    },
+                    "documentNumber": {
+                      "type": "string"
+                    },
+                    "documentImageHash": {
+                      "type": "string"
+                    },
+                    "selfieImageHash": {
+                      "type": "string"
+                    },
+                    "pepMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "sanctionsMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "applicantConsent": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "kycRequestSource": {
+                      "type": "string",
+                      "default": "order_process"
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "cartId": "",
+                    "totalAmount": 0,
+                    "currency": "EUR",
+                    "fullName": "",
+                    "addressText": "",
+                    "dateOfBirth": "",
+                    "documentType": "",
+                    "documentNumber": "",
+                    "documentImageHash": "",
+                    "selfieImageHash": "",
+                    "pepMatch": false,
+                    "sanctionsMatch": false,
+                    "livenessConfirmed": false,
+                    "applicantConsent": false,
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "kycRequestSource": "order_process"
+                  },
+                  "ruleName": "WaitForKycRequest"
+                },
+                {
+                  "stepId": "collect_customer_information",
+                  "ruleRef": "0x28b56589043A07EB3897DB4d15c6459b695aa40F",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "addressText": {
+                      "type": "string"
+                    },
+                    "dateOfBirth": {
+                      "type": "string"
+                    },
+                    "documentType": {
+                      "type": "string"
+                    },
+                    "documentNumber": {
+                      "type": "string"
+                    },
+                    "documentImageHash": {
+                      "type": "string"
+                    },
+                    "selfieImageHash": {
+                      "type": "string"
+                    },
+                    "pepMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "sanctionsMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "applicantConsent": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "fullName": "",
+                    "addressText": "",
+                    "dateOfBirth": "",
+                    "documentType": "",
+                    "documentNumber": "",
+                    "documentImageHash": "",
+                    "selfieImageHash": "",
+                    "pepMatch": false,
+                    "sanctionsMatch": false,
+                    "livenessConfirmed": false,
+                    "applicantConsent": false
+                  },
+                  "ruleName": "CollectCustomerInformation"
+                },
+                {
+                  "stepId": "verify_customer_data",
+                  "ruleRef": "0xf195259D5DB24611967b4dEb937977D2d967cf4A",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "addressText": {
+                      "type": "string"
+                    },
+                    "dateOfBirth": {
+                      "type": "string"
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "fullName": "",
+                    "addressText": "",
+                    "dateOfBirth": ""
+                  },
+                  "ruleName": "VerifyCustomerData"
+                },
+                {
+                  "stepId": "verify_identity_document",
+                  "ruleRef": "0xe36d89e7E0BBA2E2F2A225109f3fA29967285296",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "documentType": {
+                      "type": "string"
+                    },
+                    "documentNumber": {
+                      "type": "string"
+                    },
+                    "documentImageHash": {
+                      "type": "string"
+                    },
+                    "selfieImageHash": {
+                      "type": "string"
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "documentType": "",
+                    "documentNumber": "",
+                    "documentImageHash": "",
+                    "selfieImageHash": "",
+                    "livenessConfirmed": false
+                  },
+                  "ruleName": "VerifyIdentityDocument"
+                },
+                {
+                  "stepId": "screen_pep_sanctions",
+                  "ruleRef": "0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "pepMatch": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "sanctionsMatch": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "pepMatch": false,
+                    "sanctionsMatch": false
+                  },
+                  "ruleName": "ScreenPepSanctions"
+                },
+                {
+                  "stepId": "analyze_information_documents",
+                  "ruleRef": "0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "customerDataValid": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "identityDocumentValid": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "pepSanctionsClear": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "customerDataValid": false,
+                    "identityDocumentValid": false,
+                    "livenessConfirmed": false,
+                    "pepSanctionsClear": false
+                  },
+                  "ruleName": "AnalyzeInformationDocuments"
+                },
+                {
+                  "stepId": "live_verification",
+                  "ruleRef": "0x3D50434EC3b93aAD44393C9CfB14E6d82298c822",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "analysisPassed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "livenessConfirmed": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "analysisPassed": false,
+                    "livenessConfirmed": false
+                  },
+                  "ruleName": "LiveVerification"
+                },
+                {
+                  "stepId": "customer_accepted",
+                  "ruleRef": "0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "liveVerificationPassed": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "accountCreationAllowed": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "liveVerificationPassed": false,
+                    "accountCreationAllowed": false
+                  },
+                  "ruleName": "CustomerAccepted"
+                },
+                {
+                  "stepId": "customer_rejected",
+                  "ruleRef": "0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "rejectionReason": {
+                      "type": "string",
+                      "default": "KYC process rejected."
+                    },
+                    "resubmissionRequired": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "rejectionReason": "KYC process rejected.",
+                    "resubmissionRequired": false
+                  },
+                  "ruleName": "CustomerRejected"
+                },
+                {
+                  "stepId": "notify_order_kyc_valid",
+                  "ruleRef": "0x73C703198fF53dd49391a7935f1bd91986401228",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "customerStatus": {
+                      "type": "string",
+                      "default": "accepted"
+                    },
+                    "accountCanBeCreated": {
+                      "type": "bool",
+                      "default": false
+                    },
+                    "kycReference": {
+                      "type": "string",
+                      "default": ""
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "customerStatus": "accepted",
+                    "accountCanBeCreated": false,
+                    "kycReference": ""
+                  },
+                  "ruleName": "NotifyOrderKycValid"
+                },
+                {
+                  "stepId": "notify_order_kyc_invalid",
+                  "ruleRef": "0x09478D772Aac6D36fEEE606035e8024027884540",
+                  "payloadSchema": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "OrderRunner": {
+                      "type": "string"
+                    },
+                    "OrderSessionId": {
+                      "type": "uint64"
+                    },
+                    "customerStatus": {
+                      "type": "string",
+                      "default": "rejected"
+                    },
+                    "rejectionReason": {
+                      "type": "string",
+                      "default": "KYC process rejected."
+                    },
+                    "resubmissionRequired": {
+                      "type": "bool",
+                      "default": false
+                    }
+                  },
+                  "payloadDefaults": {
+                    "orderId": "",
+                    "customerId": "",
+                    "OrderRunner": "",
+                    "OrderSessionId": 0,
+                    "customerStatus": "rejected",
+                    "rejectionReason": "KYC process rejected.",
+                    "resubmissionRequired": false
+                  },
+                  "ruleName": "NotifyOrderKycInvalid"
+                }
+              ],
+              "bundleId": "kyc_order_wakeup_process_v1",
+              "orchestrationId": "kyc_order_wakeup_process",
+              "logicalRefsByNode": {
+                "arm_kyc_request": "ArmKycRequestWait",
+                "wait_for_kyc_request": "WaitForKycRequest",
+                "collect_customer_information": "CollectCustomerInformation",
+                "verify_customer_data": "VerifyCustomerData",
+                "verify_identity_document": "VerifyIdentityDocument",
+                "screen_pep_sanctions": "ScreenPepSanctions",
+                "analyze_information_documents": "AnalyzeInformationDocuments",
+                "live_verification": "LiveVerification",
+                "customer_accepted": "CustomerAccepted",
+                "customer_rejected": "CustomerRejected",
+                "notify_order_kyc_valid": "NotifyOrderKycValid",
+                "notify_order_kyc_invalid": "NotifyOrderKycInvalid"
+              },
+              "aliases": [
+                "ArmKycRequestWait",
+                "WaitForKycRequest",
+                "CollectCustomerInformation",
+                "VerifyCustomerData",
+                "VerifyIdentityDocument",
+                "ScreenPepSanctions",
+                "AnalyzeInformationDocuments",
+                "LiveVerification",
+                "CustomerAccepted",
+                "CustomerRejected",
+                "NotifyOrderKycValid",
+                "NotifyOrderKycInvalid"
+              ],
+              "contracts": [
+                {
+                  "alias": "ArmKycRequestWait",
+                  "logicalRef": "ArmKycRequestWait",
+                  "label": "ArmKycRequestWait",
+                  "configHash": "",
+                  "address": "0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74"
+                },
+                {
+                  "alias": "WaitForKycRequest",
+                  "logicalRef": "WaitForKycRequest",
+                  "label": "WaitForKycRequest",
+                  "configHash": "",
+                  "address": "0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B"
+                },
+                {
+                  "alias": "CollectCustomerInformation",
+                  "logicalRef": "CollectCustomerInformation",
+                  "label": "CollectCustomerInformation",
+                  "configHash": "",
+                  "address": "0x28b56589043A07EB3897DB4d15c6459b695aa40F"
+                },
+                {
+                  "alias": "VerifyCustomerData",
+                  "logicalRef": "VerifyCustomerData",
+                  "label": "VerifyCustomerData",
+                  "configHash": "",
+                  "address": "0xf195259D5DB24611967b4dEb937977D2d967cf4A"
+                },
+                {
+                  "alias": "VerifyIdentityDocument",
+                  "logicalRef": "VerifyIdentityDocument",
+                  "label": "VerifyIdentityDocument",
+                  "configHash": "",
+                  "address": "0xe36d89e7E0BBA2E2F2A225109f3fA29967285296"
+                },
+                {
+                  "alias": "ScreenPepSanctions",
+                  "logicalRef": "ScreenPepSanctions",
+                  "label": "ScreenPepSanctions",
+                  "configHash": "",
+                  "address": "0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259"
+                },
+                {
+                  "alias": "AnalyzeInformationDocuments",
+                  "logicalRef": "AnalyzeInformationDocuments",
+                  "label": "AnalyzeInformationDocuments",
+                  "configHash": "",
+                  "address": "0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA"
+                },
+                {
+                  "alias": "LiveVerification",
+                  "logicalRef": "LiveVerification",
+                  "label": "LiveVerification",
+                  "configHash": "",
+                  "address": "0x3D50434EC3b93aAD44393C9CfB14E6d82298c822"
+                },
+                {
+                  "alias": "CustomerAccepted",
+                  "logicalRef": "CustomerAccepted",
+                  "label": "CustomerAccepted",
+                  "configHash": "",
+                  "address": "0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2"
+                },
+                {
+                  "alias": "CustomerRejected",
+                  "logicalRef": "CustomerRejected",
+                  "label": "CustomerRejected",
+                  "configHash": "",
+                  "address": "0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2"
+                },
+                {
+                  "alias": "NotifyOrderKycValid",
+                  "logicalRef": "NotifyOrderKycValid",
+                  "label": "NotifyOrderKycValid",
+                  "configHash": "",
+                  "address": "0x73C703198fF53dd49391a7935f1bd91986401228"
+                },
+                {
+                  "alias": "NotifyOrderKycInvalid",
+                  "logicalRef": "NotifyOrderKycInvalid",
+                  "label": "NotifyOrderKycInvalid",
+                  "configHash": "",
+                  "address": "0x09478D772Aac6D36fEEE606035e8024027884540"
+                }
+              ]
+            },
+            "bindings": {
+              "bundles": [
+                {
+                  "bundleId": "kyc_order_wakeup_process_v1",
+                  "orchestrationId": "kyc_order_wakeup_process",
+                  "xrc729Address": "0x28aCEd6B0e82FBce3be0c818eF3aE1A699065682",
+                  "xrc137ByLogicalRef": {
+                    "ArmKycRequestWait": "0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74",
+                    "WaitForKycRequest": "0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B",
+                    "CollectCustomerInformation": "0x28b56589043A07EB3897DB4d15c6459b695aa40F",
+                    "VerifyCustomerData": "0xf195259D5DB24611967b4dEb937977D2d967cf4A",
+                    "VerifyIdentityDocument": "0xe36d89e7E0BBA2E2F2A225109f3fA29967285296",
+                    "ScreenPepSanctions": "0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259",
+                    "AnalyzeInformationDocuments": "0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA",
+                    "LiveVerification": "0x3D50434EC3b93aAD44393C9CfB14E6d82298c822",
+                    "CustomerAccepted": "0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2",
+                    "CustomerRejected": "0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2",
+                    "NotifyOrderKycValid": "0x73C703198fF53dd49391a7935f1bd91986401228",
+                    "NotifyOrderKycInvalid": "0x09478D772Aac6D36fEEE606035e8024027884540"
+                  },
+                  "contracts": [
+                    {
+                      "alias": "ArmKycRequestWait",
+                      "logicalRef": "ArmKycRequestWait",
+                      "label": "ArmKycRequestWait",
+                      "configHash": "",
+                      "address": "0x45aC2e908C2E94c239a5B71B436fCCdCb61FEe74"
+                    },
+                    {
+                      "alias": "WaitForKycRequest",
+                      "logicalRef": "WaitForKycRequest",
+                      "label": "WaitForKycRequest",
+                      "configHash": "",
+                      "address": "0x67775b90CEd2b75e8E5E5Cf7760D57143be1962B"
+                    },
+                    {
+                      "alias": "CollectCustomerInformation",
+                      "logicalRef": "CollectCustomerInformation",
+                      "label": "CollectCustomerInformation",
+                      "configHash": "",
+                      "address": "0x28b56589043A07EB3897DB4d15c6459b695aa40F"
+                    },
+                    {
+                      "alias": "VerifyCustomerData",
+                      "logicalRef": "VerifyCustomerData",
+                      "label": "VerifyCustomerData",
+                      "configHash": "",
+                      "address": "0xf195259D5DB24611967b4dEb937977D2d967cf4A"
+                    },
+                    {
+                      "alias": "VerifyIdentityDocument",
+                      "logicalRef": "VerifyIdentityDocument",
+                      "label": "VerifyIdentityDocument",
+                      "configHash": "",
+                      "address": "0xe36d89e7E0BBA2E2F2A225109f3fA29967285296"
+                    },
+                    {
+                      "alias": "ScreenPepSanctions",
+                      "logicalRef": "ScreenPepSanctions",
+                      "label": "ScreenPepSanctions",
+                      "configHash": "",
+                      "address": "0xd3d938D361A6519dB2dD7850C9b2e8Ac84ADB259"
+                    },
+                    {
+                      "alias": "AnalyzeInformationDocuments",
+                      "logicalRef": "AnalyzeInformationDocuments",
+                      "label": "AnalyzeInformationDocuments",
+                      "configHash": "",
+                      "address": "0xe2D7a8E5a834b22F77A2BC940592C237a5df24BA"
+                    },
+                    {
+                      "alias": "LiveVerification",
+                      "logicalRef": "LiveVerification",
+                      "label": "LiveVerification",
+                      "configHash": "",
+                      "address": "0x3D50434EC3b93aAD44393C9CfB14E6d82298c822"
+                    },
+                    {
+                      "alias": "CustomerAccepted",
+                      "logicalRef": "CustomerAccepted",
+                      "label": "CustomerAccepted",
+                      "configHash": "",
+                      "address": "0x006D8E5337D5F893BC1295Cc5e84fae7910e8FD2"
+                    },
+                    {
+                      "alias": "CustomerRejected",
+                      "logicalRef": "CustomerRejected",
+                      "label": "CustomerRejected",
+                      "configHash": "",
+                      "address": "0x1E857031867c8E1c22C176bbA2738Ab38D47fCd2"
+                    },
+                    {
+                      "alias": "NotifyOrderKycValid",
+                      "logicalRef": "NotifyOrderKycValid",
+                      "label": "NotifyOrderKycValid",
+                      "configHash": "",
+                      "address": "0x73C703198fF53dd49391a7935f1bd91986401228"
+                    },
+                    {
+                      "alias": "NotifyOrderKycInvalid",
+                      "logicalRef": "NotifyOrderKycInvalid",
+                      "label": "NotifyOrderKycInvalid",
+                      "configHash": "",
+                      "address": "0x09478D772Aac6D36fEEE606035e8024027884540"
+                    }
+                  ]
+                }
+              ]
+            },
+            "testSetup": {
+              "contracts": []
+            },
+            "execution": {
+              "ownerAlias": "owner1",
+              "starterAlias": "owner1",
+              "xrc729Executors": [],
+              "xrc137ExecutorsByContractAlias": {
+                "ArmKycRequestWait": [],
+                "WaitForKycRequest": [],
+                "CollectCustomerInformation": [],
+                "VerifyCustomerData": [],
+                "VerifyIdentityDocument": [],
+                "ScreenPepSanctions": [],
+                "AnalyzeInformationDocuments": [],
+                "LiveVerification": [],
+                "CustomerAccepted": [],
+                "CustomerRejected": [],
+                "NotifyOrderKycValid": [],
+                "NotifyOrderKycInvalid": []
+              }
+            }
+          }
+        }
+      ],
+      "actors": {
+        "owner": {
+          "alias": "owner",
+          "signerKind": "alias"
+        },
+        "owner1": {
+          "alias": "owner1",
+          "signerKind": "alias"
+        }
+      },
+      "steps": [
+        {
+          "id": "start_kyc_worker_waiter",
+          "type": "startSession",
+          "groupId": "",
+          "bundleKey": "kyc_worker",
+          "starter": "owner1",
+          "runtime": {
+            "stepId": "arm_kyc_request"
+          },
+          "payload": {
+            "WorkerMarker": "ready",
+            "__wakeUp": {
+              "steps": {
+                "wait_for_kyc_request": {
+                  "internal": {
+                    "allow": [
+                      "$actor.address:owner"
+                    ],
+                    "fromXRC137": [
+                      "$contract.address:order_process:RequestKyc"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "saveAs": "kyc_worker_session"
+        },
+        {
+          "id": "wait_for_kyc_worker_request_wait",
+          "type": "waitForStep",
+          "session": "$session.id:kyc_worker_session",
+          "runner": "$session.owner:kyc_worker_session",
+          "stepId": "wait_for_kyc_request",
+          "status": "waiting",
+          "timeoutMs": 60000,
+          "pollMs": 2000
+        },
+        {
+          "id": "start_order_process",
+          "type": "startSession",
+          "groupId": "",
+          "bundleKey": "order_process",
+          "starter": "owner",
+          "runtime": {
+            "stepId": "receive_order"
+          },
+          "payload": {
+            "orderId": "ORD-KYC-1001",
+            "customerId": "CUST-KYC-1001",
+            "cartId": "CART-1001",
+            "totalAmount": 19900,
+            "currency": "EUR",
+            "fullName": "Anna Beispiel",
+            "addressText": "Musterstrasse 12, 10115 Berlin, DE",
+            "dateOfBirth": "1990-04-15",
+            "documentType": "passport",
+            "documentNumber": "DE-P-123456789",
+            "documentImageHash": "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "selfieImageHash": "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "pepMatch": false,
+            "sanctionsMatch": false,
+            "livenessConfirmed": true,
+            "applicantConsent": true,
+            "KycRunner": "$session.owner:kyc_worker_session",
+            "KycSessionId": "$session.id:kyc_worker_session",
+            "OrderRunner": "$actor.address:owner",
+            "OrderSessionId": 0,
+            "__wakeUp": {
+              "steps": {
+                "wait_for_kyc_result": {
+                  "internal": {
+                    "allow": [
+                      "$actor.address:owner1"
+                    ],
+                    "fromXRC137": [
+                      "$contract.address:kyc_worker:NotifyOrderKycValid"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "saveAs": "order_session"
+        },
+        {
+          "id": "wait_for_order_kyc_request_sent",
+          "type": "waitForStep",
+          "session": "$session.id:order_session",
+          "runner": "$session.owner:order_session",
+          "stepId": "request_kyc",
+          "status": "done",
+          "timeoutMs": 60000,
+          "pollMs": 2000
+        },
+        {
+          "id": "wait_for_order_kyc_result_gate",
+          "type": "waitForStep",
+          "session": "$session.id:order_session",
+          "runner": "$session.owner:order_session",
+          "stepId": "wait_for_kyc_result",
+          "status": "waiting",
+          "timeoutMs": 60000,
+          "pollMs": 2000
+        },
+        {
+          "id": "wait_for_kyc_notify_order_kyc_valid",
+          "type": "waitForStep",
+          "session": "$session.id:kyc_worker_session",
+          "runner": "$session.owner:kyc_worker_session",
+          "stepId": "notify_order_kyc_valid",
+          "status": "done",
+          "timeoutMs": 60000,
+          "pollMs": 2000
+        },
+        {
+          "id": "wait_for_order_fulfill_order",
+          "type": "waitForStep",
+          "session": "$session.id:order_session",
+          "runner": "$session.owner:order_session",
+          "stepId": "fulfill_order",
+          "status": "done",
+          "timeoutMs": 60000,
+          "pollMs": 2000
+        },
+        {
+          "id": "assert_order_session",
+          "type": "assertSession",
+          "session": "$session.id:order_session",
+          "runner": "$session.owner:order_session",
+          "expect": {
+            "timeline": [
+              {
+                "stepId": "receive_order",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "request_kyc",
+                "occurrence": 1,
+                "exist": true,
+                "status": "done",
+                "valid": true
+              },
+              {
+                "stepId": "wait_for_kyc_result",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "fulfill_order",
+                "occurrence": 1,
+                "exist": true,
+                "status": "done",
+                "valid": true
+              },
+              {
+                "stepId": "cancel_order",
+                "occurrence": 1,
+                "exist": false
+              }
+            ],
+            "finalStatuses": [
+              "done"
+            ],
+            "finalStep": "fulfill_order"
+          }
+        },
+        {
+          "id": "assert_kyc_worker_session",
+          "type": "assertSession",
+          "session": "$session.id:kyc_worker_session",
+          "runner": "$session.owner:kyc_worker_session",
+          "expect": {
+            "timeline": [
+              {
+                "stepId": "arm_kyc_request",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "wait_for_kyc_request",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "collect_customer_information",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "screen_pep_sanctions",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "customer_accepted",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true
+              },
+              {
+                "stepId": "customer_rejected",
+                "occurrence": 1,
+                "exist": false
+              },
+              {
+                "stepId": "notify_order_kyc_valid",
+                "occurrence": 1,
+                "exist": true,
+                "status": "done",
+                "valid": true
+              },
+              {
+                "stepId": "notify_order_kyc_invalid",
+                "occurrence": 1,
+                "exist": false
+              }
+            ],
+            "finalStatuses": [
+              "done"
+            ],
+            "finalStep": "notify_order_kyc_valid"
+          }
+        }
+      ],
+      "bundles": [
+        {
+          "key": "order_process",
+          "bundleId": "order_kyc_bestellprozess_v1",
+          "source": "embedded-plan"
+        },
+        {
+          "key": "kyc_worker",
+          "bundleId": "kyc_order_wakeup_process_v1",
+          "source": "embedded-plan"
+        }
+      ]
+    }
+  ]
+}
