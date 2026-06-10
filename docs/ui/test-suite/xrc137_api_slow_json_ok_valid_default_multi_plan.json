@@ -1,0 +1,130 @@
+{
+  "kind": "xgr.multi-test-plan",
+  "version": 1,
+  "exportedAt": "2026-06-10T17:06:12.949Z",
+  "plans": [
+    {
+      "id": "tp_19d62fa7bd8b9b62",
+      "title": "xrc137_api_slow_json_ok_valid_default",
+      "createdAt": 1775482076120,
+      "updatedAt": 1781111172949,
+      "source": {
+        "bundleId": "xrc137_api_slow_json_ok_valid_default",
+        "ostcId": "my_orchestration",
+        "orchestration": "0x3E397A70862aB57754f66ee7F774951e40C09980",
+        "rawBundleJson": "{\n  \"format\": \"xgr-multi-bundle@1\",\n  \"createdAt\": \"2026-06-10T17:06:05.589Z\",\n  \"bundles\": [\n    {\n      \"bundleId\": \"xrc137_api_slow_json_ok_valid_default\",\n      \"items\": [\n        {\n          \"payload\": {},\n          \"apiCalls\": [\n            {\n              \"name\": \"sl\",\n              \"method\": \"GET\",\n              \"urlTemplate\": \"https://api.test.xgr.network/slow\",\n              \"contentType\": \"json\",\n              \"extractMap\": {\n                \"Ok\": {\n                  \"type\": \"bool\",\n                  \"value\": \"bool(resp.ok)\"\n                },\n                \"notOk\": {\n                  \"type\": \"string\",\n                  \"value\": \"bool(resp1.ok)\",\n                  \"default\": \"not exist\"\n                }\n              }\n            }\n          ],\n          \"rules\": [\n            \"[Ok] == true\"\n          ],\n          \"onValid\": {},\n          \"onInvalid\": {},\n          \"address\": \"0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475\",\n          \"meta\": {\n            \"bundleId\": \"xrc137_api_slow_json_ok_valid_default\",\n            \"alias\": \"XRC137_A\",\n            \"type\": \"xrc137\",\n            \"deployedAddress\": \"0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475\"\n          }\n        },\n        {\n          \"id\": \"my_orchestration\",\n          \"structure\": {\n            \"A1\": {\n              \"rule\": \"0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475\",\n              \"onValid\": {},\n              \"onInvalid\": {}\n            }\n          },\n          \"meta\": {\n            \"bundleId\": \"xrc137_api_slow_json_ok_valid_default\",\n            \"alias\": \"my_orchestration\",\n            \"type\": \"xrc729\",\n            \"deployedAddress\": \"0x3E397A70862aB57754f66ee7F774951e40C09980\"\n          },\n          \"name\": \"xrc137_api_slow_json_ok_valid_default\",\n          \"address\": \"0x3E397A70862aB57754f66ee7F774951e40C09980\"\n        }\n      ]\n    }\n  ]\n}",
+        "rawXrc729Json": "{\n  \"id\": \"my_orchestration\",\n  \"structure\": {\n    \"A1\": {\n      \"rule\": \"0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475\",\n      \"onValid\": {},\n      \"onInvalid\": {}\n    }\n  },\n  \"meta\": {\n    \"bundleId\": \"xrc137_api_slow_json_ok_valid_default\",\n    \"alias\": \"my_orchestration\",\n    \"type\": \"xrc729\",\n    \"deployedAddress\": \"0x3E397A70862aB57754f66ee7F774951e40C09980\"\n  },\n  \"name\": \"xrc137_api_slow_json_ok_valid_default\",\n  \"address\": \"0x3E397A70862aB57754f66ee7F774951e40C09980\"\n}",
+        "ostcHash": "0x440e8add98727fe0256156d8670a79e5336e3b8d81bd05cc6e43847679e5f4b6"
+      },
+      "runtime": {
+        "stepId": "A1",
+        "orchestration": "0x3E397A70862aB57754f66ee7F774951e40C09980",
+        "ostcId": "my_orchestration",
+        "maxTotalGas": 0,
+        "payload": {},
+        "ostcHash": "0x440e8add98727fe0256156d8670a79e5336e3b8d81bd05cc6e43847679e5f4b6"
+      },
+      "expectations": {
+        "timeline": [
+          {
+            "id": "exp_e913898eda2ededb",
+            "mode": "allOf",
+            "label": "A1 #1",
+            "alternatives": [
+              {
+                "id": "exp_e913898eda2ededb_alt_1",
+                "stepId": "A1",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true,
+                "status": "",
+                "inputAssertions": [],
+                "apiAssertions": [
+                  {
+                    "id": "api_ccec560f3642c502",
+                    "field": "Ok",
+                    "op": "eq",
+                    "valueType": "bool",
+                    "value": true
+                  }
+                ],
+                "contractReadAssertions": []
+              }
+            ]
+          }
+        ],
+        "finalStatuses": [
+          "done"
+        ],
+        "finalStep": "A1"
+      },
+      "analysis": {
+        "structure": {
+          "A1": {
+            "rule": "0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475",
+            "onValid": {},
+            "onInvalid": {}
+          }
+        },
+        "steps": [
+          {
+            "stepId": "A1",
+            "ruleRef": "0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475",
+            "payloadSchema": {},
+            "payloadDefaults": {},
+            "ruleName": "XRC137_A"
+          }
+        ],
+        "bundleId": "xrc137_api_slow_json_ok_valid_default",
+        "orchestrationId": "my_orchestration",
+        "logicalRefsByNode": {
+          "A1": "XRC137_A"
+        },
+        "aliases": [
+          "XRC137_A"
+        ],
+        "contracts": [
+          {
+            "alias": "XRC137_A",
+            "logicalRef": "XRC137_A",
+            "label": "XRC137_A",
+            "configHash": "",
+            "address": "0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475"
+          }
+        ]
+      },
+      "bindings": {
+        "bundles": [
+          {
+            "bundleId": "xrc137_api_slow_json_ok_valid_default",
+            "orchestrationId": "my_orchestration",
+            "xrc729Address": "0x3E397A70862aB57754f66ee7F774951e40C09980",
+            "xrc137ByLogicalRef": {
+              "XRC137_A": "0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475"
+            },
+            "contracts": [
+              {
+                "alias": "XRC137_A",
+                "logicalRef": "XRC137_A",
+                "label": "XRC137_A",
+                "configHash": "",
+                "address": "0xb5DE67Ff74952e46FE8245fd3dF0fCD424004475"
+              }
+            ]
+          }
+        ]
+      },
+      "execution": {
+        "ownerAlias": "owner",
+        "starterAlias": "owner",
+        "xrc729Executors": [],
+        "xrc137ExecutorsByContractAlias": {
+          "XRC137_A": []
+        }
+      },
+      "testSetup": {
+        "contracts": []
+      }
+    }
+  ]
+}

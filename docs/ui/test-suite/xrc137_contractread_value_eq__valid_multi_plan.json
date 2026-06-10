@@ -1,0 +1,179 @@
+{
+  "kind": "xgr.multi-test-plan",
+  "version": 1,
+  "exportedAt": "2026-06-10T16:28:09.958Z",
+  "plans": [
+    {
+      "id": "tp_19d62fa7c916c2ca",
+      "title": "xrc137_contractread_value_eq__valid",
+      "createdAt": 1775482076305,
+      "updatedAt": 1781108889958,
+      "source": {
+        "bundleId": "xrc137_contractread_value_eq__valid",
+        "ostcId": "my_orchestration",
+        "orchestration": "0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91",
+        "rawBundleJson": "{\n  \"format\": \"xgr-multi-bundle@1\",\n  \"createdAt\": \"2026-06-10T16:21:56.017Z\",\n  \"bundles\": [\n    {\n      \"bundleId\": \"xrc137_contractread_value_eq__valid\",\n      \"items\": [\n        {\n          \"payload\": {\n            \"AmountA\": {\n              \"type\": \"int64\"\n            },\n            \"AmountB\": {\n              \"type\": \"int64\"\n            }\n          },\n          \"contractReads\": [\n            {\n              \"to\": \"${addr:readContract}\",\n              \"function\": \"getValue()(int256)\",\n              \"saveAs\": {\n                \"0\": {\n                  \"key\": \"readValue\",\n                  \"type\": \"int256\",\n                  \"default\": 0\n                }\n              }\n            }\n          ],\n          \"rules\": [\n            \"[readValue] == 42\",\n            \"[AmountA] >= 50\"\n          ],\n          \"onValid\": {},\n          \"onInvalid\": {},\n          \"address\": \"0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10\",\n          \"meta\": {\n            \"bundleId\": \"xrc137_contractread_value_eq__valid\",\n            \"alias\": \"XRC137_A\",\n            \"type\": \"xrc137\",\n            \"deployedAddress\": \"0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10\"\n          }\n        },\n        {\n          \"id\": \"my_orchestration\",\n          \"structure\": {\n            \"A1\": {\n              \"rule\": \"0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10\",\n              \"onValid\": {},\n              \"onInvalid\": {}\n            }\n          },\n          \"meta\": {\n            \"bundleId\": \"xrc137_contractread_value_eq__valid\",\n            \"alias\": \"my_orchestration\",\n            \"type\": \"xrc729\",\n            \"deployedAddress\": \"0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91\"\n          },\n          \"name\": \"xrc137_contractread_value_eq__valid\",\n          \"address\": \"0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91\"\n        }\n      ]\n    }\n  ]\n}",
+        "rawXrc729Json": "{\n  \"id\": \"my_orchestration\",\n  \"structure\": {\n    \"A1\": {\n      \"rule\": \"0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10\",\n      \"onValid\": {},\n      \"onInvalid\": {}\n    }\n  },\n  \"meta\": {\n    \"bundleId\": \"xrc137_contractread_value_eq__valid\",\n    \"alias\": \"my_orchestration\",\n    \"type\": \"xrc729\",\n    \"deployedAddress\": \"0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91\"\n  },\n  \"name\": \"xrc137_contractread_value_eq__valid\",\n  \"address\": \"0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91\"\n}",
+        "ostcHash": "0x0768cc9b7d2842c2c940e3c8c33670a18d1f270d9c3b0bbaa8ca49fb4a8880d6"
+      },
+      "runtime": {
+        "stepId": "A1",
+        "orchestration": "0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91",
+        "ostcId": "my_orchestration",
+        "maxTotalGas": 0,
+        "payload": {
+          "AmountA": 50,
+          "AmountB": 5
+        },
+        "ostcHash": "0x0768cc9b7d2842c2c940e3c8c33670a18d1f270d9c3b0bbaa8ca49fb4a8880d6"
+      },
+      "expectations": {
+        "timeline": [
+          {
+            "id": "exp_c9b169ff6aba14fd",
+            "mode": "allOf",
+            "label": "A1 #1",
+            "alternatives": [
+              {
+                "id": "exp_c9b169ff6aba14fd_alt_1",
+                "stepId": "A1",
+                "occurrence": 1,
+                "exist": true,
+                "valid": true,
+                "status": "",
+                "inputAssertions": [
+                  {
+                    "id": "ia_0bc625b67eacb272",
+                    "field": "AmountA",
+                    "op": "eq",
+                    "valueType": "",
+                    "value": 50
+                  },
+                  {
+                    "id": "ia_b045a83bf3541202",
+                    "field": "AmountB",
+                    "op": "eq",
+                    "valueType": "",
+                    "value": 5
+                  }
+                ],
+                "apiAssertions": [],
+                "contractReadAssertions": [
+                  {
+                    "id": "cr_10c46d6dcdbf9438",
+                    "field": "readValue",
+                    "op": "eq",
+                    "valueType": "int256",
+                    "value": 42
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "finalStatuses": [
+          "done"
+        ],
+        "finalStep": "A1"
+      },
+      "analysis": {
+        "structure": {
+          "A1": {
+            "rule": "0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10",
+            "onValid": {},
+            "onInvalid": {}
+          }
+        },
+        "steps": [
+          {
+            "stepId": "A1",
+            "ruleRef": "0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10",
+            "payloadSchema": {
+              "AmountA": {
+                "type": "int64"
+              },
+              "AmountB": {
+                "type": "int64"
+              }
+            },
+            "payloadDefaults": {
+              "AmountA": 0,
+              "AmountB": 0
+            },
+            "ruleName": "XRC137_A"
+          }
+        ],
+        "bundleId": "xrc137_contractread_value_eq__valid",
+        "orchestrationId": "my_orchestration",
+        "logicalRefsByNode": {
+          "A1": "XRC137_A"
+        },
+        "aliases": [
+          "XRC137_A"
+        ],
+        "contracts": [
+          {
+            "alias": "XRC137_A",
+            "logicalRef": "XRC137_A",
+            "label": "XRC137_A",
+            "configHash": "",
+            "address": "0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10"
+          }
+        ]
+      },
+      "bindings": {
+        "bundles": [
+          {
+            "bundleId": "xrc137_contractread_value_eq__valid",
+            "orchestrationId": "my_orchestration",
+            "xrc729Address": "0xD84656dbAE8433de31Eb81c6C9E4C1811C95DD91",
+            "xrc137ByLogicalRef": {
+              "XRC137_A": "0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10"
+            },
+            "contracts": [
+              {
+                "alias": "XRC137_A",
+                "logicalRef": "XRC137_A",
+                "label": "XRC137_A",
+                "configHash": "",
+                "address": "0x8d106950A0EBAa1d57E37417B3eE90F8C3c15C10"
+              }
+            ]
+          }
+        ]
+      },
+      "execution": {
+        "ownerAlias": "owner",
+        "starterAlias": "owner",
+        "xrc729Executors": [],
+        "xrc137ExecutorsByContractAlias": {
+          "XRC137_A": []
+        }
+      },
+      "testSetup": {
+        "contracts": [
+          {
+            "id": "setup_readContract_0ccbd3fd",
+            "key": "readContract",
+            "mode": "deploy",
+            "contractName": "readContract",
+            "source": {
+              "language": "solidity",
+              "fileName": "readcontract.sol",
+              "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract readContract {\n    function getValue() public pure returns (uint256) { return 42; }\n    function isGreater(uint256 a, uint256 b) public pure returns (bool) { return a > b; }\n    function sum(uint256 a, uint256 b) public pure returns (uint256) { return a + b; }\n    function getOwner() public pure returns (address) { return 0x000000000000000000000000000000000000dEaD; }\n    function getNote() public pure returns (string memory) { return \"ok\"; }\n    function negate(int256 x) public pure returns (int256) { return -x; }\n    function mix(uint256 a, bool b) public pure returns (uint256) { return b ? a*2 : a; }\n    function getTuple() public pure returns (uint256,address,bool,string memory) {\n        return (55, 0x000000000000000000000000000000000000dEaD, true, \"ok\");\n    }\n    function sumAndFlag(uint256 a, uint256 b) public pure returns (uint256,bool) {\n        return (a + b, a > b);\n    }\n}\n"
+            },
+            "constructorArgs": [],
+            "address": "",
+            "deployedAddress": "",
+            "deploy": {
+              "by": "owner",
+              "strategy": "deployIfMissing"
+            },
+            "artifact": null,
+            "updatedAt": 1777649068564
+          }
+        ]
+      }
+    }
+  ]
+}
