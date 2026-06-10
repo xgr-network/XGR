@@ -14,6 +14,20 @@ A few terms are used throughout this guide:
 | **Result bundle** | Exported run output. Analyze uses one result bundle; Compare uses two result bundles. |
 | **Assertion / check** | A condition the Test Suite verifies. If the expected and actual values match, the check passes. If not, the result is failed or pending, depending on the data available. |
 | **Timeline check** | A check for a specific step occurrence during execution. It can verify whether the step exists, whether it is valid, which status it reached, and optional payload/API/contract-read values. |
+| **Wakeup allowlist** | Runtime configuration that defines who may wake a waiting process step. It can allow internal process wakeups, external RPC wakeups, or both. |
+| **Internal wakeup** | A wakeup triggered by another XRC process/contract. It can restrict the allowed caller address and the allowed source XRC-137 contract. |
+| **RPC wakeup** | A wakeup triggered by an external backend, agent or customer system through RPC. It can allow one or more addresses, or `*` when every RPC caller is allowed for a test. |
+
+
+## Example JSON files
+
+The example JSON files are stored in the same GitHub folder as this Markdown file. Use these links when you want to download the exact examples used in this guide.
+
+| Example | File | Use it for |
+|---|---|---|
+| KYC scenario example | [Order_process_waits_for_KYC_and_continues_when_KYC_is_valid_scenario.json](./Order_process_waits_for_KYC_and_continues_when_KYC_is_valid_scenario.json) | Multi-session scenario with order process and KYC worker flow. |
+| API saves test plan | [xrc137_api_slow_json_ok_valid_default_multi_plan.json](./xrc137_api_slow_json_ok_valid_default_multi_plan.json) | Plan import example for checking an API save alias such as `Ok = true`. |
+| Contract read test plan | [xrc137_contractread_value_eq__valid_multi_plan.json](./xrc137_contractread_value_eq__valid_multi_plan.json) | Plan import example for setup contract placeholders and contract read checks such as `readValue = 42`. |
 
 ---
 
@@ -168,7 +182,7 @@ To combine several plans into one file:
 1. Import or create all local plans.
 2. Check the plans in **Manage test plans**.
 3. Open **Export Plans**.
-4. Click **Export selected**.
+4. Click **Export selected test plan**.
 5. The downloaded JSON contains all checked plans.
 
 Use this for customer handoff, regression packs, or reusable test collections. The exported file can be imported later through **Plan import**.
@@ -189,8 +203,8 @@ Toolbar actions:
 | **Run Plans** | Run all filtered | Runs all currently filtered plans. Use this after filtering a plan list. |
 | **Select Plans** | Select filtered | Checks all plans matching the current search/filter. |
 | **Select Plans** | Clear selected | Clears the current checked selection. |
-| **Export Plans** | Export selected | Exports checked plans into one JSON file. |
-| **Export Plans** | Export selected bundle | Exports the embedded bundle data from selected plans, when this action is available. |
+| **Export Plans** | Export selected test plan | Exports checked plans into one JSON file. |
+| **Export Plans** | Export selected bundle | Exports the embedded bundle data from selected plans, when this action is available. Use this when the customer needs the deployable bundle file, not the test plan wrapper. |
 | **Export Plans** | Save bundles to Contract Manager | Extracts embedded bundles from selected plans and saves them to Contract Manager. |
 | **Edit Plans** | Add plan JSON | Imports additional plan JSON into the local workspace. |
 | **Edit Plans** | Replace selected | Replaces exactly one selected plan with another imported plan. This is disabled unless exactly one plan is selected. |
@@ -223,6 +237,8 @@ Open one local plan. The editor has three main tabs:
 - **Runtime**
 - **Expectations**
 - **Setup contracts**
+
+Inside **Runtime**, the plan has four sub-areas: **Start setup**, **Aliases**, **Payload** and **Wakeups**. Start setup defines how the session starts, Payload defines the start input data, Aliases define signer roles, and Wakeups define who may wake waiting steps.
 
 ### Runtime → Start setup
 
@@ -299,6 +315,62 @@ For the contract read example, enter:
 |---|---|
 | AmountA | `50` |
 | AmountB | `5` |
+
+### Runtime → Wakeups
+
+Use **Wakeups** when a process has one or more waiting steps that must be continued by another process or by an external RPC caller.
+
+The Test Suite stores wakeup rules in the test plan under `runtime.wakeUp`. When the plan is opened in Start Sessions or run from the Test Suite, this is converted into the runtime transfer format `payload.__wakeUp`. This keeps the editable test plan clean while still using the payload format expected by the session start flow.
+
+Wakeup configuration supports:
+
+| Wakeup type | Use it when | Configuration |
+|---|---|---|
+| **Internal** | Another XRC process or XRC-137 rule should wake the waiting step. | Configure `allow` for allowed caller addresses and optionally `fromXRC137` for allowed source rule contracts. |
+| **RPC** | A customer backend, API service, AI agent or other external system should wake the waiting step through RPC. | Configure one or more RPC caller addresses, or `*` for every RPC caller in a test setup. |
+| **Default** | The same wakeup rule should apply to all waiting steps. | Configure the default section. |
+| **Step-specific** | Only one waiting step should be wakeable by a specific caller. | Add the step and configure its internal/RPC rules. |
+
+Example with one internal wakeup and one external RPC wakeup:
+
+```json
+{
+  "wakeUp": {
+    "steps": {
+      "wait_for_kyc_result": {
+        "internal": {
+          "allow": ["0x1111111111111111111111111111111111111111"],
+          "fromXRC137": ["0x2222222222222222222222222222222222222222"]
+        }
+      },
+      "wait_for_customer_approval": {
+        "rpc": ["0x3333333333333333333333333333333333333333"]
+      }
+    }
+  }
+}
+```
+
+How to configure wakeups in a test plan:
+
+1. Open the plan.
+2. Open **Runtime**.
+3. Select **Wakeups**.
+4. Switch the wakeup allowlist from **Off** to **Allowlist**.
+5. Choose **Default Configuration** or **Step-specific Configuration**.
+6. For an internal wakeup, open **Internal** and add allowed caller addresses.
+7. Add **From XRC-137** only when the wakeup must come from a specific rule contract.
+8. For an external wakeup, open **RPC** and add the backend/customer/agent caller address.
+9. Use `All (*)` only for a controlled test setup. Avoid it for customer production-like examples.
+10. Save the plan.
+
+Important rules:
+
+- Do not enter `__wakeUp` manually in **Payload** for new plans.
+- Use **Runtime → Wakeups** instead.
+- Imported older plans that still contain `payload.__wakeUp` can be normalized into the new wakeup area.
+- The final Start Sessions payload still contains `__wakeUp`, because that is the runtime format used by the session start request.
+- If you start a plan individually, the wakeup rules travel with the plan. They are no longer only hidden in the scenario step payload.
 
 ### Runtime → Aliases
 
@@ -590,17 +662,27 @@ The scenario flow is split into dedicated editing areas. Work left to right:
 
 ### Data and WakeUp
 
-The scenario uses `__wakeUp` in the start payload. This allows one session to wake a waiting step in another session.
+The scenario can use wakeup rules in two places:
 
-Example:
+| Place | Meaning |
+|---|---|
+| **Plan `runtime.wakeUp`** | Wakeup rules stored directly in an embedded test plan. These rules are also available when the plan is run alone. |
+| **Scenario `startSession.runtime.wakeUp`** | Wakeup rules that are specific to one scenario start step. These can extend or override the embedded plan for that scenario run. |
+
+At runtime, both forms are materialized into the session start payload as `payload.__wakeUp`. This allows one session to wake a waiting step in another session, or allows an external RPC caller to wake a waiting step.
+
+Internal wakeup example:
 
 ```json
-"__wakeUp": {
-  "steps": {
-    "wait_for_kyc_result": {
-      "internal": {
-        "allow": ["$actor.address:owner1"],
-        "fromXRC137": ["$contract.address:kyc_worker:NotifyOrderKycValid"]
+"runtime": {
+  "stepId": "receive_order",
+  "wakeUp": {
+    "steps": {
+      "wait_for_kyc_result": {
+        "internal": {
+          "allow": ["$actor.address:owner1"],
+          "fromXRC137": ["$contract.address:kyc_worker:NotifyOrderKycValid"]
+        }
       }
     }
   }
@@ -610,15 +692,38 @@ Example:
 Meaning:
 
 - `wait_for_kyc_result` is the waiting step.
-- `owner1` is allowed to perform the wake-up.
-- The wake-up must come from the `NotifyOrderKycValid` XRC-137 contract in the `kyc_worker` plan.
+- `owner1` is allowed to perform the wakeup.
+- The wakeup must come from the `NotifyOrderKycValid` XRC-137 contract in the `kyc_worker` plan.
+
+External RPC wakeup example:
+
+```json
+"runtime": {
+  "stepId": "receive_order",
+  "wakeUp": {
+    "steps": {
+      "wait_for_customer_approval": {
+        "rpc": ["0x3333333333333333333333333333333333333333"]
+      }
+    }
+  }
+}
+```
+
+Meaning:
+
+- `wait_for_customer_approval` is the waiting step.
+- The external RPC caller must use the configured address.
+- This is useful for customer backends, API workers, AI agents or external automation that should continue a waiting process.
 
 In practice, check this carefully before running:
 
-1. The actor alias in `allow` must exist in **Signer context**.
-2. The referenced plan key, for example `kyc_worker`, must exist in the scenario sources.
-3. The referenced contract alias, for example `NotifyOrderKycValid`, must exist in that plan/bundle.
-4. The waiting step must match the step that should be woken.
+1. For internal wakeups, the actor alias in `allow` must exist in **Signer context**.
+2. For internal wakeups, the referenced plan key, for example `kyc_worker`, must exist in the scenario sources.
+3. For internal wakeups, the referenced contract alias, for example `NotifyOrderKycValid`, must exist in that plan/bundle.
+4. For RPC wakeups, the configured address must be the address that will sign or authorize the RPC wakeup.
+5. The waiting step must match the step that should be woken.
+6. Validate the scenario before export or run.
 
 ![Scenario Data and WakeUp](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/16-scenarios-DataAndWakeup-PayloadAndWakeup.png)
 
@@ -668,7 +773,7 @@ Asserts validate the final state of a session, for example final status and fina
 Before running or sharing a scenario:
 
 1. Validate the scenario package.
-2. Confirm that all referenced plans, actors, bundles and wake-up references resolve.
+2. Confirm that all referenced plans, actors, bundles and wake-up references resolve, including internal source contracts and external RPC addresses.
 3. Export the scenario package if another user should run the same flow.
 4. Run the scenario from the Run panel.
 
@@ -732,7 +837,9 @@ Steps:
 6. Review the runtime draft.
 7. Start the session.
 
-The review step is important. It is the last place to confirm start step, payload, starter alias and expected result before the session is started.
+The review step is important. It is the last place to confirm start step, payload, wakeup allowlist, starter alias and expected result before the session is started.
+
+When the plan contains **Runtime → Wakeups**, Start Sessions receives the materialized `payload.__wakeUp` field. Review it before starting the session, especially when an external customer RPC caller is expected to wake the process.
 
 ![Start Sessions](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/test-suite/15-start-sessions.png)
 
@@ -909,6 +1016,30 @@ Goal: run an order process and a KYC worker that wake each other.
 
 Why these steps matter: a scenario verifies coordination between multiple sessions. It checks not only one isolated final result, but also that the sessions wait, wake and finish in the expected sequence.
 
+### Recipe D: External RPC wakeup test
+
+Goal: prove that a waiting process can be continued by an external customer/backend RPC caller.
+
+1. Import or create a plan with a waiting step, for example `wait_for_customer_approval`.
+2. Open **Runtime → Start setup**.
+3. Confirm the start step.
+4. Open **Runtime → Payload**.
+5. Enter the normal start payload.
+6. Open **Runtime → Wakeups**.
+7. Switch the wakeup allowlist to **Allowlist**.
+8. Open **Step-specific Configuration**.
+9. Add the waiting step, for example `wait_for_customer_approval`.
+10. Open **RPC**.
+11. Add the external caller address.
+12. Save the plan.
+13. Open the plan in Start Sessions or run it from the Test Suite.
+14. Wait until the session reaches the waiting step.
+15. Send the RPC wakeup from the configured address.
+16. Verify that the process continues to the expected final step.
+17. Confirm the result in the Test Run Monitor or List Sessions monitor.
+
+Why these steps matter: this tests the customer-facing wakeup path. It proves that the process is not only wakeable by internal scenario flows, but also by an external system such as a customer backend or AI agent.
+
 ---
 
 ## 13. Troubleshooting
@@ -948,3 +1079,41 @@ Fix:
 ### Run reaches wrong final step
 
 Open **Expectations**, check **Expected final step**, then compare timeline entries with the actual result. If the final step expectation is correct but the run ends somewhere else, inspect Analyze results to see the first failed or pending timeline finding.
+
+### Wakeup allowlist is missing in Start Sessions
+
+Cause: the plan was edited only in **Payload**, or the wakeup rules were only configured in a scenario start step and not saved into the embedded plan.
+
+Fix:
+
+1. Open the test plan.
+2. Open **Runtime → Wakeups**.
+3. Confirm that the allowlist is enabled.
+4. Confirm that the target waiting step is configured.
+5. Save the local plan.
+6. Open the plan in Start Sessions again.
+7. Review the materialized `payload.__wakeUp`.
+
+### External RPC wakeup does not continue the process
+
+Cause: the RPC caller address does not match the configured allowlist, the wrong waiting step was configured, or the process is not yet at the waiting step.
+
+Fix:
+
+1. Confirm the process is waiting at the configured step.
+2. Confirm the address used by the external RPC caller.
+3. Open **Runtime → Wakeups** and check the step-specific **RPC** list.
+4. Confirm the address is present, or use `All (*)` only for a controlled test.
+5. Run again and inspect the receipt details if the process still does not continue.
+
+### Internal wakeup does not continue the process
+
+Cause: the allowed actor or the source XRC-137 contract does not match the actual wakeup call.
+
+Fix:
+
+1. Check the allowed actor alias in **Runtime → Wakeups**.
+2. Confirm the alias exists and is unlocked in **Signer context**.
+3. Check **From XRC-137** and confirm the referenced contract alias exists in the triggering plan.
+4. Validate the scenario package again.
+5. Run again and inspect the waiting step receipt.
