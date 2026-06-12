@@ -1,7 +1,7 @@
 # XDaLa and XRC Documentation Index
 
 **Document ID:** XGR-DOCS-INDEX  
-**Last updated:** 2026-06-07  
+**Last updated:** 2026-06-12  
 **Audience:** Developers, integrators, auditors, contributors  
 **Implementation status:** Mixed  
 **Source of truth:** `docs/`
@@ -10,16 +10,17 @@
 - general-overview.md
 
 ## XDaLa
+- XDaLa_Agent_Authoring_Rules.md
 - XDaLa_XGR_Endpoint_Reference.md
 - XDaLa_Limits.md
 - XDaLa_Permit_Catalog.md
 
 ## XRC Standards
-- XRC-137_Rule_Document_Specification.md
+- XRC-137_Rule_Document_Spec.md
 - XRC-137_Smart_Contract_Standard.md
 - XRC-137_Validation_Gas.md
 - XRC-729_Smart_Contract_Standard.md
-- xrc_729_orchestration_session.md
+- xrc_729_orchestration_session_manager.md
 - XRC-GAS_Gas_Price_Behavior.md
 
 ## MCP
