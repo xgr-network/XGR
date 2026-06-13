@@ -19,7 +19,7 @@ The panel header shows the workspace title **Multi Bundle Deploy** and the main 
 
 After an artifact is loaded, the panel shows signer readiness, deploy mode, validation mode, deploy/download buttons, bundle filters and one bundle report card per bundle.
 
-![Multi Bundle Deploy overview in Expert mode](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/01-bundledeploy-overview_expert.png)
+![Multi Bundle Deploy overview in Expert mode](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/01-bundledeploy-overview_expert.png)
 
 ---
 
@@ -64,7 +64,7 @@ What happens after import:
 
 A valid multi-bundle file must use the canonical format `xgr-multi-bundle@1` and must contain at least one bundle. Each bundle needs a non-empty `bundleId` and an `items` array.
 
-![Import JSON artifact drop area](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/02-bundledeploy-import.png)
+![Import JSON artifact drop area](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/02-bundledeploy-import.png)
 
 ---
 
@@ -95,7 +95,7 @@ The panel separates several signer concepts:
 
 If XRC-137 encryption is enabled, wallet and Read-Key readiness can also block deployment.
 
-![Signer readiness and locked signer warning](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/03-bundledeploy-signer-readiness.png)
+![Signer readiness and locked signer warning](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/03-bundledeploy-signer-readiness.png)
 
 ---
 
@@ -113,7 +113,7 @@ Simple mode is the default user path. It keeps the panel focused on the most imp
 
 In simple mode the deploy mode is kept simple: the panel focuses on a clean deploy path. If validation or signer readiness needs attention, switch to Expert mode and inspect the details.
 
-![Simple mode deploy workspace](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/04-bundledeploy-simple-workspace.png)
+![Simple mode deploy workspace](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/04-bundledeploy-simple-workspace.png)
 
 ---
 
@@ -159,7 +159,7 @@ Use **Deploy new** when you need a fresh deployment. Use **Check & deploy** when
 
 Use **Dirty mode** only for development and diagnostics. For customer handoff, **Strict** is safer.
 
-![Expert mode controls](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/05-bundledeploy-expert-controls.png)
+![Expert mode controls](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/05-bundledeploy-expert-controls.png)
 
 ---
 
@@ -187,7 +187,7 @@ The deploy plan modal uses these columns:
 
 Before a multi-user deployment, always check this preview. It prevents accidental deployment with the wrong wallet or deployer alias.
 
-![Deploy plan preview modal](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/06-bundledeploy-deploy-plan.png)
+![Deploy plan preview modal](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/06-bundledeploy-deploy-plan.png)
 
 ---
 
@@ -234,7 +234,7 @@ For XRC-137 contracts, Expert mode can enable encryption after deploy, update or
 
 XRC-729 is not encrypted. For XRC-729, **Update existing** means calling `setOSTC` on the configured address.
 
-![Contract settings and per-contract overrides](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/07-bundledeploy-contract-settings.png)
+![Contract settings and per-contract overrides](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/07-bundledeploy-contract-settings.png)
 
 ---
 
@@ -274,7 +274,7 @@ Each bundle report can show:
 
 When the Fix Agent is open, review the JSON and issue cards carefully. Apply only the fixes that match your intended bundle behavior.
 
-![Validation details and Fix Agent](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/08-bundledeploy-validation-and-fixes.png)
+![Validation details and Fix Agent](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/08-bundledeploy-validation-and-fixes.png)
 
 ---
 
@@ -304,7 +304,7 @@ The progress area can show:
 
 Use **Cancel deploy** when the deploy should stop. The current wallet or signing step may still need to finish or be rejected once.
 
-![Deploy progress, completed result and download button](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/09-bundledeploy-progress-results-download.png)
+![Deploy progress, completed result and download button](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/09-bundledeploy-progress-results-download.png)
 
 ---
 
@@ -324,7 +324,7 @@ After deployment, the panel can produce several outputs.
 
 If deployment is partial, the panel warns before download. Failed or incomplete bundles stay unchanged from the imported file.
 
-![MCP return button after deployment](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/10-bundledeploy-return-mcp.png)
+![MCP return button after deployment](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/10-bundledeploy-return-mcp.png)
 
 ---
 
@@ -341,7 +341,7 @@ The recommended customer flow is:
 
 For multi-user deployments, add one extra check before deploying: open **Show deploy plan** and verify every signer row.
 
-![Recommended BundleDeploy flow](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/bundledeploy/11-bundledeploy-quick-flow.png)
+![Recommended BundleDeploy flow](https://raw.githubusercontent.com/xgr-network/XGR/main/pictures/ui/builder137/11-bundledeploy-quick-flow.png)
 
 ---
 
