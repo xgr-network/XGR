@@ -77,7 +77,16 @@ contract XRC729 {
     );
 
     // --- Constructor ---
-    constructor() {
+    constructor(
+        string[] memory initialOstcIds,
+        string[] memory initialOstcJsons,
+        address[] memory initialExecutors
+    ) {
+        require(
+            initialOstcIds.length == initialOstcJsons.length,
+            "XRC729: OSTC array length mismatch"
+        );
+
         owner = msg.sender;
 
         emit OwnershipTransferred(address(0), msg.sender);
@@ -89,6 +98,13 @@ contract XRC729 {
             nameXRC,
             schemaVersion
         );
+        for (uint256 i = 0; i < initialOstcIds.length; i++) {
+            _setOSTC(initialOstcIds[i], initialOstcJsons[i]);
+        }
+
+        for (uint256 i = 0; i < initialExecutors.length; i++) {
+            _addExecutorInternal(initialExecutors[i]);
+        }
     }
 
     // --- Ownership management ---
@@ -113,6 +129,13 @@ contract XRC729 {
     /// @notice Adds an executor to the allowlist.
     /// @param exec The address to add as executor.
     function addExecutor(address exec) external onlyOwner {
+        _addExecutorInternal(exec);
+    }
+
+    /// @dev Internal executor add logic used by constructor and addExecutor.
+    ///      Emits the same ExecutorAdded event as the external addExecutor path.
+    function _addExecutorInternal(address exec) internal {
+        require(exec != address(0), "XRC729: zero executor");
         require(exec != owner, "XRC729: owner cannot be executor");
 
         if (executorIndex[exec] != 0) {
