@@ -1,129 +1,234 @@
 # XGR MCP Gateway — Tool Reference
 
 **Document ID:** XGR-MCP-TOOL-REFERENCE  
-**Last updated:** 2026-06-07  
+**Last updated:** 2026-07-20  
 **Audience:** Developers, integrators, agent builders  
-**Implementation status:** Phase 1 read tools live; handoff tools live  
+**Implementation status:** Live  
 **Source of truth:** `xgr-mcp-gateway/src/tools`
 
-This catalog lists the tools the gateway registers, grouped by domain. All read tools are read-only. Handoff tools prepare offchain operations only — they never sign, submit, or mutate state (see [Operation Handoff](./XGR-MCP-Operation-Handoff.md)).
+This document lists the tools currently registered by the XGR MCP Gateway.
 
-> **Conventions.** XDaLa sessions are identified by **owner + sessionId** together; a `sessionId` is not unique on its own. Time windows are passed in hours (e.g. `windowHours=504` for "last 3 weeks"). Native value transfer means `transactions.value > 0`, not gas fees.
+Read tools inspect chain, Explorer, contract or knowledge data. Handoff tools store validated offchain requests for later human review and local signing. No MCP tool receives private keys or signs transactions.
+
+> **Session identity**
+>
+> An XDaLa session is identified by **owner + sessionId**. A session ID is not globally unique on its own.
+
+> **Time windows**
+>
+> Analytics tools generally use `windowHours`. For example, three weeks is `504`.
+
+> **Native transfers**
+>
+> Native value refers to `transaction.value`, not gas fees.
 
 ---
 
-## Chain
+## Network and chain
 
 | Tool | Purpose |
 |---|---|
-| `get_chain_status` | Live chain id, latest block number, gas price. |
-| `get_latest_block` | Full latest EVM block. |
-| `get_account_live_state` | Balance, nonce, and contract code for an address. |
+| `get_xgr_network_info` | Canonical XGR.Network, XGRChain, XDaLa, mainnet, testnet, Faucet, documentation and ecosystem metadata. |
+| `get_chain_status` | Live chain ID, block number and gas price from the configured RPC, plus compact official links. |
+| `get_latest_block` | Full latest EVM block including transactions. |
+| `get_account_live_state` | Live balance, nonce, code and contract status for an EVM address. |
+
+`get_xgr_network_info` is the preferred discovery tool for official URLs and network configuration.
 
 ## XGR protocol
 
 | Tool | Purpose |
 |---|---|
-| `get_xgr_core_addresses` | XGR core protocol addresses (`xgr_getCoreAddrs`). |
-| `get_xgr_circulating_supply` | Circulating supply (`xgr_getCirculatingSupply`). |
-| `estimate_xdala_rule_gas` | Validation/branch/grant gas and worst-case totals for an XDaLa/XRC-137 rule (`xgr_estimateRuleGas`). |
+| `get_xgr_core_addresses` | Read XGR protocol addresses through `xgr_getCoreAddrs`. |
+| `get_xgr_circulating_supply` | Read circulating-supply information through `xgr_getCirculatingSupply`. |
+| `estimate_xdala_rule_gas` | Estimate validation, branch, grant and worst-case gas for an XDaLa/XRC-137 rule. |
 
-## Session evidence
-
-| Tool | Purpose |
-|---|---|
-| `get_session_transactions` | Transaction timeline (hashes, blocks, fees, iteration steps) for a session. Not full engine payloads. |
-| `get_session_status_live` | Live `xgr_sessionAlive` status for owner + sessionId. |
-| `get_sessions_overview` | High-level indexed session analytics over a time window. |
-| `get_session_receipt_logs` | Decoded engine receipt data for a session step: input payload, API saves, contract saves, execution/rule contract, valid flag, inner gas. |
-
-## Session resolver & analytics
-
-For when the user does not already have owner + sessionId, or wants aggregates.
+## XDaLa session evidence
 
 | Tool | Purpose |
 |---|---|
-| `find_latest_xdala_session` | Resolve the newest indexed session, optional final receipt payload. |
-| `get_latest_xdala_session_payload` | Payload, apiSaves, contractSaves, extras of the latest session. |
-| `get_recent_xdala_sessions` | List recent indexed sessions, optional owner filter and payload enrichment. |
-| `list_xdala_sessions` | Concrete owner + sessionId pairs, keyset pagination. |
-| `list_xdala_session_owners` | Distinct owners that ran sessions. |
-| `list_xdala_session_ids_grouped_by_owner` | Session IDs grouped by owner. |
-| `get_xdala_session_detail` | Details, timeline, steps, payloads, evidence for owner + sessionId. |
-| `get_xdala_session_statistics` | Success/failure counts, average duration, average steps, top errors. |
-| `get_xdala_session_timeseries` | Sessions over time (day/week/month buckets). |
-| `get_xdala_step_statistics` | Valid/invalid/failed step counts and step gas totals. |
-| `get_xdala_payload_key_statistics` | Which payload fields occurred and how often. |
-| `get_xdala_payload_term_statistics` | Statistics over all payload terms in a range. |
-| `get_xdala_payload_field_value_statistics` | Top values for a specific payload field. |
+| `get_session_transactions` | Indexed transaction timeline for owner + sessionId. |
+| `get_session_status_live` | Live `xgr_sessionAlive` result from the configured RPC. |
+| `get_sessions_overview` | High-level indexed session analytics for a selected window. |
+| `get_session_receipt_logs` | Decoded engine receipt data including payload, saves, rule/execution contracts, validity and inner gas. |
+| `list_wakeup_targets_by_address` | Waiting XDaLa steps that an address may wake. |
+| `resolve_wakeup_payload_schema` | Required, optional, default and missing payload fields for a waiting wake-up target. |
+
+Encrypted XRC-137 rule bodies are not decrypted by the gateway. Typed payload resolution for encrypted rules requires user-side decryption.
+
+## Session resolver and analytics
+
+Use these tools when the user does not already know the concrete owner + sessionId pair, or requests aggregate results.
+
+| Tool | Purpose |
+|---|---|
+| `find_latest_xdala_session` | Resolve the newest indexed XDaLa session. |
+| `get_latest_session_payload` | Resolve the latest session and return final payload, API saves, contract saves and extras. |
+| `get_recent_xdala_sessions` | Recent indexed sessions with optional owner, window and payload enrichment. |
+| `list_xdala_session_owners` | Distinct session owner addresses. |
+| `list_xdala_sessions` | Concrete owner + sessionId pairs with keyset pagination. |
+| `list_xdala_session_ids` | Session IDs grouped by owner. |
+| `get_xdala_session_detail` | Timeline, steps, payloads and evidence for one concrete session. |
+| `get_xdala_session_stats` | Counts, outcomes, duration, steps and error aggregates. |
+| `get_xdala_session_timeseries` | Session counts and outcomes over time. |
+| `get_xdala_step_stats` | Step validity, failure and gas aggregates. |
+| `get_xdala_payload_key_stats` | Frequency and presence statistics for payload keys. |
+| `get_xdala_payload_term_stats` | Aggregated terms from payload keys and/or values. |
+| `get_xdala_payload_field_value_stats` | Most frequent values for a selected payload field. |
+| `get_xdala_active_sessions_timeseries` | Active or concurrent session counts over time. |
 
 ## Transactions
 
-Chain-wide indexed transaction tools backed by the Explorer read-only Postgres mirror. Use these — not session tools — for global questions about `tx.value`, native transfers, from/to, or block ranges.
+Use transaction tools for chain-wide questions. Do not sample XDaLa sessions when the question concerns all transactions or native transfers.
 
 | Tool | Purpose |
 |---|---|
-| `get_transaction_evidence` | What a given transaction hash did. |
-| `get_transaction_receipt` | Raw transaction receipt. |
-| `search_transactions` | Search by hash, from/to, value predicates, input presence, contract creation, session id, validity/execution flags, block range, or timestamp window. |
-| `get_recent_value_transfers` | Recent native transfers where `value > minValueWei`, with count/total summaries. |
-| `get_account_transactions` | Inbound/outbound/bidirectional transactions for an account, optionally value-only. |
-| `get_block_transactions` | Transactions for a concrete or latest block. |
-| `get_transaction_stats` | Compact transaction/value/zero-value/contract-creation/total-value stats. |
+| `get_transaction_evidence` | Combined Explorer transaction, decoded receipt and live RPC evidence for one hash. |
+| `get_transaction_receipt` | Explorer receipt data for one transaction. |
+| `search_transactions` | Search by sender, recipient, hash, value, input, contract creation, session, validity, execution, blocks or time. |
+| `get_recent_value_transfers` | Recent native XGR transfers with count and total-value summaries. |
+| `get_account_transactions` | Incoming, outgoing or all indexed transactions for one address. |
+| `get_block_transactions` | Indexed transactions for a selected or latest block. |
+| `get_transaction_stats` | Chain transaction, transfer, zero-value, creation and total-value aggregates. |
 
-## XRC contracts & standards (indexed)
-
-| Tool | Purpose |
-|---|---|
-| `list_xrc_contracts` | List indexed XRC contracts. |
-| `get_xrc_contract` | Get one indexed XRC contract. |
-| `get_xrc729_authority` | XRC-729 owner/executor start-authority roles. |
-| `get_xrc729_ostc_state` | OSTC state for an XRC-729 contract. |
-| `read_xrc729_ostc_json` | Read the OSTC JSON. |
-| `read_xrc137_rule_json` | Read an XRC-137 rule JSON. |
-| `resolve_xrc729_process_graph` | Resolve the process graph for an XRC-729 orchestration. |
-| `find_startable_xdala_workflows` | Discover deployed workflows the user could start. |
-| `list_xrc_events` / `get_xrc_contract_events` | Indexed XRC events. |
-| `get_xrc_owner_summary` | Owner-level XRC summary. |
-| `get_xrc_usage` | XRC session usage. |
-| `list_xrc_process_sessions` | Sessions per XRC process. |
-| `find_reusable_xrc137_rules` | Reusable XRC-137 rules. |
-| `get_unused_xrc137_rules` | XRC-137 rules with no usage. |
-| `get_xrc_failure_stats` | XRC failure statistics. |
-
-## Knowledge & validation
-
-See [Authoring & Knowledge](./XGR-MCP-Authoring-and-Knowledge.md) for usage.
+## XRC authority and workflow discovery
 
 | Tool | Purpose |
 |---|---|
-| `list_xgr_standards` | List agent-readable standards (incl. `xdala-authoring`). |
-| `get_xdala_authoring_rules` | Compact XDaLa authoring rules for drafting. |
-| `get_xgr_standard_reference` | Prose reference for XRC-137 / XRC-729 / xdala-authoring. |
-| `get_xgr_standard_schema` | Machine-readable JSON schema for XRC-137 / XRC-729. |
-| `list_xgr_standard_examples` / `get_xgr_standard_example` | Example artifacts. |
-| `get_xgr_multibundle_reference` / `get_xgr_multibundle_schema` | Canonical `xgr-multi-bundle@1`. |
-| `get_xgr_session_start_schema` | Canonical `xgr-session-start@1` Workbench handoff schema. |
-| `validate_xgr_multibundle` / `validate_xdala_bundle` | Validate a deployable `xgr-multi-bundle@1`. |
-| `validate_xgr_session_start_handoff` | Validate a canonical `xgr-session-start@1` request. |
-| `validate_legacy_session_start` | Validate the legacy low-level session-start payload only (not the Workbench handoff). |
+| `get_xrc729_authority` | Read XRC-729 owner and executor start-authority roles. |
+| `find_startable_xdala_workflows` | Discover deployed workflows an address may start as owner, executor or wildcard executor. |
+| `list_xrc729_contracts_by_executor` | Indexed active XRC-729 executor relationships with pagination metadata. |
 
-## Diagram
+Contract owner and executor roles describe authority to start a workflow. They do not establish the owner of a session that has not yet been started.
+
+## XRC contracts, events and runtime state
 
 | Tool | Purpose |
 |---|---|
-| `get_xdala_process_mermaid` | Render an XRC-729 process graph as Mermaid from `runtime`, `bundle`, or `bundle_handoff`. |
+| `list_xrc_contracts` | List indexed XRC-137 or XRC-729 contracts. |
+| `get_xrc_contract` | Read indexed metadata for one XRC contract. |
+| `list_xrc_events` | Search indexed XRC events globally or by owner, contract, action, transaction or block range. |
+| `get_xrc_contract_events` | Indexed event history for one XRC contract. |
+| `get_xrc729_ostc_state` | Indexed OSTC versions and state for an XRC-729 contract. |
+| `get_xrc_owner_summary` | Compact XRC-137, XRC-729 and recent-event summary for an owner. |
+| `read_xrc729_ostc_json` | Runtime `XRC729.getOSTC(ostcId)` JSON through `eth_call`. |
+| `read_xrc137_rule_json` | Runtime `XRC137.getRule()` JSON through `eth_call`. |
+| `resolve_xrc729_process_graph` | Resolve XRC-729 OSTC structure and linked XRC-137 contracts. |
 
-## Operations / Handoff
+## XRC usage, reuse and failures
 
 | Tool | Purpose |
 |---|---|
-| `create_operation_handoff` | Generic offchain operation → browser URL. (Not for starting sessions.) |
-| `get_operation_status` / `cancel_operation_handoff` | Track/cancel a generic operation. |
-| `create_xdala_bundle_deploy_handoff` | Store a validated `xgr-multi-bundle@1` under a bearer handle → Workbench import URL. |
-| `get_xdala_bundle_deploy_handoff` / `get_xdala_bundle_deploy_result` / `cancel_xdala_bundle_deploy_handoff` | Read/cancel a bundle-deploy handoff. |
-| `create_xdala_session_start_handoff` | Prepare a `xgr-session-start@1` handoff → Workbench Session Start URL. **Use this for any start/run/launch/queue of a session.** |
-| `get_xdala_session_start_handoff` / `get_xdala_session_start_result` / `cancel_xdala_session_start_handoff` | Read/cancel a session-start handoff. |
-| `list_recent_operations` | Recent handoffs. Never returns secrets or execution tokens. |
+| `get_xrc_usage` | Observed session usage for an XRC-137 rule or XRC-729 OSTC. |
+| `list_xrc_process_sessions` | Sessions associated with an OSTC ID or OSTC hash. |
+| `find_reusable_xrc137_rules` | Metadata-assisted search for an existing rule that could be reused. |
+| `get_unused_xrc137_rules` | Owner rules with no observed engine-rule usage. |
+| `get_xrc_failure_stats` | Invalid and failure statistics for XRC rules or processes. |
 
-> **Start-authority note.** `owner()/getOwner()` and `getExecutorList()` identify *start-authority* roles, not the owner of a not-yet-started session. The actual session owner/starter is in terminal `result.results[].owner/sessionId/pid` after Workbench start.
+Reuse candidates are advisory. Read and validate the runtime rule before relying on semantic equivalence.
+
+## Documentation and knowledge
+
+| Tool | Purpose |
+|---|---|
+| `list_xgr_standards` | List standards available in the gateway knowledge base. |
+| `list_xgr_docs` | List bundled canonical XGR documentation topics. |
+| `get_xgr_doc` | Retrieve one bundled Markdown documentation topic. |
+| `get_xdala_authoring_rules` | Canonical rules for drafting and reviewing XDaLa artifacts. |
+| `get_xgr_standard_reference` | Prose reference for a supported standard. |
+| `get_xgr_standard_schema` | Machine-readable schema for a supported standard. |
+| `list_xgr_standard_examples` | List example names for a standard. |
+| `get_xgr_standard_example` | Retrieve a concrete standard example. |
+| `get_xgr_multibundle_reference` | Canonical `xgr-multi-bundle@1` documentation. |
+| `get_xgr_multibundle_schema` | Canonical MultiBundle schema. |
+| `get_xgr_session_start_schema` | Canonical Workbench `xgr-session-start@1` schema. |
+
+Supported knowledge standards currently include:
+
+- `xrc-137`
+- `xrc-729`
+- `xdala-authoring`
+- `xgr-multibundle`
+
+## Validation
+
+| Tool | Purpose |
+|---|---|
+| `validate_xgr_multibundle` | Validate canonical deployable `xgr-multi-bundle@1`. |
+| `validate_xdala_bundle` | Alias for `validate_xgr_multibundle`. |
+| `validate_xgr_session_start_handoff` | Validate canonical Workbench `xgr-session-start@1`. |
+| `validate_xgr_session_start` | Validate the legacy low-level session-start representation. |
+| `validate_xrc137_authoring` | Validate a drafted XRC-137 authoring object. |
+| `validate_xdala_rules` | Validate rule expressions against available placeholder fields. |
+| `validate_xdala_blueprint` | Validate XRC-729 structure and cross-step XRC-137 payload flow. |
+
+The legacy session-start validator is not a substitute for `validate_xgr_session_start_handoff`.
+
+## Process diagrams
+
+| Tool | Purpose |
+|---|---|
+| `get_xdala_process_mermaid` | Render Mermaid flowchart text from deployed runtime data, a bundle or a bundle-deploy handoff. |
+
+Supported sources:
+
+- `runtime`
+- `bundle`
+- `bundle_handoff`
+
+## Generic operation handoff
+
+| Tool | Purpose |
+|---|---|
+| `create_operation_handoff` | Prepare a generic browser-wallet operation. Not for XDaLa session starts. |
+| `get_operation_status` | Read current generic-operation status. |
+| `cancel_operation_handoff` | Cancel pending offchain operation metadata. |
+| `list_recent_operations` | List recent operation handoffs without secrets or execution tokens. |
+
+## XDaLa bundle-deploy handoff
+
+| Tool | Purpose |
+|---|---|
+| `create_xdala_bundle_deploy_handoff` | Store a validated MultiBundle and return a Workbench import URL. |
+| `get_xdala_bundle_deploy_handoff` | Read handoff metadata, validation, bundle and recorded result. |
+| `get_xdala_bundle_deploy_result` | Read deployed artifact and audit events. |
+| `cancel_xdala_bundle_deploy_handoff` | Cancel pending offchain bundle-deploy metadata. |
+
+## XDaLa session-start handoff
+
+| Tool | Purpose |
+|---|---|
+| `create_xdala_session_start_handoff` | Prepare canonical `xgr-session-start@1` and return a Workbench Session Start URL. |
+| `get_xdala_session_start_handoff` | Read request, authority, validation, ownership summary and result. |
+| `get_xdala_session_start_result` | Read the terminal result summary and evidence identifiers. |
+| `cancel_xdala_session_start_handoff` | Cancel pending offchain session-start metadata. |
+
+Use `create_xdala_session_start_handoff` for every request to start, run, launch, execute or queue an XDaLa session.
+
+Canonical session fields are:
+
+```text
+sessions[].orchestration
+sessions[].ostcId
+sessions[].stepId
+sessions[].payload
+sessions[].maxTotalGas
+```
+
+Do not use `entryStepId` as a Workbench Session Start field.
+
+## MCP result metadata
+
+The gateway augments tool registrations with input descriptions, an output schema and MCP annotations.
+
+When a tool returns JSON as text, the gateway also exposes the parsed result under:
+
+```json
+{
+  "structuredContent": {
+    "data": {}
+  }
+}
+```
+
+Clients may continue to consume standard MCP text content.
