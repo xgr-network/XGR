@@ -1,80 +1,189 @@
 # XGR MCP Gateway — Overview
 
-**Document ID:** XGR-MCP-OVERVIEW
-**Last updated:** 2026-06-07
-**Audience:** Developers, integrators, agent builders, auditors
-**Implementation status:** Phase 1 (read-only) live; handoff preparation live
+**Document ID:** XGR-MCP-OVERVIEW  
+**Last updated:** 2026-07-20  
+**Audience:** Developers, integrators, agent builders, auditors  
+**Implementation status:** Public mainnet and testnet gateways live; read, validation, diagram and human-in-the-loop handoff tools live  
 **Source of truth:** `xgr-mcp-gateway`
 
 > **One-liner**
-> The **XGR MCP Gateway** is the AI-native access layer to the XGR stack. It exposes XGRChain, XDaLa sessions, Explorer data, XRC standards and authoring knowledge as semantic [Model Context Protocol](https://modelcontextprotocol.io) tools — and prepares human-in-the-loop write operations without ever holding keys or signing.
+>
+> The **XGR MCP Gateway** is the AI-native access layer to XGRChain and XDaLa. It exposes live chain state, indexed Explorer evidence, XDaLa sessions, XRC standards, workflow discovery, authoring knowledge and validated human-in-the-loop handoffs as semantic Model Context Protocol tools.
 
 ---
 
 ## What it is
 
-The gateway is a standalone MCP server (TypeScript, `@modelcontextprotocol/sdk`) that any MCP-compatible client — Claude, ChatGPT, IDE agents, custom hosts — can connect to. It turns the XGR stack into a set of well-described, parameterized tools so an agent can answer questions like *"what happened in this session?"*, *"which workflows can I start?"*, or *"draft and validate a process bundle"* without bespoke integration code.
+The XGR MCP Gateway is a standalone Model Context Protocol server implemented in TypeScript with `@modelcontextprotocol/sdk`.
 
-It sits as a **fourth surface** alongside the UI, XDaLa and the Chain:
+It allows MCP-compatible agents and applications to work with:
 
-| Surface   | Answers the question                                                         |
-| --------- | ---------------------------------------------------------------------------- |
-| **Chain** | What is the protocol and how do nodes run it?                                |
-| **XDaLa** | What are sessions, rules and orchestration semantics?                        |
-| **UI**    | How does a human build and operate this in the browser?                      |
-| **MCP**   | How do AI agents read, reason over, and prepare actions on all of the above? |
+- XGRChain live JSON-RPC state
+- chain-wide indexed transaction data
+- XDaLa sessions, steps, payloads and receipts
+- XRC-137 rules and XRC-729 orchestrations
+- workflow authority and executor relationships
+- schemas, examples and authoring rules
+- process diagrams
+- bundle-deploy and session-start handoffs
+
+The gateway is not a wallet, signer or custody service.
+
+It gives an agent enough structured context to answer questions such as:
+
+- What happened in this transaction?
+- What did this XDaLa session execute?
+- Which workflows may this address start?
+- Which payload fields are required to wake this waiting step?
+- Which XRC-137 rules already exist for this owner?
+- Can this process bundle be deployed?
+- Prepare this validated workflow for local deployment.
+- Prepare this deployed workflow for local session start.
+
+## XGR surfaces
+
+| Surface | Primary responsibility |
+|---|---|
+| **XGRChain** | Consensus, transactions, contracts, XGR JSON-RPC and protocol state |
+| **XDaLa** | Validation, orchestration and deterministic process execution |
+| **Explorer** | Indexed chain evidence, session evidence and analytics |
+| **xDaLa Workbench** | Human review, wallet connection, local signing and execution |
+| **MCP Gateway** | Semantic discovery, inspection, validation, reasoning and handoff preparation |
+
+## Implementation model
+
+The gateway supports three operational classes.
+
+### 1. Read and evidence tools
+
+These tools read live RPC state, Explorer APIs, indexed databases or deployed contracts.
+
+Examples:
+
+- live chain and account state
+- transaction evidence
+- XDaLa session timelines
+- decoded engine receipts
+- XRC contract and event indexes
+- workflow authority
+- payload and failure analytics
+
+They do not mutate chain state.
+
+### 2. Knowledge, validation and diagram tools
+
+These tools provide:
+
+- canonical XRC references
+- JSON schemas
+- authoring rules
+- example artifacts
+- MultiBundle and Session Start validation
+- XRC-137 and payload-flow validation
+- Mermaid process diagrams
+
+They operate locally in the gateway and do not submit transactions.
+
+### 3. Human-in-the-loop handoff tools
+
+Handoff tools prepare and store validated offchain requests and return an environment-specific browser or Workbench URL.
+
+The user must:
+
+1. open the returned URL,
+2. review the prepared request,
+3. connect their own wallet or signer,
+4. authorize and sign locally.
+
+The gateway itself never holds private keys and never signs transactions.
+
+See [Operation Handoff](./XGR-MCP-Operation-Handoff.md).
 
 ## Design principles
 
-1. **Read-first.** Phase 1 is strictly read-only. The gateway exposes semantic tools over existing JSON-RPC and Explorer APIs and over the Explorer read-only Postgres mirror (`PGRO_*`). It does not sign, submit, or mutate XDaLa state.
-2. **Never custodial.** The gateway never receives, stores, or derives private keys. Write intents are prepared as **handoffs** (see [Operation Handoff](./XGR-MCP-Operation-Handoff.md)) and executed by the user locally in the browser with their own wallet/signer. The gateway stores only operation metadata, status, and transaction hashes — never secrets or signing material.
-3. **Semantic over raw.** Tools are named and described for agent reasoning, not for thin RPC mirroring. Each tool description tells the agent *when* to use it and what it does and does not return, which keeps tool selection deterministic.
-4. **Single source of truth for knowledge.** Authoring rules, XRC schemas and examples are served from the gateway's knowledge base so that the agent drafting an artifact and the validator checking it share the same definitions. See [Authoring & Knowledge](./XGR-MCP-Authoring-and-Knowledge.md).
+1. **Read-first, not read-only-only.**  
+   Most tools read or validate data. Write intent is represented only as an offchain handoff for human review and local execution.
+
+2. **Never custodial.**  
+   Private keys, seed phrases, wallet secrets and signing material must never be supplied to the gateway.
+
+3. **Semantic over raw.**  
+   Tools are described around user intent instead of exposing only low-level RPC calls.
+
+4. **Evidence over inference.**  
+   Transaction, receipt, session and XRC tools distinguish live RPC data, Explorer API data and indexed database data.
+
+5. **Canonical schemas before execution.**  
+   Deploy and session-start requests must pass the same validators that define the corresponding Workbench formats.
+
+6. **Human approval at the trust boundary.**  
+   The agent may inspect, draft and prepare. The human wallet remains responsible for authorization and signing.
+
+7. **No environment leakage.**  
+   Public metadata exposes only supported mainnet and testnet resources. Workbench URLs are generated from the configured environment.
 
 ## Architecture
 
 ```text
-  MCP client (Claude / ChatGPT / IDE agent / custom host)
-        │  JSON-RPC over stdio or HTTP (/mcp)
-        ▼
-  ┌──────────────────────────── XGR MCP Gateway ────────────────────────────┐
-  │  tools/        semantic MCP tools (chain, session, tx, xrc, knowledge…)  │
-  │  operations/   handoff stores + browser handoff routes                   │
-  │  knowledge/    XRC-137 / XRC-729 / XDaLa authoring rules & schemas       │
-  │  adapters/     rpcClient · explorerClient · *DbClient (PGRO read-only)   │
-  └───────┬───────────────────┬───────────────────────┬─────────────────────┘
-          │                   │                        │
-          ▼                   ▼                        ▼
-   XGRChain JSON-RPC    Explorer API +           XDaLa Workbench
-   (rpc.xgr.network)    PGRO read-only DB        (handoff import + local signing)
+ MCP client
+ ChatGPT / Claude / IDE / custom agent host
+          │
+          │ Model Context Protocol
+          │ Streamable HTTP or local stdio
+          ▼
+ ┌──────────────────────── XGR MCP Gateway ────────────────────────┐
+ │                                                                 │
+ │  tools/                                                         │
+ │    chain · transactions · sessions · receipts · XRC             │
+ │    knowledge · validation · diagram · handoff                   │
+ │                                                                 │
+ │  adapters/                                                      │
+ │    XGR JSON-RPC · Explorer API · indexed read databases          │
+ │                                                                 │
+ │  knowledge/                                                     │
+ │    XRC-137 · XRC-729 · authoring rules · schemas · validators    │
+ │                                                                 │
+ │  operations/                                                    │
+ │    protected offchain handoff stores · result callbacks          │
+ │                                                                 │
+ └──────────────┬────────────────┬──────────────────┬───────────────┘
+                │                │                  │
+                ▼                ▼                  ▼
+          XGRChain RPC      XGR Explorer       xDaLa Workbench
+          live state        indexed evidence   review + local signing
 ```
-
-The gateway runs in two modes from the same codebase:
-
-* **stdio** (`npm run dev` / `npm start`) — for local MCP hosts that spawn the server as a child process.
-* **HTTP** (`npm run dev:http` / `npm run start:http`) — exposes `POST /mcp`, plus the browser-facing operation/handoff routes under `/operations/*` and `/api/operations/*`. Health is at `GET /health`.
 
 ## Public MCP endpoints
 
-The public hosted gateway exposes MCP over HTTP for both mainnet and testnet.
+The hosted gateways use stateless Streamable HTTP requests through `POST /mcp`.
 
 ### Mainnet
-
-Use mainnet to inspect real XGRChain and XDaLa activity, Explorer evidence, deployed XRC contracts and production session data.
 
 ```text
 https://mcp.xgr.network/mcp
 ```
 
-### Testnet
+Use mainnet for production chain state, deployed contracts, real XDaLa sessions and production evidence.
 
-Use testnet to safely draft, validate and experiment with agent-driven XDaLa workflows before production use.
+### Testnet
 
 ```text
 https://mcp.testnet.xgr.network/mcp
 ```
 
-### Example MCP client configuration
+Use testnet for development, workflow validation and controlled testing.
+
+### Testnet Faucet
+
+```text
+https://faucet.xgr.network
+```
+
+The faucet provides testnet XGR. It is not a mainnet service.
+
+### Example client configuration
+
+Client terminology differs. Some clients call the transport `http`, others `streamable-http` or `remote MCP`.
 
 ```json
 {
@@ -91,31 +200,91 @@ https://mcp.testnet.xgr.network/mcp
 }
 ```
 
-The hosted gateways expose the same MCP interface, but point to different environments. Mainnet is intended for production evidence and real deployed activity. Testnet is intended for safe experimentation, workflow drafting, validation and agent-assisted process testing.
+## Official network discovery
 
-The gateway never holds private keys and never signs transactions. Write operations are prepared as handoffs and must be reviewed and signed locally by the user.
+Agents should call:
 
-## Tool domains at a glance
+```text
+get_xgr_network_info
+```
 
-The gateway registers roughly seventy tools across these domains:
+when users ask for:
 
-* **Chain** — live RPC status, blocks, account state.
-* **XGR protocol** — core addresses, circulating supply, rule gas estimation.
-* **Session evidence & resolver** — find, list, detail, and statistics for indexed XDaLa sessions, including payload/step analytics.
-* **Receipts** — decoded engine receipt data for a session step.
-* **Transactions** — chain-wide indexed transaction search, value transfers, account/block transactions, stats.
-* **XRC** — XRC-137/XRC-729 contract inspection, OSTC/rule JSON reads, process-graph resolution, reuse and failure analytics.
-* **Knowledge** — standards references, schemas, examples, and validators for XRC-137, XRC-729, MultiBundle and Session Start.
-* **Diagram** — Mermaid rendering of an XRC-729 process graph.
-* **Operations / Handoff** — prepare and track operation, bundle-deploy and session-start handoffs.
+- official XGR.Network information
+- XGRChain metadata
+- the mainnet chain ID
+- RPC, Explorer or MCP endpoints
+- the testnet faucet
+- XRC standard context
+- official documentation or repositories
 
-The full catalog is in the [Tool Reference](./XGR-MCP-Tool-Reference.md).
+The response is versioned as:
+
+```text
+xgr-network-info@1
+```
+
+It includes only the supported public mainnet and testnet environments.
+
+`get_chain_status` is separate. It reads the connected RPC live and returns the current chain ID, block number and gas price together with compact official entry points.
+
+## Tool result model
+
+Tool results remain compatible with MCP text content and also expose parsed JSON through `structuredContent` when the tool returned valid JSON.
+
+Tool registrations include MCP annotations such as:
+
+- `readOnlyHint`
+- `destructiveHint`
+- `idempotentHint`
+- `openWorldHint`
+
+This helps MCP hosts distinguish read tools from handoff preparation tools.
+
+## Tool domains
+
+The current gateway includes these domains:
+
+- **Network and chain discovery**
+- **XGR protocol**
+- **Transaction search and evidence**
+- **XDaLa session evidence**
+- **Session resolver and analytics**
+- **Waiting-step and wake-up discovery**
+- **Decoded engine receipts**
+- **XRC-137 and XRC-729 inspection**
+- **Authority and executor discovery**
+- **XRC usage, reuse and failure analytics**
+- **Knowledge and documentation retrieval**
+- **Schema and authoring validation**
+- **Mermaid process rendering**
+- **Generic operation handoffs**
+- **XDaLa bundle-deploy handoffs**
+- **XDaLa session-start handoffs**
+
+The exact catalog is in the [Tool Reference](./XGR-MCP-Tool-Reference.md).
+
+## Security boundary
+
+The MCP Gateway:
+
+- does not accept private keys,
+- does not derive wallet secrets,
+- does not sign transactions,
+- does not silently start sessions,
+- does not silently deploy contracts,
+- does not expose bearer handles through list tools,
+- rejects sensitive fields in public handoff payloads,
+- validates supported handoff result structures,
+- applies configurable public-route origin, size and rate-limit controls.
+
+A returned handoff URL is still sensitive. Treat it as a temporary bearer URL and do not publish it.
 
 ## Related documents
 
-* [Tool Reference](./XGR-MCP-Tool-Reference.md)
-* [Operation Handoff](./XGR-MCP-Operation-Handoff.md)
-* [Authoring & Knowledge](./XGR-MCP-Authoring-and-Knowledge.md)
-* [Setup & Configuration](./XGR-MCP-Setup-and-Configuration.md)
-* [general-overview.md](../general-overview.md) — XGR & XDaLa context
-* [XDaLa_XGR_Endpoint_Reference.md](../XDaLa_XGR_Endpoint_Reference.md)
+- [Tool Reference](./XGR-MCP-Tool-Reference.md)
+- [Operation Handoff](./XGR-MCP-Operation-Handoff.md)
+- [Authoring & Knowledge](./XGR-MCP-Authoring-and-Knowledge.md)
+- [Setup & Configuration](./XGR-MCP-Setup-and-Configuration.md)
+- [XGR and XDaLa General Overview](../general-overview.md)
+- [XDaLa XGR Endpoint Reference](../XDaLa_XGR_Endpoint_Reference.md)
