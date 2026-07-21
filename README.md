@@ -29,7 +29,20 @@ XDaLa is designed for use cases that require deterministic behavior, regulatory 
 
 The XGR MCP Gateway is the AI-native access layer to the XGR stack.
 
-It exposes XGRChain data, XDaLa sessions, Explorer evidence, XRC standards, schemas and authoring knowledge as semantic Model Context Protocol tools. MCP-compatible agents can inspect deployed workflows, draft and validate XDaLa process bundles, and prepare human-in-the-loop handoffs for local wallet signing.
+It exposes XGRChain data, XDaLa sessions, Explorer evidence, XRC standards, schemas and authoring knowledge as semantic Model Context Protocol tools.
+
+MCP-compatible agents can:
+
+- inspect deployed workflows,
+- search chain and session evidence,
+- draft and validate XDaLa process bundles,
+- prepare human-in-the-loop handoffs for local wallet signing,
+- discover live XGR purchase options,
+- create mainnet XGR purchase reservations for an exact XGR amount or a maximum USDC/USDT budget.
+
+The optional purchase tools are mainnet-only and deployment-controlled.
+
+A purchase tool may create a real offchain order and reserve XGR inventory. The gateway does not hold payment keys, does not send USDC or USDT and does not transfer XGR itself. Payment remains an external wallet action based on the exact structured payment instruction returned by the tool.
 
 The gateway never holds private keys, never signs transactions and never takes custody.
 
@@ -45,18 +58,19 @@ The gateway never holds private keys, never signs transactions and never takes c
 
 This repository provides public documentation and specifications for XDaLa and related components.
 
-- General overview of the XDaLa process model  
-- Endpoint and validation reference  
-- Permit and limit definitions  
-- Encryption and grant handling  
+- General overview of the XDaLa process model
+- Endpoint and validation reference
+- Permit and limit definitions
+- Encryption and grant handling
 
 The current documents include:
 
-- XDaLa general overview  
-- XDaLa endpoint reference  
-- XDaLa limits specification  
-- XDaLa permit catalog  
-- XGR encryption and grant model  
+- XDaLa general overview
+- XDaLa endpoint reference
+- XDaLa limits specification
+- XDaLa permit catalog
+- XGR encryption and grant model
+- XGR MCP Gateway reference
 
 All specifications are evolving and subject to versioning.
 
@@ -66,10 +80,10 @@ All specifications are evolving and subject to versioning.
 
 XDaLa is privacy first by design.
 
-- Payloads and outputs can be end to end encrypted  
-- Decryption remains on the user side using wallet based keys  
-- No plaintext sensitive data is required to be stored on chain  
-- Validation and execution are separated from data visibility  
+- Payloads and outputs can be end to end encrypted
+- Decryption remains on the user side using wallet based keys
+- No plaintext sensitive data is required to be stored on chain
+- Validation and execution are separated from data visibility
 
 This enables auditable processes without compromising data sovereignty.
 
@@ -79,10 +93,11 @@ This enables auditable processes without compromising data sovereignty.
 
 This repository is intended for:
 
-- Developers building on EVM compatible blockchains  
-- Infrastructure and protocol engineers  
-- Teams working on regulated or compliance sensitive workflows  
-- Auditors and reviewers evaluating deterministic execution models  
+- Developers building on EVM compatible blockchains
+- Infrastructure and protocol engineers
+- Teams working on regulated or compliance sensitive workflows
+- Agent builders integrating the XGR MCP Gateway
+- Auditors and reviewers evaluating deterministic execution models
 
 ---
 
@@ -90,7 +105,9 @@ This repository is intended for:
 
 - XGRChain: Mainnet live, testnet available
 - XDaLa: Active specification and implementation phase
-- MCP Gateway: Phase 1 live, read tools and handoff preparation available
+- MCP Gateway: Mainnet and testnet live
+- MCP read, evidence, validation, diagram and handoff tools: Live
+- Mainnet XGR purchase tools: Implemented and deployment-controlled
 - Standards: Draft and review status
 
 The repository reflects the public and stable interface of the system.
@@ -101,10 +118,10 @@ The repository reflects the public and stable interface of the system.
 
 This repository focuses on specifications and reference material.
 
-- Issues may be opened for clarification or discussion  
-- Pull requests should be limited to documentation improvements or corrections  
+- Issues may be opened for clarification or discussion
+- Pull requests should be limited to documentation improvements or corrections
 
-Implementation specific code is maintained in separate internal repositories.
+Implementation specific code is maintained in separate repositories.
 
 ---
 
@@ -147,8 +164,7 @@ Reference chain configuration artifacts live in this repository under `genesis/`
 
 - **Mainnet genesis:** `genesis/mainnet/genesis.json`
 
-If you are running a local/dev network, prefer generating a fresh genesis via the CLI tooling
-rather than hand-editing production genesis files.
+If you are running a local/dev network, prefer generating a fresh genesis via the CLI tooling rather than hand-editing production genesis files.
 
 ## License
 
