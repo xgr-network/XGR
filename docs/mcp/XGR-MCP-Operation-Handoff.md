@@ -1,12 +1,16 @@
 # XGR MCP Gateway — Operation Handoff
 
 **Document ID:** XGR-MCP-OPERATION-HANDOFF  
-**Last updated:** 2026-07-20  
+**Last updated:** 2026-07-21  
 **Audience:** Developers, integrators, agent builders, auditors  
 **Implementation status:** Live  
 **Source of truth:** `xgr-mcp-gateway/src/operations`
 
-The XGR MCP Gateway prepares human-reviewed actions without becoming a wallet, signer or custody service.
+The XGR MCP Gateway prepares human-reviewed on-chain actions without becoming a wallet, signer or custody service.
+
+This document applies specifically to handoff tools.
+
+Mainnet XGR purchase orders are not handoffs. Purchase tools create a live backend reservation and return an exact external payment instruction without creating a Workbench handoff URL.
 
 A handoff connects:
 
@@ -78,7 +82,11 @@ Use:
 create_operation_handoff
 ```
 
-for general browser-wallet transaction sequences that are not XDaLa bundle deployments or session starts.
+for general browser-wallet transaction sequences that are not:
+
+- XDaLa bundle deployments,
+- XDaLa session starts,
+- mainnet XGR purchase orders.
 
 The result contains an operation URL under:
 
@@ -95,6 +103,8 @@ list_recent_operations
 ```
 
 Do not use the generic operation handoff to start an XDaLa session.
+
+Do not use the generic operation handoff to create or pay an XGR purchase order.
 
 ### 2. XDaLa bundle-deploy handoff
 
@@ -168,6 +178,63 @@ Testnet: https://xdala.testnet.xgr.network/session-start
 The returned URL, not a hard-coded example, is authoritative.
 
 Always show the exact `xdalaUrl` returned by the tool. Do not replace it with a generic `/operations/...` URL.
+
+## Not a handoff: mainnet XGR purchase orders
+
+The following tools do not create handoff URLs:
+
+```text
+get_xgr_purchase_options
+quote_xgr_purchase
+create_xgr_purchase_order
+create_xgr_purchase_order_by_budget
+```
+
+The purchase workflow is:
+
+```text
+live purchase discovery
+    ↓
+user-supplied identity and wallet data
+    ↓
+explicit terms acceptance
+    ↓
+live backend order and inventory reservation
+    ↓
+validated exact payment instruction
+    ↓
+external stablecoin wallet payment
+    ↓
+backend reconciliation and XGR delivery
+```
+
+Purchase order tools do not:
+
+- create a generic operation record,
+- create a Workbench handoff,
+- return an `xdalaUrl`,
+- sign or submit the stablecoin payment,
+- hold payment keys.
+
+An approved purchase result returns:
+
+```text
+payment_approved = true
+next_action = external_crypto_payment
+payment_instruction = { ... }
+```
+
+A blocked or uncertain purchase result returns:
+
+```text
+next_action = do_not_pay
+```
+
+The payment executor must follow the returned purchase result directly.
+
+It must not route the payment through a generic operation handoff unless a separate application explicitly implements an additional review layer.
+
+See [Tool Reference](./XGR-MCP-Tool-Reference.md) for the full purchase contract.
 
 ## Canonical Session Start fields
 
@@ -298,6 +365,20 @@ Possible terminal states include:
 
 Cancellation affects only pending offchain handoff metadata. It does not reverse or cancel transactions already signed or submitted by the user.
 
+Purchase order expiry is separate from handoff expiry.
+
+Purchase reservations use the returned:
+
+```text
+order.reserved_until
+```
+
+or:
+
+```text
+payment_instruction.expires_at
+```
+
 ## Public HTTP routes
 
 ### Generic operations
@@ -330,6 +411,8 @@ Cancellation affects only pending offchain handoff metadata. It does not reverse
 | `GET /health` | Liveness and server mode |
 | `POST /mcp` | Stateless MCP JSON-RPC endpoint |
 
+Purchase tools use the MCP endpoint and call the separately configured purchase API internally. They do not add public purchase routes to the MCP gateway.
+
 Public handoff endpoints enforce configurable:
 
 - request-size limits,
@@ -354,3 +437,5 @@ Never place any of the following in a handoff request:
 - bearer credentials unrelated to the generated handle.
 
 Public list tools do not return browser execution secrets.
+
+Purchase tools likewise accept public wallet addresses only. They must never receive the private key or signing secret for either the stablecoin sender wallet or the XGR delivery wallet.
