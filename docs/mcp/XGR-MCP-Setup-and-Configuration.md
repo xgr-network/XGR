@@ -1,10 +1,10 @@
 # XGR MCP Gateway — Setup & Configuration
 
 **Document ID:** XGR-MCP-SETUP  
-**Last updated:** 2026-07-21  
+**Last updated:** 2026-07-26  
 **Audience:** Operators self-hosting the gateway  
 **Implementation status:** Live  
-**Source of truth:** `xgr-mcp-gateway/src/config/env.ts`, `src/shared/purchaseConfig.ts`, `.env.example`, `package.json`
+**Source of truth:** [`xgr-network/xgr-mcp`](https://github.com/xgr-network/xgr-mcp)
 
 > **Self-hosting only**
 >
@@ -37,50 +37,72 @@ https://faucet.xgr.network
 A complete self-hosted deployment requires:
 
 - Node.js with ESM support,
+- npm,
 - an XGRChain JSON-RPC endpoint,
 - an XGR Explorer API,
-- read access to the relevant Explorer databases for DB-backed analytics,
-- persistent storage for handoff records,
-- access to the canonical `xgr-network/XGR` documentation repository during build,
-- correctly configured xDaLa Workbench base URLs.
+- read-only access to Explorer databases for DB-backed analytics,
+- persistent storage for operation handoffs,
+- access to `xgr-network/XGR` during documentation synchronization,
+- correctly configured xDaLa Workbench URLs.
 
-When mainnet purchase tools are enabled, the deployment additionally requires:
+When purchase tools are enabled, the deployment additionally requires:
 
 - access to the XGR purchase API,
-- HTTPS connectivity to the purchase API outside localhost,
-- an explicit mainnet purchase configuration,
+- HTTPS connectivity outside localhost,
+- a mainnet-only purchase configuration,
 - an autonomous EUR policy no greater than `249.99`.
 
-The gateway can still expose RPC- or API-backed tools when a database-backed tool is unavailable, but full transaction, XRC and session analytics require the corresponding indexed data sources.
+When starter gas is enabled, the deployment additionally requires:
+
+- a dedicated low-balance XGR service wallet,
+- a service-only private key supplied through the process environment,
+- a persistent writable SQLite path,
+- matching Node.js ABI versions during installation and runtime,
+- correct reverse-proxy topology for client-IP enforcement,
+- explicit hourly, daily, address and balance policies.
+
+Never reuse:
+
+- a treasury key,
+- a validator key,
+- an exchange key,
+- a user wallet,
+- a deployment wallet,
+- an operational hot wallet with significant funds.
 
 ## Install
 
 ```bash
-git clone <gateway-repository>
-cd xgr-mcp-gateway
+git clone https://github.com/xgr-network/xgr-mcp.git
+cd xgr-mcp
 
 npm install
 cp .env.example .env
+
 npm run typecheck
 npm test
 npm run build
 ```
 
-## Build-time documentation sync
+A production deployment should normally use:
 
-The build command includes:
-
-```text
-node scripts/sync-xgr-docs.mjs && tsc
+```bash
+npm ci
 ```
 
-The sync script downloads canonical Markdown from:
+when a committed lock file is available.
+
+## Build-time documentation synchronization
+
+The build command synchronizes canonical documentation from:
 
 ```text
 xgr-network/XGR
 ```
 
-When anonymous repository access is unavailable in the deployment environment, set one of:
+The generated local `XGR/` directory is build output and must not be treated as an independently maintained source.
+
+When anonymous GitHub access is unavailable, set:
 
 ```env
 GITHUB_TOKEN=github_pat_...
@@ -92,9 +114,7 @@ or:
 GH_TOKEN=github_pat_...
 ```
 
-The token requires read access to repository contents for `xgr-network/XGR`.
-
-For a fine-grained token, the minimum repository permission is:
+The minimum fine-grained repository permission is:
 
 ```text
 Contents: Read-only
@@ -105,17 +125,10 @@ Typical failures:
 | Status | Meaning |
 |---|---|
 | `401` | Token invalid, expired or revoked |
-| `403` | Token recognized but blocked or insufficiently authorized |
-| `404` | Repository or requested content is unavailable to the supplied credentials |
+| `403` | Token recognized but unauthorized |
+| `404` | Repository or requested content unavailable |
 
 The process environment takes precedence over `.env`.
-
-After replacing an expired token, clear old exported values before rebuilding:
-
-```bash
-unset GITHUB_TOKEN GH_TOKEN
-npm run build
-```
 
 ## Run modes
 
@@ -127,7 +140,7 @@ Development:
 npm run dev
 ```
 
-Production build:
+Production:
 
 ```bash
 npm start
@@ -141,7 +154,7 @@ Development:
 npm run dev:http
 ```
 
-Production build:
+Production:
 
 ```bash
 npm run start:http
@@ -156,15 +169,11 @@ GET /health
 
 `GET /mcp` and `DELETE /mcp` are not supported.
 
-Hosted MCP requests are stateless POST requests.
-
-### Raw HTTP and SSE framing
+## Raw HTTP and SSE framing
 
 MCP HTTP responses may use Server-Sent Events framing.
 
-Raw command-line clients must remove the `data:` prefix before passing the JSON body to tools such as `jq`.
-
-Example:
+Example tool listing:
 
 ```bash
 curl -sS -X POST "http://127.0.0.1:3100/mcp" \
@@ -180,7 +189,7 @@ curl -sS -X POST "http://127.0.0.1:3100/mcp" \
 | jq
 ```
 
-Normal MCP clients handle transport framing automatically.
+Normal MCP clients handle framing automatically.
 
 ## Core configuration
 
@@ -188,14 +197,21 @@ Normal MCP clients handle transport framing automatically.
 |---|---|---|
 | `XGR_RPC_URL` | Connected XGRChain RPC | `https://rpc.xgr.network` |
 | `XGR_EXPLORER_API_URL` | Explorer API base | `https://explorer.xgr.network/api` |
-| `MCP_SERVER_NAME` | MCP server name | `xgr-mcp-gateway` |
-| `MCP_READONLY` | General runtime mode flag | `true` |
+| `MCP_SERVER_NAME` | MCP server name | `xgr-mcp-gateway-mainnet` |
+| `MCP_READONLY` | Normal user-operation mode | `true` |
 | `MCP_HTTP_HOST` | HTTP bind address | `127.0.0.1` |
 | `MCP_HTTP_PORT` | HTTP bind port | `3100` |
 
-Purchase tool registration is controlled independently by the `XGR_PURCHASE_*` variables.
+Feature registration is controlled independently through:
 
-Do not assume that `MCP_READONLY=true` automatically enables or disables purchase tools.
+```text
+XGR_PURCHASE_*
+XGR_STARTER_GAS_*
+```
+
+`MCP_READONLY=true` does not automatically enable or disable either feature.
+
+It means that ordinary user operations remain read-only or handoff-based.
 
 ## Explorer database configuration
 
@@ -211,11 +227,39 @@ Use a dedicated read-only database role.
 | `PGRO_POOL_MAX` | Maximum pool connections | `4` |
 | `PGRO_STATEMENT_TIMEOUT_MS` | Query timeout | `5000` |
 
+## Operation storage
+
+| Variable | Purpose | Example |
+|---|---|---|
+| `MCP_OPERATION_STORE_DIR` | Root handoff storage directory | `/var/lib/xgr-mcp/operations` |
+| `MCP_PUBLIC_BASE_URL` | Public gateway base | `https://mcp.xgr.network` |
+| `MCP_OPERATION_PUBLIC_BASE_URL` | Legacy-compatible alias | `https://mcp.xgr.network` |
+| `MCP_OPERATION_DEFAULT_TTL_SECONDS` | Default operation TTL | `3600` |
+| `MCP_OPERATION_MAX_TTL_SECONDS` | Maximum operation TTL | `86400` |
+
+`MCP_PUBLIC_BASE_URL` takes precedence over `MCP_OPERATION_PUBLIC_BASE_URL`.
+
+## Bundle-deploy handoffs
+
+| Variable | Purpose | Mainnet example |
+|---|---|---|
+| `MCP_BUNDLE_DEPLOY_STORE_DIR` | Optional store override | `/var/lib/xgr-mcp/operations/bundle-deploy` |
+| `MCP_XDALA_BUNDLE_DEPLOY_BASE_URL` | Workbench import base | `https://xdala.xgr.network/api/bundle-deploy` |
+| `MCP_BUNDLE_DEPLOY_DEFAULT_TTL_SECONDS` | Default TTL | `3600` |
+| `MCP_BUNDLE_DEPLOY_MAX_TTL_SECONDS` | Maximum TTL | `86400` |
+
+## Session-start handoffs
+
+| Variable | Purpose | Mainnet example |
+|---|---|---|
+| `MCP_SESSION_START_STORE_DIR` | Optional store override | `/var/lib/xgr-mcp/operations/session-start` |
+| `MCP_XDALA_SESSION_START_BASE_URL` | Workbench Session Start base | `https://xdala.xgr.network/session-start` |
+| `MCP_SESSION_START_DEFAULT_TTL_SECONDS` | Default TTL | `3600` |
+| `MCP_SESSION_START_MAX_TTL_SECONDS` | Maximum TTL | `86400` |
+
 ## Mainnet XGR purchase tools
 
 Purchase tools are disabled by default.
-
-They are registered only when the feature is explicitly enabled for mainnet.
 
 Example:
 
@@ -226,45 +270,16 @@ XGR_PURCHASE_API_BASE_URL=https://xgr.network
 XGR_PURCHASE_MAX_EUR=249.99
 ```
 
-### Configuration variables
+### Purchase variables
 
 | Variable | Purpose | Required behavior |
 |---|---|---|
-| `XGR_PURCHASE_TOOLS_ENABLED` | Explicit feature gate | Must be exactly `true`. |
-| `XGR_PURCHASE_NETWORK` | Purchase environment | Must be exactly `mainnet`. |
-| `XGR_PURCHASE_API_BASE_URL` | XGR purchase API base | Required when enabled. HTTPS outside localhost. |
-| `XGR_PURCHASE_MAX_EUR` | Autonomous estimated EUR policy | Positive number no greater than `249.99`. Defaults to `249.99` when omitted after the other activation requirements are met. |
+| `XGR_PURCHASE_TOOLS_ENABLED` | Feature gate | Must be exactly `true`. |
+| `XGR_PURCHASE_NETWORK` | Environment | Must be exactly `mainnet`. |
+| `XGR_PURCHASE_API_BASE_URL` | Purchase API base | HTTPS outside localhost. |
+| `XGR_PURCHASE_MAX_EUR` | Autonomous estimated EUR policy | Positive and no greater than `249.99`. |
 
-### URL restrictions
-
-The API base must use:
-
-```text
-https://
-```
-
-except for local development on:
-
-```text
-http://localhost
-http://127.0.0.1
-```
-
-Other plain HTTP URLs are rejected.
-
-### Mainnet-only behavior
-
-The tools are not registered when:
-
-```text
-XGR_PURCHASE_NETWORK != mainnet
-```
-
-They are therefore absent from correctly configured testnet deployments.
-
-### Registered tools
-
-When enabled, `tools/list` includes:
+When enabled, the following tools are registered:
 
 ```text
 get_xgr_purchase_options
@@ -273,149 +288,300 @@ create_xgr_purchase_order
 create_xgr_purchase_order_by_budget
 ```
 
-### Tool effects
+Purchase tools create orders but do not send stablecoin payments.
 
-| Tool | Effect |
+## Native XGR starter-gas service
+
+Starter gas is disabled by default.
+
+Example:
+
+```env
+XGR_STARTER_GAS_ENABLED=true
+XGR_STARTER_GAS_NETWORK=mainnet
+XGR_STARTER_GAS_CHAIN_ID=1643
+XGR_STARTER_GAS_PRIVATE_KEY=0x...
+
+XGR_STARTER_GAS_MAX_RECIPIENT_BALANCE_XGR=0.1
+XGR_STARTER_GAS_MAX_HOURLY_GRANTS=20
+XGR_STARTER_GAS_MAX_DAILY_GRANTS=100
+XGR_STARTER_GAS_MAX_REQUESTS_PER_IP_HOUR=5
+XGR_STARTER_GAS_MAX_REQUESTS_PER_IP_DAY=20
+XGR_STARTER_GAS_MAX_ATTEMPTS_PER_ADDRESS=2
+XGR_STARTER_GAS_RESERVATION_TIMEOUT_SECONDS=600
+
+XGR_STARTER_GAS_DB_PATH=/var/lib/xgr-mcp/starter-gas-grants-mainnet.sqlite
+```
+
+The values above are configuration examples.
+
+Hosted deployments may use different live policy values.
+
+Agents must read the active policy through:
+
+```text
+get_xgr_starter_gas_options
+```
+
+### Starter-gas variables
+
+| Variable | Purpose |
 |---|---|
-| `get_xgr_purchase_options` | Read-only live price, inventory and payment-asset discovery. |
-| `quote_xgr_purchase` | Read-only planning estimate. No order. |
-| `create_xgr_purchase_order` | Creates one live backend order and reservation. |
-| `create_xgr_purchase_order_by_budget` | Creates one live backend order and reservation, then validates the exact amount against the cap. |
+| `XGR_STARTER_GAS_ENABLED` | Explicit service gate. Must be `true`. |
+| `XGR_STARTER_GAS_NETWORK` | `mainnet`, `testnet` or `devnet`. |
+| `XGR_STARTER_GAS_CHAIN_ID` | Expected connected chain ID. |
+| `XGR_STARTER_GAS_PRIVATE_KEY` | Dedicated service-wallet private key. |
+| `XGR_STARTER_GAS_MAX_RECIPIENT_BALANCE_XGR` | Maximum eligible recipient balance. |
+| `XGR_STARTER_GAS_MAX_HOURLY_GRANTS` | Global grant cap over a rolling hour. |
+| `XGR_STARTER_GAS_MAX_DAILY_GRANTS` | Global grant cap for the UTC day. |
+| `XGR_STARTER_GAS_MAX_REQUESTS_PER_IP_HOUR` | Per-client-IP request cap over a rolling hour. |
+| `XGR_STARTER_GAS_MAX_REQUESTS_PER_IP_DAY` | Per-client-IP request cap for the UTC day. |
+| `XGR_STARTER_GAS_MAX_ATTEMPTS_PER_ADDRESS` | Maximum bounded attempts after eligible failures. |
+| `XGR_STARTER_GAS_RESERVATION_TIMEOUT_SECONDS` | Expiry for stale pre-broadcast reservations. |
+| `XGR_STARTER_GAS_DB_PATH` | Persistent SQLite database path. |
+| `XGR_STARTER_GAS_STORE_PATH` | Legacy JSON import path only. |
 
-The gateway does not execute stablecoin payments.
+### Chain defaults
 
-An approved order returns:
+| Network | Default chain ID |
+|---|---:|
+| Mainnet | `1643` |
+| Testnet | `1879` |
+| Devnet | `1887` |
 
-```text
-payment_approved = true
-next_action = external_crypto_payment
-payment_instruction = { ... }
-```
+The RPC chain ID is checked before a grant is sent.
 
-A blocked or uncertain order returns:
+### Registered starter-gas tools
 
-```text
-next_action = do_not_pay
-```
-
-### Purchase policy limits
-
-The hard gateway maximum is:
-
-```text
-249.99 EUR
-```
-
-The configured value may be lower but not higher.
-
-The minimum estimated order value is:
+When enabled:
 
 ```text
-2 EUR
+get_xgr_starter_gas_options
+request_xgr_starter_gas
 ```
 
-The purchase backend separately requires a complete billing address when its newly calculated order value reaches:
+### Financial behavior
+
+The grant amount is fixed:
 
 ```text
-250 EUR
+1 XGR
 ```
 
-The gateway policy and backend billing-address threshold are separate controls.
+It is not configurable through the tool input.
 
-### Operational requirements
+The tool accepts:
 
-Before enabling purchase tools in production:
+```text
+address
+purpose
+```
 
-- verify that the API base points to the intended production backend,
-- verify live price and inventory responses,
-- verify the returned payment assets,
-- verify chain and decimal metadata,
-- confirm the stablecoin custody wallet is controlled by the intended operator,
-- confirm the backend reservation TTL,
-- confirm the backend does not expose unsafe payment data,
-- verify that order POSTs are not automatically retried,
-- verify that blocked budget orders remain unpaid,
-- verify that uncertain post-order responses return `next_action=do_not_pay`,
-- verify the external payment executor reads only the structured `payment_instruction`,
-- verify that no private key is supplied to the MCP gateway.
+`purpose` is optional descriptive metadata.
 
-## Generic operation handoffs
+The tool never accepts:
 
-| Variable | Purpose | Example |
-|---|---|---|
-| `MCP_OPERATION_STORE_DIR` | Root handoff storage directory | `./data/operations` |
-| `MCP_PUBLIC_BASE_URL` | Public gateway base used in returned fetch URLs | `https://mcp.xgr.network` |
-| `MCP_OPERATION_PUBLIC_BASE_URL` | Legacy-compatible alias for public base | `https://mcp.xgr.network` |
-| `MCP_OPERATION_DEFAULT_TTL_SECONDS` | Default generic-operation TTL | `3600` |
-| `MCP_OPERATION_MAX_TTL_SECONDS` | Maximum generic-operation TTL | `86400` |
+```text
+privateKey
+seed
+mnemonic
+signature
+wallet password
+```
 
-`MCP_PUBLIC_BASE_URL` takes precedence over `MCP_OPERATION_PUBLIC_BASE_URL`.
+### Persistent state
 
-Purchase reservations are not stored in `MCP_OPERATION_STORE_DIR`. They are created and managed by the configured purchase backend.
+SQLite records:
 
-## Bundle-deploy handoffs
+```text
+reserved
+broadcast
+confirmed
+failed
+```
 
-| Variable | Purpose | Mainnet example |
-|---|---|---|
-| `MCP_BUNDLE_DEPLOY_STORE_DIR` | Optional bundle-deploy store override | `./data/operations/bundle-deploy` |
-| `MCP_XDALA_BUNDLE_DEPLOY_BASE_URL` | Workbench import base | `https://xdala.xgr.network/api/bundle-deploy` |
-| `MCP_BUNDLE_DEPLOY_DEFAULT_TTL_SECONDS` | Default TTL | `3600` |
-| `MCP_BUNDLE_DEPLOY_MAX_TTL_SECONDS` | Maximum TTL | `86400` |
+The database also stores per-IP request timestamps.
 
-## Session-start handoffs
+SQLite is configured with:
 
-| Variable | Purpose | Mainnet example |
-|---|---|---|
-| `MCP_SESSION_START_STORE_DIR` | Optional Session Start store override | `./data/operations/session-start` |
-| `MCP_XDALA_SESSION_START_BASE_URL` | Workbench Session Start base | `https://xdala.xgr.network/session-start` |
-| `MCP_SESSION_START_DEFAULT_TTL_SECONDS` | Default TTL | `3600` |
-| `MCP_SESSION_START_MAX_TTL_SECONDS` | Maximum TTL | `86400` |
+```text
+journal_mode = WAL
+busy_timeout = 5000
+```
 
-The gateway appends the generated `ss_...` handle to the configured base URL.
+Reservation and rate-limit operations use immediate transactions.
 
-## Tool usage logging
+### Storage permissions
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `MCP_TOOL_USAGE_ENABLED` | Enable JSONL tool-call logging | `true` |
-| `MCP_TOOL_USAGE_LOG_PATH` | Tool usage log path | `${MCP_OPERATION_STORE_DIR}/audit/tool-usage.jsonl` |
+The service user needs:
 
-Usage logs include:
+- read and write access to the SQLite file,
+- create access in its parent directory,
+- read access to application files,
+- access to the configured environment file.
 
-- timestamp,
-- tool name,
-- success or failure,
-- duration,
-- sanitized error text.
+Example:
 
-They must not contain:
+```bash
+sudo mkdir -p /var/lib/xgr-mcp
+sudo chown -R <service-user>:<service-group> /var/lib/xgr-mcp
+sudo chmod 750 /var/lib/xgr-mcp
+```
 
-- wallet private keys,
-- seed phrases,
-- signing secrets,
-- custody credentials.
+### SQLite deployment constraint
 
-Public wallet addresses and order metadata may appear in normal application or backend logs depending on deployment. Operators must define appropriate retention and access policies.
+Use one active MCP process per SQLite database.
 
-## Public handoff security
+Do not mount the same SQLite file concurrently across multiple hosts.
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `MCP_PUBLIC_HANDOFF_MAX_BODY_BYTES` | Maximum public request body | `10485760` |
-| `MCP_PUBLIC_HANDOFF_ALLOWED_ORIGINS` | Comma-separated origin allowlist | empty |
-| `MCP_PUBLIC_HANDOFF_AUDIT_ENABLED` | Enable public-route audit log | `true` |
-| `MCP_PUBLIC_HANDOFF_AUDIT_LOG_PATH` | Public handoff audit path | `${MCP_OPERATION_STORE_DIR}/audit/public-handoff.jsonl` |
-| `MCP_PUBLIC_HANDOFF_RATE_LIMIT_ENABLED` | Enable handoff rate limiting | `true` |
-| `MCP_PUBLIC_HANDOFF_PER_IP_PER_MINUTE` | Per-IP request limit | `120` |
-| `MCP_PUBLIC_HANDOFF_PER_HANDLE_PER_MINUTE` | Per-handle read/status limit | `60` |
-| `MCP_PUBLIC_HANDOFF_POST_PER_HANDLE_PER_MINUTE` | Per-handle POST limit | `30` |
-| `MCP_PUBLIC_HANDOFF_RESULT_PER_HANDLE_PER_MINUTE` | Per-handle terminal-result limit | `10` |
+A horizontally scaled deployment requires a shared transactional limiter and grant store rather than one SQLite file.
 
-For public production instances, explicitly configure allowed Workbench origins.
+### Legacy JSON migration
 
-These controls apply to public handoff routes.
+When `XGR_STARTER_GAS_STORE_PATH` points to a JSON file and no SQLite database exists, confirmed legacy records may be imported once into a sibling `.sqlite` file.
 
-Purchase API authentication, rate limiting and abuse protection are responsibilities of the purchase backend and its surrounding infrastructure.
+Do not reuse a Devnet starter-gas database on Mainnet.
+
+## Reverse proxy and client-IP limits
+
+The gateway trusts forwarded IP headers only when the direct socket peer is loopback.
+
+Recommended topology:
+
+```text
+Internet
+   ↓
+reverse proxy
+   ↓ 127.0.0.1
+XGR MCP process
+```
+
+Supported headers:
+
+```text
+X-Forwarded-For
+X-Real-IP
+```
+
+The first valid address in `X-Forwarded-For` is used.
+
+When the direct peer is not loopback, the socket address is used and forwarding headers are ignored.
+
+A reverse proxy connected through a Docker bridge or other non-loopback address will not provide individual forwarded client IPs under the current trust policy.
+
+Only:
+
+```text
+request_xgr_starter_gas
+```
+
+consumes starter-gas per-IP quota.
+
+Limit failures are returned as MCP tool errors rather than HTTP `429`.
+
+## Native dependency and Node.js ABI
+
+`better-sqlite3` is a native Node.js dependency.
+
+It must be installed or rebuilt with the same Node.js major version used by the runtime service.
+
+A mismatch may produce:
+
+```text
+NODE_MODULE_VERSION mismatch
+```
+
+Clean rebuild:
+
+```bash
+rm -rf node_modules
+npm ci
+npm rebuild better-sqlite3
+
+npm run typecheck
+npm test
+npm run build
+```
+
+## Health check
+
+```bash
+curl -sS http://127.0.0.1:3100/health | jq
+```
+
+Expected starter-gas-enabled shape:
+
+```json
+{
+  "ok": true,
+  "name": "xgr-mcp-gateway-mainnet",
+  "readOnly": true,
+  "userOperationsReadOnly": true,
+  "starterGasEnabled": true,
+  "serverSigningScope": "dedicated_starter_gas_service_wallet_only",
+  "userOrThirdPartyPrivateKeysAccepted": false
+}
+```
+
+## Verify tool registration
+
+```bash
+curl -sS -X POST http://127.0.0.1:3100/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"tools/list",
+    "params":{}
+  }' \
+| sed -n 's/^data:[[:space:]]*//p' \
+| jq -r '.result.tools[]?.name' \
+| grep -E 'starter_gas|purchase'
+```
+
+Expected starter-gas tools:
+
+```text
+get_xgr_starter_gas_options
+request_xgr_starter_gas
+```
+
+## Validation before restart
+
+```bash
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+Do not restart the service after a failed typecheck, test or build.
+
+## Controlled Mainnet grant test
+
+A Mainnet grant test is a real financial and on-chain operation.
+
+Use:
+
+- one controlled address,
+- an address below the configured balance threshold,
+- exactly one grant request,
+- a clear test purpose.
+
+Expected success fields:
+
+```text
+network = mainnet
+chain_id = 1643
+grant_created = true
+grant_status = confirmed
+amount_xgr = 1
+transaction_hash = 0x...
+repeat_allowed = false
+```
+
+Do not repeat the request for the same confirmed address.
 
 ## Mainnet example
 
@@ -428,16 +594,29 @@ MCP_READONLY=true
 MCP_HTTP_HOST=127.0.0.1
 MCP_HTTP_PORT=3100
 
+MCP_OPERATION_STORE_DIR=/var/lib/xgr-mcp/operations
 MCP_PUBLIC_BASE_URL=https://mcp.xgr.network
 MCP_XDALA_BUNDLE_DEPLOY_BASE_URL=https://xdala.xgr.network/api/bundle-deploy
 MCP_XDALA_SESSION_START_BASE_URL=https://xdala.xgr.network/session-start
-
 MCP_PUBLIC_HANDOFF_ALLOWED_ORIGINS=https://xdala.xgr.network
 
 XGR_PURCHASE_TOOLS_ENABLED=true
 XGR_PURCHASE_NETWORK=mainnet
 XGR_PURCHASE_API_BASE_URL=https://xgr.network
 XGR_PURCHASE_MAX_EUR=249.99
+
+XGR_STARTER_GAS_ENABLED=true
+XGR_STARTER_GAS_NETWORK=mainnet
+XGR_STARTER_GAS_CHAIN_ID=1643
+XGR_STARTER_GAS_PRIVATE_KEY=0x...
+XGR_STARTER_GAS_MAX_RECIPIENT_BALANCE_XGR=0.1
+XGR_STARTER_GAS_MAX_HOURLY_GRANTS=20
+XGR_STARTER_GAS_MAX_DAILY_GRANTS=100
+XGR_STARTER_GAS_MAX_REQUESTS_PER_IP_HOUR=5
+XGR_STARTER_GAS_MAX_REQUESTS_PER_IP_DAY=20
+XGR_STARTER_GAS_MAX_ATTEMPTS_PER_ADDRESS=2
+XGR_STARTER_GAS_RESERVATION_TIMEOUT_SECONDS=600
+XGR_STARTER_GAS_DB_PATH=/var/lib/xgr-mcp/starter-gas-grants-mainnet.sqlite
 ```
 
 ## Testnet example
@@ -455,20 +634,17 @@ MCP_PUBLIC_BASE_URL=https://mcp.testnet.xgr.network
 MCP_XDALA_BUNDLE_DEPLOY_BASE_URL=https://xdala.testnet.xgr.network/api/bundle-deploy
 MCP_XDALA_SESSION_START_BASE_URL=https://xdala.testnet.xgr.network/session-start
 
-MCP_PUBLIC_HANDOFF_ALLOWED_ORIGINS=https://xdala.testnet.xgr.network
-
 XGR_PURCHASE_TOOLS_ENABLED=false
+XGR_STARTER_GAS_ENABLED=false
 ```
-
-Do not enable purchase tools on testnet.
 
 ## Public HTTP routes
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/health` | `GET` | Health and mode |
+| `/health` | `GET` | Health, runtime and signing-scope metadata |
 | `/mcp` | `POST` | Stateless MCP endpoint |
-| `/operations/:id` | `GET` | Generic human-facing operation page |
+| `/operations/:id` | `GET` | Generic operation page |
 | `/api/operations/:id` | `GET` | Generic operation state |
 | `/api/operations/:id/status` | `POST` | Generic operation callback |
 | `/api/bundle-deploy/:handle` | `GET` | Fetch bundle-deploy handoff |
@@ -477,40 +653,54 @@ Do not enable purchase tools on testnet.
 | `/api/session-start/:handle` | `GET` | Fetch Session Start handoff |
 | `/api/session-start/:handle/result` | `POST` | Record terminal Session Start result |
 
-Purchase tools do not add a public purchase route to the gateway. They call `XGR_PURCHASE_API_BASE_URL` internally.
+Purchase and starter-gas tools do not add separate public HTTP routes.
+
+They are invoked through the MCP endpoint.
 
 ## Deployment checklist
 
 Before exposing an instance publicly:
 
 - verify the RPC chain ID,
-- confirm the Explorer API points to the same environment,
-- confirm database credentials are read-only,
-- set the correct public MCP base URL,
+- verify the Explorer API environment,
+- confirm Explorer database credentials are read-only,
+- set the correct public MCP URL,
 - set environment-matching Workbench URLs,
 - configure allowed Workbench origins,
-- verify rate limiting,
-- verify audit and usage log permissions,
+- verify handoff rate limits,
+- verify audit-log permissions,
 - verify handoff storage permissions,
 - verify TTL values,
-- confirm no Devnet endpoint is present in public configuration,
 - call `get_xgr_network_info`,
 - call `get_chain_status`,
 - create and cancel a test handoff,
-- verify that no secret appears in returned list or status responses.
+- verify that no secret appears in public responses.
 
 When purchase tools are enabled:
 
 - confirm `XGR_PURCHASE_NETWORK=mainnet`,
 - confirm `XGR_PURCHASE_MAX_EUR <= 249.99`,
 - call `get_xgr_purchase_options`,
-- confirm `payment_assets[].key`, chain and decimals,
-- call `quote_xgr_purchase` with a small valid budget,
-- create a controlled low-value test reservation,
-- verify `payment_instruction`,
-- verify `payment_approved`,
-- verify `next_action`,
-- verify a blocked budget test returns `do_not_pay`,
-- verify the gateway does not send a payment itself,
-- verify the order expires or is reconciled correctly,
-- verify production tests use controlled wallet addresses.
+- inspect payment assets and chains,
+- create only a controlled low-value test order,
+- verify blocked orders return `do_not_pay`,
+- verify the gateway does not send the payment.
+
+When starter gas is enabled:
+
+- confirm the service wallet is dedicated and low balance,
+- confirm the private key belongs only to that wallet,
+- confirm the RPC chain ID,
+- confirm the SQLite path is persistent,
+- confirm the service user can write to the SQLite directory,
+- confirm the database is not shared across hosts,
+- confirm the Node.js ABI matches `better-sqlite3`,
+- confirm forwarded IPs are trusted only through loopback,
+- call `get_xgr_starter_gas_options`,
+- verify all live caps,
+- perform one controlled grant,
+- verify the transaction is confirmed,
+- verify the same address cannot receive another grant,
+- monitor service-wallet balance,
+- monitor failed, broadcast and confirmed records,
+- monitor hourly and daily usage.
