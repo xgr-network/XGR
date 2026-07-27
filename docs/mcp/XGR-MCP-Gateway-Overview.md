@@ -1,36 +1,63 @@
 # XGR MCP Gateway — Overview
 
 **Document ID:** XGR-MCP-OVERVIEW  
-**Last updated:** 2026-07-21  
-**Audience:** Developers, integrators, agent builders, auditors  
-**Implementation status:** Public mainnet and testnet gateways live; read, validation, diagram, handoff and deployment-controlled mainnet purchase tools implemented  
-**Source of truth:** `xgr-mcp-gateway`
+**Last updated:** 2026-07-26  
+**Audience:** Developers, integrators, agent builders, operators, auditors  
+**Implementation status:** Public mainnet and testnet gateways live  
+**Source of truth:** [`xgr-network/xgr-mcp`](https://github.com/xgr-network/xgr-mcp)
 
 > **One-liner**
 >
-> The **XGR MCP Gateway** is the AI-native access layer to XGRChain and XDaLa. It exposes live chain state, indexed Explorer evidence, XDaLa sessions, XRC standards, workflow discovery, authoring knowledge, validated human-in-the-loop handoffs and optional mainnet XGR purchase ordering as semantic Model Context Protocol tools.
+> The XGR MCP Gateway is the AI-native access layer to XGRChain and XDaLa. It exposes live chain state, indexed evidence, XDaLa workflows, XRC standards, validated execution handoffs, XGR purchase tools and optional native XGR starter gas through the Model Context Protocol.
 
 ---
 
 ## What it is
 
-The XGR MCP Gateway is a standalone Model Context Protocol server implemented in TypeScript with `@modelcontextprotocol/sdk`.
+The XGR MCP Gateway is a public Model Context Protocol server implemented in TypeScript with `@modelcontextprotocol/sdk`.
 
 It allows MCP-compatible agents and applications to work with:
 
 - XGRChain live JSON-RPC state,
-- chain-wide indexed transaction data,
-- XDaLa sessions, steps, payloads and receipts,
+- indexed Explorer transactions and receipts,
+- XDaLa sessions, steps, payloads and execution evidence,
 - XRC-137 rules and XRC-729 orchestrations,
 - workflow authority and executor relationships,
-- schemas, examples and authoring rules,
+- canonical schemas, examples and authoring rules,
 - process diagrams,
 - bundle-deploy and session-start handoffs,
-- optional mainnet XGR purchase discovery, quotation and order creation.
+- optional mainnet XGR purchase ordering,
+- optional native XGR starter-gas grants.
 
-The gateway is not a wallet, signer or custody service.
+The public implementation is maintained in:
 
-It gives an agent enough structured context to answer or execute requests such as:
+```text
+https://github.com/xgr-network/xgr-mcp
+```
+
+## Public MCP endpoints
+
+### Mainnet
+
+```text
+https://mcp.xgr.network/mcp
+```
+
+### Testnet
+
+```text
+https://mcp.testnet.xgr.network/mcp
+```
+
+### Testnet Faucet
+
+```text
+https://faucet.xgr.network
+```
+
+## Typical agent requests
+
+The gateway gives an agent enough structured context to handle requests such as:
 
 - What happened in this transaction?
 - What did this XDaLa session execute?
@@ -40,24 +67,26 @@ It gives an agent enough structured context to answer or execute requests such a
 - Can this process bundle be deployed?
 - Prepare this validated workflow for local deployment.
 - Prepare this deployed workflow for local session start.
+- Does this wallet have enough native XGR for gas?
+- Request starter gas for this eligible low-balance wallet.
 - Which payment assets can currently be used to purchase XGR?
-- How much XGR can be ordered within a defined USDC or USDT budget?
 - Create a live XGR purchase reservation and return the exact external payment instruction.
 
 ## XGR surfaces
 
 | Surface | Primary responsibility |
 |---|---|
-| **XGRChain** | Consensus, transactions, contracts, XGR JSON-RPC and protocol state |
+| **XGRChain** | Consensus, transactions, contracts, native XGR and protocol state |
 | **XDaLa** | Validation, orchestration and deterministic process execution |
 | **Explorer** | Indexed chain evidence, session evidence and analytics |
 | **xDaLa Workbench** | Human review, wallet connection, local signing and execution |
-| **XGR purchase API** | Mainnet XGR price, inventory, payment assets, order creation and reservation |
-| **MCP Gateway** | Semantic discovery, inspection, validation, reasoning, handoff preparation and controlled purchase orchestration |
+| **XGR purchase API** | Mainnet XGR price, inventory, payment assets and reservations |
+| **Starter-gas service** | Fixed native XGR grants from a dedicated service wallet |
+| **MCP Gateway** | Semantic discovery, inspection, validation and controlled execution boundaries |
 
 ## Operational classes
 
-The gateway supports four operational classes.
+The gateway exposes five operational classes.
 
 ### 1. Read and evidence tools
 
@@ -82,9 +111,11 @@ These tools provide:
 - canonical XRC references,
 - JSON schemas,
 - authoring rules,
-- example artifacts,
-- MultiBundle and Session Start validation,
-- XRC-137 and payload-flow validation,
+- examples,
+- MultiBundle validation,
+- Session Start validation,
+- XRC-137 validation,
+- payload-flow validation,
 - Mermaid process diagrams.
 
 They operate locally in the gateway and do not submit transactions.
@@ -100,7 +131,7 @@ The user must:
 3. connect their own wallet or signer,
 4. authorize and sign locally.
 
-The gateway itself never holds private keys and never signs transactions.
+The gateway never receives or controls the user's private key.
 
 See [Operation Handoff](./XGR-MCP-Operation-Handoff.md).
 
@@ -113,52 +144,174 @@ They can:
 - read current payment options,
 - read live XGR price and availability,
 - calculate a non-binding budget quote,
-- create one real mainnet purchase order for an exact XGR quantity,
-- create one real mainnet purchase order from a maximum USDC or USDT budget,
-- return an exact structured external payment instruction.
+- create one real purchase order for an exact XGR amount,
+- create one real purchase order from a maximum USDC or USDT budget,
+- return an exact external payment instruction.
 
-Creating an order is not a read-only action. It creates a live offchain reservation in the purchase backend.
+Creating an order is not read-only. It creates a live offchain reservation in the purchase backend.
 
-The gateway itself:
+The gateway does not:
 
-- does not hold payment private keys,
-- does not send USDC or USDT,
-- does not transfer XGR,
-- does not automatically retry an uncertain or blocked order.
+- hold payment private keys,
+- send stablecoin payments,
+- sign on behalf of the purchaser,
+- automatically retry uncertain purchase orders.
 
-Payment is performed outside the gateway by a human wallet, custody system or explicitly authorized external wallet agent.
+### 5. Native XGR starter gas
+
+The optional starter-gas service solves the first-transaction problem for an eligible low-balance address.
+
+It exposes:
+
+```text
+get_xgr_starter_gas_options
+request_xgr_starter_gas
+```
+
+The service:
+
+- sends exactly `1 XGR`,
+- sends from a dedicated server-controlled service wallet,
+- checks the configured network and chain ID,
+- checks the recipient's live native XGR balance,
+- permits only one confirmed grant per address,
+- applies global hourly and daily grant limits,
+- applies persistent per-client-IP request limits,
+- limits failed attempts per address,
+- records grant state in SQLite,
+- waits for on-chain confirmation,
+- never requests the recipient's private key,
+- requires no repayment.
+
+The active policy must be read from:
+
+```text
+get_xgr_starter_gas_options
+```
+
+Deployment-specific thresholds must not be assumed.
+
+## Starter-gas lifecycle
+
+The persistent lifecycle is:
+
+```text
+reserved
+   ↓
+broadcast
+   ↓
+confirmed
+```
+
+An eligible failed attempt may enter:
+
+```text
+failed
+```
+
+Retry eligibility is bounded by the configured attempt limit.
+
+A transaction already in `broadcast` state is not blindly repeated. The gateway first checks its receipt.
+
+## Starter-gas trust boundary
+
+The starter-gas service is a narrow exception to the gateway's normal no-signing model.
+
+It may sign only:
+
+```text
+fixed native XGR transfers
+from the dedicated starter-gas service wallet
+```
+
+It cannot sign for:
+
+- the recipient,
+- a user wallet,
+- a deployment wallet,
+- an XDaLa session starter,
+- a purchase payment wallet,
+- a third-party wallet.
+
+The gateway never accepts user or third-party private keys.
+
+The service wallet must be:
+
+- dedicated,
+- low balance,
+- operationally isolated,
+- separate from treasury and validator keys,
+- limited by explicit grant policies.
+
+## Abuse controls
+
+The implementation applies:
+
+- recipient-balance eligibility,
+- one confirmed grant per address,
+- maximum attempts per address,
+- hourly global grant limits,
+- daily global grant limits,
+- hourly per-IP request limits,
+- daily per-IP request limits,
+- persistent SQLite accounting,
+- atomic reservation transactions,
+- a low-balance funding wallet.
+
+The implementation does not currently require:
+
+- proof of address ownership,
+- proof of work,
+- CAPTCHA,
+- identity verification.
+
+These controls limit financial exposure but do not provide strong Sybil resistance.
+
+## Client-IP handling
+
+For HTTP MCP calls, the gateway derives the client IP from the direct socket connection.
+
+Forwarded headers are trusted only when the direct peer is loopback.
+
+Supported trusted headers:
+
+```text
+X-Forwarded-For
+X-Real-IP
+```
+
+A public client cannot make the gateway trust an arbitrary forwarding header when connecting directly.
+
+Reverse proxies should therefore connect to the MCP process through loopback.
 
 ## Design principles
 
-1. **Read-first with explicit mutation boundaries.**  
-   Most tools read or validate data. Mutable effects are limited to explicit offchain actions such as temporary handoff records or purchase reservations.
+1. **Read-first with explicit mutation boundaries**  
+   Most tools read or validate data. Mutable effects are limited to handoff storage, purchase reservations and starter-gas grants.
 
-2. **Never custodial.**  
-   Private keys, seed phrases, wallet secrets and signing material must never be supplied to the gateway.
+2. **No user custody**  
+   The gateway never requests, receives, stores or controls user or third-party private keys.
 
-3. **Semantic over raw.**  
-   Tools are described around user intent instead of exposing only low-level RPC or HTTP calls.
+3. **Narrow service-wallet authority**  
+   Starter gas may use only a dedicated service key for fixed native XGR grants.
 
-4. **Evidence over inference.**  
-   Transaction, receipt, session and XRC tools distinguish live RPC data, Explorer API data and indexed database data.
+4. **Semantic over raw**  
+   Tools are described around user intent instead of exposing only low-level RPC or HTTP methods.
 
-5. **Canonical schemas before execution.**  
-   Deploy and session-start requests must pass the validators that define the corresponding Workbench formats.
+5. **Evidence over inference**  
+   Transaction, receipt, session and XRC tools distinguish live RPC data, Explorer data and indexed evidence.
 
-6. **Explicit authorization before purchase ordering.**  
-   Purchase identity, wallets and terms acceptance must come from the user or an authorized upstream system. An agent must not invent them.
+6. **Canonical schemas before execution**  
+   Deploy and Session Start requests must pass the corresponding validators.
 
-7. **Backend-authoritative purchase results.**  
-   Budget calculations are planning estimates. The purchase backend is authoritative for the final XGR quantity, payment amount, custody wallet, reference and reservation expiry.
+7. **Explicit authorization before purchase ordering**  
+   Purchase identity, wallet data and terms acceptance must come from the user or an authorized upstream system.
 
-8. **External payment boundary.**  
-   The MCP may create an order and return an exact payment instruction. Payment signing and transmission remain outside the gateway.
+8. **No automatic retry after uncertain mutation**  
+   Purchase orders and broadcast starter-gas transactions must not be repeated merely because a client response was interrupted.
 
-9. **Human approval at the on-chain workflow boundary.**  
-   The agent may inspect, draft and prepare XDaLa actions. The human wallet remains responsible for authorization and signing.
-
-10. **No environment leakage.**  
-    Public metadata exposes only supported mainnet and testnet resources. Workbench URLs are generated from the configured environment.
+9. **Human approval at workflow execution boundaries**  
+   The agent may inspect, draft and prepare XDaLa actions. The user remains responsible for local wallet authorization.
 
 ## Architecture
 
@@ -167,74 +320,48 @@ Payment is performed outside the gateway by a human wallet, custody system or ex
  ChatGPT / Claude / IDE / custom agent host
           │
           │ Model Context Protocol
-          │ Streamable HTTP or local stdio
           ▼
  ┌──────────────────────── XGR MCP Gateway ────────────────────────┐
  │                                                                 │
  │  tools/                                                         │
  │    chain · transactions · sessions · receipts · XRC             │
- │    knowledge · validation · diagram · handoff · purchase        │
+ │    knowledge · validation · diagrams · handoffs                 │
+ │    purchase · starter gas                                       │
  │                                                                 │
  │  adapters/                                                      │
  │    XGR JSON-RPC · Explorer API · indexed read databases          │
  │    XGR purchase API                                              │
  │                                                                 │
  │  knowledge/                                                     │
- │    XRC-137 · XRC-729 · authoring rules · schemas · validators    │
+ │    XRC-137 · XRC-729 · schemas · examples · validators           │
  │                                                                 │
  │  operations/                                                    │
- │    protected offchain handoff stores · result callbacks          │
+ │    protected handoff stores · result callbacks                  │
+ │                                                                 │
+ │  starter-gas state                                              │
+ │    SQLite/WAL · grant lifecycle · client-IP counters             │
  │                                                                 │
  └──────────────┬────────────────┬────────────────┬────────────────┘
                 │                │                │
                 ▼                ▼                ▼
           XGRChain RPC      XGR Explorer    XGR purchase API
-          live state        indexed data    price + reservation
+                │
+                ├── native XGR grant
                 │
                 ▼
           xDaLa Workbench
           review + local signing
 ```
 
-## Public MCP endpoints
+## MCP transport
 
-The hosted gateways use stateless Streamable HTTP requests through `POST /mcp`.
-
-### Mainnet
+Hosted gateways use stateless Streamable HTTP through:
 
 ```text
-https://mcp.xgr.network/mcp
+POST /mcp
 ```
 
-Use mainnet for:
-
-- production chain state,
-- deployed contracts,
-- real XDaLa sessions,
-- production evidence,
-- mainnet purchase tools when enabled by the deployment.
-
-### Testnet
-
-```text
-https://mcp.testnet.xgr.network/mcp
-```
-
-Use testnet for development, workflow validation and controlled testing.
-
-Mainnet purchase tools are never registered by a testnet-configured gateway.
-
-### Testnet Faucet
-
-```text
-https://faucet.xgr.network
-```
-
-The faucet provides testnet XGR. It is not a mainnet purchase service.
-
-### Example client configuration
-
-Client terminology differs. Some clients call the transport `http`, others `streamable-http` or `remote MCP`.
+Example client configuration:
 
 ```json
 {
@@ -263,330 +390,110 @@ when users ask for:
 
 - official XGR.Network information,
 - XGRChain metadata,
-- the mainnet chain ID,
-- RPC, Explorer or MCP endpoints,
-- the testnet faucet,
-- XRC standard context,
-- official documentation or repositories.
+- chain IDs,
+- RPC endpoints,
+- Explorer endpoints,
+- MCP endpoints,
+- Faucet information,
+- XRC standards,
+- official documentation,
+- source repositories.
 
-The response is versioned as:
+Use:
 
 ```text
-xgr-network-info@1
+get_chain_status
 ```
 
-It includes only the supported public mainnet and testnet environments.
+for live connected-chain state.
 
-`get_chain_status` is separate. It reads the connected RPC live and returns the current chain ID, block number and gas price together with compact official entry points.
+## Recommended starter-gas workflow
 
-## Mainnet XGR purchase workflow
+```text
+1. Inspect the address with get_account_live_state.
+2. If it already has sufficient XGR, continue normally.
+3. Call get_xgr_starter_gas_options.
+4. Read the live network, chain ID, grant amount and policy.
+5. Confirm the intended recipient address.
+6. Call request_xgr_starter_gas exactly once.
+7. Inspect grant_created, grant_status and transaction_hash.
+8. Continue only after grant_status = confirmed.
+```
 
-Purchase tools are registered only when the operator explicitly enables them for mainnet.
+Do not call the grant tool speculatively.
 
-The deterministic agent workflow is:
+Do not repeat a request after a broadcast or confirmed result.
+
+## Recommended purchase workflow
 
 ```text
 1. Call get_xgr_purchase_options.
-2. Inspect payment_assets[].
-3. Use payment_assets[].key exactly as payment_asset.
-4. Inspect requires_sender_wallet.
-5. Determine whether the user supplied:
-   a. an exact XGR quantity, or
-   b. a maximum USDC/USDT budget.
-6. Collect all required user-supplied identity and wallet fields.
-7. Require explicit terms acceptance.
-8. Optionally call quote_xgr_purchase for budget planning.
-9. Create exactly one live order.
-10. Inspect payment_approved and next_action.
-11. Pay only from payment_instruction.
+2. Select payment_assets[].key exactly.
+3. Determine fixed-XGR or maximum-budget mode.
+4. Collect user-supplied identity and wallet fields.
+5. Require explicit terms acceptance.
+6. Optionally call quote_xgr_purchase.
+7. Create exactly one live order.
+8. Inspect payment_approved and next_action.
+9. Pay externally only from payment_instruction.
 ```
 
-### Discover live options
-
-Always call:
+## Recommended XDaLa workflow
 
 ```text
-get_xgr_purchase_options
+1. Load authoring rules and standard references.
+2. Draft XRC-137 rules and the XRC-729 orchestration.
+3. Validate rule semantics and payload flow.
+4. Assemble and validate xgr-multi-bundle@1.
+5. Prepare a bundle-deploy handoff.
+6. Review and sign in xDaLa Workbench.
+7. Resolve the deployed runtime and start authority.
+8. Prepare xgr-session-start@1.
+9. Review and sign the Session Start request locally.
+10. Inspect the resulting session and receipt evidence.
 ```
 
-before quoting or creating an order.
+## Health metadata
 
-The result includes:
-
-- live XGR price data,
-- available and reserved inventory,
-- policy limits,
-- supported payment assets,
-- chain and decimal metadata,
-- whether the selected asset requires a sender wallet,
-- machine-readable `agent_guidance`.
-
-Use:
-
-```text
-payment_assets[].key
-```
-
-as the exact `payment_asset` input.
-
-Do not substitute the display symbol.
-
-For example, use a returned key such as:
-
-```text
-usdc_eth
-```
-
-rather than:
-
-```text
-USDC
-```
-
-### Choose the order mode
-
-Use:
-
-```text
-create_xgr_purchase_order
-```
-
-when the user specifies an exact integer XGR quantity.
-
-Use:
-
-```text
-create_xgr_purchase_order_by_budget
-```
-
-when the user specifies a maximum USDC or USDT payment amount.
-
-Use:
-
-```text
-quote_xgr_purchase
-```
-
-only for non-binding budget planning. A quote creates no order and is not a payment instruction.
-
-### Collect required data
-
-The agent must not invent:
-
-- purchaser name,
-- purchaser email,
-- country code,
-- XGR delivery wallet,
-- payment sender wallet,
-- terms acceptance.
-
-The XGR wallet must be controlled by the intended recipient.
-
-The sender wallet must be controlled by the payment executor and is required when the selected payment asset returns:
+A starter-gas-enabled deployment exposes a response similar to:
 
 ```json
 {
-  "requires_sender_wallet": true
+  "ok": true,
+  "name": "xgr-mcp-gateway-mainnet",
+  "readOnly": true,
+  "userOperationsReadOnly": true,
+  "starterGasEnabled": true,
+  "serverSigningScope": "dedicated_starter_gas_service_wallet_only",
+  "userOrThirdPartyPrivateKeysAccepted": false
 }
 ```
 
-`terms_accepted` may be set to `true` only after explicit acceptance.
+`MCP_READONLY=true` describes normal user operations.
 
-### Create one live reservation
+It does not disable an explicitly enabled, narrowly scoped starter-gas service.
 
-Order creation is non-idempotent.
+## Security summary
 
-A successful order reserves XGR inventory until the returned expiry time.
+| Operation | User private key accepted | Server signs | External approval |
+|---|---:|---:|---:|
+| Read and evidence tools | No | No | No |
+| Validation and diagrams | No | No | No |
+| Bundle-deploy handoff | No | No | Yes |
+| Session-start handoff | No | No | Yes |
+| Purchase order creation | No | No payment signing | Explicit user data and terms |
+| Starter-gas grant | No | Yes, service wallet only | Explicit recipient request |
 
-Do not repeat an order call merely because:
+## Repositories
 
-- the client connection was interrupted,
-- the response could not be parsed,
-- the backend response was incomplete,
-- the result was uncertain.
-
-An uncertain response may still correspond to an existing reservation.
-
-### Evaluate the result
-
-An approved order returns:
-
-```json
-{
-  "order_created": true,
-  "payment_approved": true,
-  "payment_execution": "external",
-  "next_action": "external_crypto_payment",
-  "payment_instruction_exact": true
-}
-```
-
-The payment executor must use the structured:
+Public MCP implementation:
 
 ```text
-payment_instruction
+https://github.com/xgr-network/xgr-mcp
 ```
 
-rather than rebuilding payment data from estimates or raw price fields.
-
-The instruction contains:
+Canonical XGR and XDaLa documentation:
 
 ```text
-type
-chain
-asset_key
-symbol
-decimals
-amount
-recipient
-sender_wallet
-reference
-expires_at
-xgr_delivery.chain_id
-xgr_delivery.wallet
-xgr_delivery.amount_xgr
+https://github.com/xgr-network/XGR
 ```
-
-Payment is permitted only when both conditions are true:
-
-```text
-payment_approved = true
-next_action = external_crypto_payment
-```
-
-If the result contains:
-
-```text
-next_action = do_not_pay
-```
-
-the agent must not pay.
-
-## Budget order behavior
-
-Budget mode uses a conservative planning price:
-
-```text
-conservative_price =
-  discounted_usdc_per_xgr ×
-  (1 + safety_margin_bps / 10000)
-```
-
-The planned XGR quantity is:
-
-```text
-floor(max_payment_amount / conservative_price)
-```
-
-The default safety margin is:
-
-```text
-100 basis points
-```
-
-The quote and planning values are not binding.
-
-The gateway submits one normal order to the backend. The backend returns the exact payment amount.
-
-If:
-
-```text
-exact_payment_amount <= max_payment_amount
-```
-
-payment is approved.
-
-If:
-
-```text
-exact_payment_amount > max_payment_amount
-```
-
-the order may already exist and inventory may already be reserved, but payment is blocked:
-
-```json
-{
-  "order_created": true,
-  "payment_approved": false,
-  "payment_execution": "blocked",
-  "next_action": "do_not_pay"
-}
-```
-
-The existing reservation expires normally. The gateway does not automatically create a second order.
-
-## Tool result model
-
-Tool results remain compatible with MCP text content and also expose parsed JSON through `structuredContent` when the tool returned valid JSON.
-
-Typical programmatic access:
-
-```text
-result.structuredContent.data
-```
-
-Tool registrations include MCP annotations such as:
-
-- `readOnlyHint`,
-- `destructiveHint`,
-- `idempotentHint`,
-- `openWorldHint`.
-
-This helps MCP hosts distinguish read tools, handoff tools and live non-idempotent order-creation tools.
-
-## Tool domains
-
-The current gateway includes these domains:
-
-- **Network and chain discovery**
-- **XGR protocol**
-- **Mainnet XGR purchase**
-- **Transaction search and evidence**
-- **XDaLa session evidence**
-- **Session resolver and analytics**
-- **Waiting-step and wake-up discovery**
-- **Decoded engine receipts**
-- **XRC-137 and XRC-729 inspection**
-- **Authority and executor discovery**
-- **XRC usage, reuse and failure analytics**
-- **Knowledge and documentation retrieval**
-- **Schema and authoring validation**
-- **Mermaid process rendering**
-- **Generic operation handoffs**
-- **XDaLa bundle-deploy handoffs**
-- **XDaLa session-start handoffs**
-
-The exact catalog is in the [Tool Reference](./XGR-MCP-Tool-Reference.md).
-
-## Security boundary
-
-The MCP Gateway:
-
-- does not accept private keys,
-- does not derive wallet secrets,
-- does not sign transactions,
-- does not hold payment keys,
-- does not send USDC or USDT,
-- does not transfer purchased XGR,
-- does not silently start sessions,
-- does not silently deploy contracts,
-- does not expose bearer handles through list tools,
-- rejects sensitive fields in public handoff payloads,
-- validates supported handoff result structures,
-- requires explicit purchase terms acceptance,
-- validates returned purchase instructions before permitting payment,
-- blocks payment when a budget limit is exceeded,
-- applies configurable public-route origin, size and rate-limit controls.
-
-A returned handoff URL is sensitive. Treat it as a temporary bearer URL and do not publish it.
-
-A returned purchase instruction is also sensitive operational data. Use it only for the intended order and only before its expiry.
-
-## Related documents
-
-- [Tool Reference](./XGR-MCP-Tool-Reference.md)
-- [Operation Handoff](./XGR-MCP-Operation-Handoff.md)
-- [Authoring & Knowledge](./XGR-MCP-Authoring-and-Knowledge.md)
-- [Setup & Configuration](./XGR-MCP-Setup-and-Configuration.md)
-- [XGR and XDaLa General Overview](../general-overview.md)
-- [XDaLa XGR Endpoint Reference](../XDaLa_XGR_Endpoint_Reference.md)
