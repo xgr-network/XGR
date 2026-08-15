@@ -35,16 +35,27 @@ MCP-compatible agents can:
 
 - inspect deployed workflows,
 - search chain and session evidence,
+- inspect bounded native-XGR address relation graphs,
+- progressively expand address relations,
+- trace indexed transaction relationships,
+- model native XGR value provenance,
+- inspect the transactions behind a graph relation,
+- inspect historical XDaLa Session Start payload values,
 - draft and validate XDaLa process bundles,
 - prepare human-in-the-loop handoffs for local wallet signing,
 - discover live XGR purchase options,
-- create mainnet XGR purchase reservations for an exact XGR amount or a maximum USDC/USDT budget.
+- create mainnet XGR purchase reservations for an exact XGR amount or a maximum USDC/USDT budget,
+- request a fixed native-XGR starter-gas grant for an eligible low-balance address where the service is enabled.
 
 The optional purchase tools are mainnet-only and deployment-controlled.
 
-A purchase tool may create a real offchain order and reserve XGR inventory. The gateway does not hold payment keys, does not send USDC or USDT and does not transfer XGR itself. Payment remains an external wallet action based on the exact structured payment instruction returned by the tool.
+A purchase tool may create a real offchain order and reserve XGR inventory. The purchase workflow does not hold payment private keys and does not send USDC or USDT. Payment remains an external wallet action based on the exact structured payment instruction returned by the tool.
 
-The gateway never holds private keys, never signs transactions and never takes custody.
+The optional starter-gas service is a deliberately narrow exception to the gateway's normal no-signing model. It may use one dedicated server-controlled service wallet solely to send fixed native XGR starter-gas grants.
+
+The gateway never requests, receives, stores or controls user or third-party private keys and cannot sign on behalf of users.
+
+User deployment, Session Start and contract-call transactions remain under the control of the user's wallet, signer or custody setup.
 
 - Mainnet MCP: https://mcp.xgr.network/mcp
 - Testnet MCP: https://mcp.testnet.xgr.network/mcp
@@ -106,8 +117,11 @@ This repository is intended for:
 - XGRChain: Mainnet live, testnet available
 - XDaLa: Active specification and implementation phase
 - MCP Gateway: Mainnet and testnet live
-- MCP read, evidence, validation, diagram and handoff tools: Live
+- MCP chain, transaction, session, XRC, evidence, validation, diagram and handoff tools: Live
+- MCP native-XGR relation graph and value-flow tools: Live
+- MCP XDaLa start-payload history tool: Live
 - Mainnet XGR purchase tools: Implemented and deployment-controlled
+- Native XGR starter-gas service: Implemented and deployment-controlled
 - Standards: Draft and review status
 
 The repository reflects the public and stable interface of the system.
@@ -143,6 +157,7 @@ These are the canonical entry points for the public ecosystem. If you are unsure
 ### Developer Entry Points
 
 - Specs & Standards (this repo): https://github.com/xgr-network/XGR
+- MCP implementation: https://github.com/xgr-network/xgr-mcp
 - Node Implementation (xgr-node): https://github.com/xgr-network/xgr-node
 
 ### Network Tools
@@ -155,6 +170,8 @@ These are the canonical entry points for the public ecosystem. If you are unsure
 
 - MCP Gateway Mainnet: https://mcp.xgr.network/mcp
 - MCP Gateway Testnet: https://mcp.testnet.xgr.network/mcp
+- MCP Overview: https://xgr.network/docs/mcp_overview/
+- MCP Tool Reference: https://xgr.network/docs/mcp_tools/
 
 ---
 
