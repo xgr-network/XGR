@@ -1,192 +1,612 @@
-# XGR & XDaLa — The Missing Layer for Deterministic On-Chain Processes
+# XGR & XDaLa — Deterministic Process Execution on EVM-Compatible Infrastructure
 
 **Document ID:** XGR-GENERAL-OVERVIEW  
-**Last updated:** 2026-05-03  
+**Last updated:** 2026-08-15  
 **Audience:** Developers, integrators, partners, technical readers  
-**Implementation status:** Mixed  
-**Source of truth:** `XGR`, `xgr-node`, `xgrchain`
+**Implementation status:** Mainnet / active development  
+**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`
 
-> **One-liner**  
-> **XGR** is a fully EVM-compatible chain. **XDaLa** is its differentiator: a deterministic rule- and process-layer that turns multi-step workflows into first-class, auditable on-chain **sessions**.
-
----
-
-## TL;DR (Why you should care)
-
-Smart contracts are powerful — but most real workflows are **not** “one transaction and done”. They are:
-
-- multi-step  
-- conditional  
-- asynchronous (waiting/retries)  
-- parallel (multiple branches)  
-- dependent on external signals (APIs, other chains)  
-- privacy & access controlled (auditors, counterparties, regulators)
-
-On typical chains, teams stitch this together with off-chain schedulers, queues, webhooks, databases, and bots. That works — but the “truth” becomes split across systems, operations get brittle, and auditability becomes partial.
-
-**XDaLa collapses this complexity into deterministic, on-chain process semantics — without breaking EVM compatibility.**
+> **One-liner**
+>
+> **XGRChain** provides EVM-compatible execution. **XDaLa** adds a deterministic process engine that executes XRC-defined multi-step workflows, integrates external data and contract state, and produces auditable execution evidence.
 
 ---
 
-## 1) The core problem: chains stop where real processes begin
+## TL;DR
 
-A transaction is an atomic state transition.  
-A business process is a **graph**:
+Smart contracts are powerful, but many real processes are not:
 
-- branching (valid/invalid business paths)  
-- retries with time (wait, resume)  
-- parallel work streams (spawn)  
-- joins (any / all / k-of-n)  
-- external reads (contract reads + HTTP APIs)  
-- selective visibility of rules and logs  
+```text
+one transaction → one contract → done
+```
 
-Today, the orchestration graph typically lives off-chain. That creates:
+They are:
 
-- hidden process state  
-- race conditions  
-- implicit logic that cannot be reproduced independently  
-- fractured audit trails  
+- multi-step,
+- conditional,
+- asynchronous,
+- parallel,
+- dependent on external data,
+- dependent on other smart-contract state,
+- subject to approvals and permissions,
+- potentially privacy-sensitive,
+- required to remain auditable.
 
-**The chain sees fragments. The real process lives elsewhere.**
+Traditional architectures often implement those requirements with a combination of:
 
----
+- smart contracts,
+- backend services,
+- databases,
+- queues,
+- schedulers,
+- webhooks,
+- bots.
 
-## 2) What XDaLa introduces (in one sentence)
+XDaLa provides a process layer for these workflows while retaining EVM-compatible execution.
 
-**XDaLa is a deterministic process engine on top of a standard EVM chain — so workflows can be described, executed, joined, and audited as on-chain sessions.**
+The core model is:
 
-Think less “call a contract”, more:
-
-> **advance a process**
-
----
-
-## 3) Mental model: Transaction vs Session
-
-### Traditional EVM
-`User → tx → contract → result`
-
-### With XDaLa
-`User → session → process tree → deterministic outcomes (+ optional inner EVM calls)`
-
-A **session** is a living execution context that can:
-
-- run now  
-- **wait** deterministically (`waitSec`)  
-- spawn parallel branches  
-- join results deterministically  
-- keep artifacts private via explicit grants/encryption  
+```text
+XRC-137 = rule
+XRC-729 = process graph
+XDaLa   = process execution
+XGRChain = blockchain execution and settlement
+```
 
 ---
 
-## 4) The three building blocks (XRCs)
+# 1. The problem XDaLa addresses
 
-### 4.1 XRC-137 — Rule (one deterministic step)
+A blockchain transaction is an atomic state transition.
 
-An **XRC-137 rule document** defines a single step:
+A business process is usually a graph.
 
-- typed input schema (`payload`)  
-- optional **contractReads** (EVM `eth_call` reads)  
-- optional **apiCalls** (HTTP → extracted typed values)  
-- validation rules (`rules[]`)  
-- two deterministic outcomes:
-  - `onValid`
-  - `onInvalid`
+Typical requirements include:
 
-**Key shift:**  
-`onInvalid` is *not failure*. It is your **alternative business branch**.  
-Failure/abort/cancel are separate and explicit.
+- valid and invalid business branches,
+- waiting and resuming,
+- external input,
+- retries,
+- parallel execution,
+- deterministic joins,
+- contract-state reads,
+- HTTP API reads,
+- controlled execution,
+- selective data visibility,
+- auditable process history.
 
----
+Without a process layer, much of this orchestration normally lives outside the blockchain.
 
-### 4.2 XRC-729 — Orchestration (the process graph)
+That creates a split between:
 
-An orchestration is a graph of steps with explicit runtime semantics:
+```text
+on-chain execution
+```
 
-- **spawns** (parallelism)  
-- **joins** with modes: `any`, `all`, `kofn`  
-- join policies: `waitonjoin = kill | drain`  
-- deterministic merge of producer payloads  
+and:
 
-The orchestration is stored **on-chain** in an XRC-729 contract, enabling independent reproduction and audit of the process topology.
+```text
+off-chain process logic
+```
 
----
-
-### 4.3 XRC-563 — Grants & privacy (per artifact)
-
-XDaLa treats rules and logs as **protected artifacts**:
-
-- each artifact has a **RID** (resource identifier)  
-- grants are issued **per RID** and **per scope** (`rule` / `log`)  
-- encryption is granular (not “all or nothing”)  
-
-This makes selective disclosure (counterparties, auditors, regulators) a first-class protocol concept.
+XDaLa provides an explicit execution model for that process logic.
 
 ---
 
-## 5) Runtime semantics (what actually happens)
+# 2. What XDaLa is
 
-### 5.1 Step execution pipeline (XRC-137)
+XDaLa is a process engine integrated with XGRChain.
 
-Each step run follows a deterministic pipeline:
+It executes workflows described through XRC standards.
 
-1. parse + validate schema  
-2. load typed payload + apply defaults  
-3. execute API calls and extract typed values (with defaults)  
-4. execute contract reads and save typed outputs (with defaults)  
-5. evaluate rules (AND)  
-6. choose `onValid` or `onInvalid`  
-7. compute outcome payload + optional execution (inner ABI call)  
-8. apply grants / retention / encryption policy  
-9. apply optional wait (`waitSec`) and finish  
+A workflow can:
 
-### 5.2 Time semantics (`waitSec`)
+- validate typed input,
+- read smart-contract state,
+- obtain data from external APIs,
+- evaluate expressions,
+- choose deterministic business branches,
+- execute smart-contract calls,
+- spawn parallel branches,
+- wait,
+- resume,
+- join process branches,
+- carry payload data between steps,
+- apply encryption and access policies,
+- produce structured execution evidence.
 
-Waiting is native:
+The process definition is anchored in on-chain XRC contracts.
 
-- a process can park itself deterministically (`wakeAt = now + waitSec`)  
-- no off-chain scheduling glue is required  
-- waiting is not “EVM gas burning”; it is process semantics  
-
-### 5.3 Parallelism + joins are protocol-level
-
-Spawns and joins are not “best effort”; they are defined semantics:
-
-- deliveries are scoped (join groups)  
-- join satisfaction is deterministic (any/all/k-of-n)  
-- merge order is deterministic  
-- late deliveries after join close are ignored  
-- joins can become unfulfillable and abort cleanly  
+The XDaLa engine executes the process and maintains the runtime session state required for orchestration.
 
 ---
 
-## 6) Where this shines (use-case intuition)
+# 3. Important architecture boundary
 
-XDaLa is strongest wherever you currently build “off-chain orchestration glue”:
+XDaLa must not be described as if every part of a workflow were an EVM transaction or as if all process state were stored directly inside smart contracts.
 
-- **Payments / settlement (ISO-style structured flows):** validate, enrich, encrypt, join approvals, then execute.  
-- **Trading / RFQ / risk:** run quotes in parallel, join best-of, enforce limits, deterministic retries.  
-- **Supply chain:** parallel confirmations, join k-of-n, staged releases with private logs.  
-- **Enterprise automation:** long approvals, staged execution, auditable trails — without a workflow engine off-chain.  
+The architecture separates responsibilities.
 
-The expected builder reaction:
+```text
+XRC-137 / XRC-729 contracts
+        │
+        │ process definitions
+        ▼
+     XDaLa Engine
+        │
+        │ session execution
+        │ external reads
+        │ orchestration
+        │ process state
+        ▼
+     XGRChain
+        │
+        │ EVM execution
+        │ transactions
+        │ contract state
+        ▼
+ execution evidence / Explorer
+```
 
-> “This is the missing layer between smart contracts and real processes.”
+XRC contracts provide auditable on-chain definitions.
+
+XDaLa provides the process runtime.
+
+XGRChain provides EVM-compatible blockchain execution and settlement.
+
+This separation is intentional.
 
 ---
 
-## 7) How you use XDaLa (concrete end-to-end flow)
+# 4. Transaction versus session
 
-This section is intentionally explicit: **XRC-137 JSON → deploy XRC-137.sol → XRC-729 orchestration → start session via RPC with permit**.
+## Traditional EVM model
 
-### 7.1 Write an XRC-137 rule JSON (the step definition)
+```text
+User
+  ↓
+Transaction
+  ↓
+Smart contract
+  ↓
+Result
+```
 
-**Minimal “hello step”:**
+## XDaLa model
+
+```text
+User / Agent / System
+        ↓
+   Session Start
+        ↓
+   XDaLa Session
+        ↓
+   Process Graph
+   ├── Step
+   ├── Branch
+   ├── Spawn
+   ├── Wait
+   ├── Wake
+   ├── Join
+   └── Execution
+        ↓
+   XGRChain / external data / contract state
+```
+
+A session is a persistent process execution context.
+
+A session can:
+
+- execute immediately,
+- enter a waiting state,
+- resume later,
+- create child processes,
+- combine branch results,
+- perform controlled EVM calls,
+- terminate successfully or with an explicit process error.
+
+A session is identified by its owner and session ID.
+
+The pair:
+
+```text
+owner + sessionId
+```
+
+is the relevant session identity.
+
+A `sessionId` must not be assumed to be globally unique by itself.
+
+---
+
+# 5. Core building blocks
+
+## 5.1 XRC-137 — Rule document
+
+An XRC-137 rule defines the behavior of one process step.
+
+A rule can define:
+
+- typed input fields through `payload`,
+- smart-contract reads through `contractReads`,
+- external HTTP calls through `apiCalls`,
+- extracted typed values,
+- validation expressions through `rules[]`,
+- output payloads,
+- valid and invalid branches,
+- optional contract execution,
+- grants and encryption behavior,
+- optional waiting behavior.
+
+Conceptually:
+
+```text
+input
+  ↓
+contract reads
+  ↓
+API calls
+  ↓
+rules
+  ↓
+valid / invalid
+  ↓
+output + optional execution
+```
+
+`onInvalid` is not automatically an engine failure.
+
+It is a normal deterministic business branch.
+
+For example:
+
+```text
+KYC valid
+    ↓
+onValid
+```
+
+and:
+
+```text
+KYC not valid
+    ↓
+onInvalid
+```
+
+are both valid process outcomes.
+
+Hard engine errors, malformed rules and abort conditions are separate from business-level invalid results.
+
+---
+
+## 5.2 XRC-137 contract
+
+The XRC-137 smart contract stores the rule definition on-chain.
+
+The current contract stores:
+
+- rule JSON or an encrypted XGR1 representation,
+- contract owner,
+- executor metadata,
+- encryption metadata,
+- rule hash,
+- rule version,
+- schema version.
+
+Relevant current read surfaces include:
+
+```text
+getRule()
+getNameXRC()
+isEncrypted()
+encrypted()
+getRuleHash()
+getRuleVersion()
+getExecutorList()
+isExecutor()
+owner()
+schemaVersion()
+```
+
+Rule updates are owner-controlled.
+
+Current mutation paths include:
+
+```text
+updateRule(...)
+setRuleAndEncrypted(...)
+```
+
+The XDaLa engine treats the deployed XRC-137 contract as the authoritative runtime source for that rule.
+
+---
+
+## 5.3 XRC-729 — Orchestration
+
+XRC-729 defines the process graph.
+
+An orchestration contains steps and their relationships.
+
+It can define:
+
+- entry steps,
+- XRC-137 rule references,
+- valid branches,
+- invalid branches,
+- spawns,
+- joins,
+- process transitions.
+
+The orchestration is stored as JSON in an XRC-729 registry contract.
+
+Conceptually:
+
+```text
+A
+├── valid   → B
+└── invalid → C
+```
+
+or:
+
+```text
+A
+├── spawn → B
+├── spawn → C
+└──────────────┐
+               ↓
+              JOIN
+               ↓
+               D
+```
+
+---
+
+## 5.4 XRC-729 contract
+
+The current XRC-729 contract stores:
+
+- OSTC JSON documents,
+- OSTC IDs,
+- OSTC hashes,
+- OSTC versions,
+- update timestamps,
+- owner information,
+- executor information,
+- schema metadata.
+
+The contract supports:
+
+```text
+getOSTC(...)
+setOSTC(...)
+deleteOSTC(...)
+getAllOSTC()
+hasOSTC(...)
+getExecutorList()
+isExecutor(...)
+owner()
+```
+
+The contract additionally emits structured indexing events used by Explorer and MCP tooling.
+
+The deployed XRC-729 contract is the authoritative runtime source for the orchestration.
+
+---
+
+## 5.5 XRC-563 — Encryption and grants
+
+XDaLa supports protected rule and execution artifacts.
+
+The privacy model uses:
+
+- encryption,
+- resource identifiers,
+- read keys,
+- grants,
+- explicit access boundaries.
+
+The objective is selective disclosure rather than making every process artifact globally readable.
+
+Typical recipients may include:
+
+- process participants,
+- counterparties,
+- auditors,
+- regulated institutions,
+- authorized reviewers.
+
+Encryption and grants are covered separately in:
+
+```text
+xgr_encryptionGrants.md
+```
+
+---
+
+# 6. XDaLa runtime semantics
+
+## 6.1 Step execution pipeline
+
+The current execution order is conceptually:
+
+```text
+1. Load and parse XRC-137
+2. Validate rule structure and limits
+3. Load typed payload
+4. Apply declared defaults
+5. Execute contractReads
+6. Save typed contract-read values
+7. Execute apiCalls
+8. Extract typed API values
+9. Evaluate rules
+10. Select onValid or onInvalid
+11. Build outcome payload
+12. Resolve optional execution
+13. Apply process/orchestration semantics
+14. Persist session state and execution evidence
+```
+
+The ordering:
+
+```text
+contractReads → apiCalls
+```
+
+is significant.
+
+Later expressions can consume values produced by earlier stages.
+
+---
+
+## 6.2 Expressions
+
+XDaLa expressions can reference values through placeholders such as:
+
+```text
+[Amount]
+[FetchedPrice]
+[ContractBalance]
+```
+
+Expressions are evaluated using the XDaLa expression layer.
+
+Rules in:
+
+```text
+rules[]
+```
+
+are combined as validation conditions.
+
+Detailed expression syntax, types, limits and evaluation semantics are defined in:
+
+```text
+xgr_expression_evaluation_developer_guide.md
+XRC-137_Rule_Document_Spec.md
+XDaLa_Limits.md
+```
+
+---
+
+## 6.3 Waiting
+
+A branch may define:
+
+```text
+waitSec
+```
+
+A process can therefore enter a persistent waiting state.
+
+Waiting is process semantics.
+
+It does not mean that an EVM transaction continuously consumes gas while the process waits.
+
+A waiting process may later continue through:
+
+- its configured wake time,
+- an explicitly authorized wake-up,
+- internal process behavior.
+
+---
+
+## 6.4 Wake-up
+
+Waiting processes may be explicitly woken through the XGR RPC layer.
+
+The current engine supports signed control permits with actions:
+
+```text
+wake
+kill
+```
+
+Control permit variants include:
+
+```text
+ControlPermit
+ControlPermitV2
+```
+
+`ControlPermitV2` adds an explicit `runner` field for delegated control scenarios.
+
+Wake-up authorization is enforced by the engine.
+
+A wake request does not bypass the workflow's authorization rules.
+
+The exact permit structures and authorization semantics are defined in:
+
+```text
+XDaLa_Permit_Catalog.md
+XDaLa_XGR_Endpoint_Reference.md
+```
+
+---
+
+## 6.5 Parallel execution
+
+XRC-729 can spawn multiple branches.
+
+Example:
+
+```text
+A
+├── B
+├── C
+└── D
+```
+
+These processes can progress independently.
+
+This allows workflows such as:
+
+- parallel data acquisition,
+- parallel approvals,
+- multiple external confirmations,
+- parallel risk checks,
+- competing quotes.
+
+---
+
+## 6.6 Joins
+
+Parallel branches can converge through deterministic joins.
+
+Supported orchestration concepts include:
+
+```text
+any
+all
+kofn
+```
+
+Join behavior is explicitly defined in the OSTC.
+
+Join processing includes deterministic:
+
+- producer scoping,
+- satisfaction checks,
+- result merging,
+- completion handling.
+
+Late deliveries to a closed join do not reopen an already completed join.
+
+A join that can no longer satisfy its required condition may terminate according to engine semantics rather than remain indefinitely unresolved.
+
+---
+
+# 7. Example XRC-137 rule
+
+A minimal rule:
 
 ```json
 {
   "payload": {
-    "Amount": { "type": "int64" }
+    "Amount": {
+      "type": "int64"
+    }
   },
   "rules": [
     "[Amount] > 0"
@@ -206,46 +626,220 @@ This section is intentionally explicit: **XRC-137 JSON → deploy XRC-137.sol �
 }
 ```
 
-Notes:
+The rule declares:
 
-- `payload` declares typed inputs. Defaults make inputs optional.  
-- `rules` are boolean expressions (AND).  
-- `onValid` / `onInvalid` are business outcomes.  
-- You can extend later with `apiCalls`, `contractReads`, `execution`, `grants`, `encryptLogs`, `waitSec`.  
-
----
-
-### 7.2 Deploy an XRC-137 contract and upload the JSON into it
-
-XRC-137 the contract is an on-chain **container** for one rule JSON (or encrypted XGR1 blob) plus metadata.
-
-**Canonical interface (from the standard):**
-
-```solidity
-interface IXRC137 {
-  function getRule() external view returns (string memory);
-  function setRule(string calldata jsonOrXgr1, bytes32 rid, string calldata suite) external;
-  function isEncrypted() external view returns (bool);
-  function getEncrypted() external view returns (bytes32 rid, string memory suite);
-}
+```text
+Amount
 ```
 
-**Deploy flow (high level):**
+as a typed input.
 
-1. Deploy your XRC-137 contract instance (the “rule container”).  
-2. Call `setRule(ruleJson, 0x00..00, "")` to store plain JSON  
-   - `rid = 0x00..00` and `suite = ""` indicates **not encrypted**.  
-3. Verify by calling `getRule()`.  
+The expression:
 
-**Practical tip:** If your JSON is large, upload via tooling (Foundry/Hardhat/ethers) rather than raw CLI to avoid escaping issues.
+```text
+[Amount] > 0
+```
+
+determines the business branch.
+
+A positive value produces:
+
+```text
+onValid
+```
+
+otherwise:
+
+```text
+onInvalid
+```
+
+Defaults declared by the payload schema can make fields optional at runtime.
 
 ---
 
-### 7.3 Create an XRC-729 orchestration (the process graph)
+# 8. Adding contract reads
 
-An orchestration (“OSTC”) is JSON stored in an XRC-729 registry.
+An XRC-137 step can read state from EVM contracts before evaluating its rules.
 
-**Minimal single-step orchestration:**
+Conceptually:
+
+```text
+contractReads
+    ↓
+eth_call
+    ↓
+typed saved values
+    ↓
+rules / APIs / output
+```
+
+This allows rules to depend on:
+
+- token balances,
+- contract state,
+- registry state,
+- external EVM contract values,
+- state on configured EVM-compatible chains.
+
+Contract reads are read operations.
+
+They do not by themselves mutate contract state.
+
+---
+
+# 9. Adding external APIs
+
+An XRC-137 rule can obtain data from external HTTP APIs.
+
+Conceptually:
+
+```text
+request
+   ↓
+external API
+   ↓
+response
+   ↓
+extractMap
+   ↓
+typed XDaLa values
+```
+
+This allows workflows to incorporate data such as:
+
+- prices,
+- external status information,
+- identity or compliance results,
+- logistics data,
+- enterprise API data,
+- market data.
+
+External API data is external evidence.
+
+The process logic can deterministically handle the values returned to the engine, but the external data source itself is outside blockchain consensus.
+
+That distinction is important.
+
+---
+
+# 10. Optional smart-contract execution
+
+An XRC-137 outcome may define an execution block.
+
+This allows a validated process step to trigger an EVM contract call after its conditions have been evaluated.
+
+Conceptually:
+
+```text
+payload
+   ↓
+reads
+   ↓
+API data
+   ↓
+validation
+   ↓
+valid branch
+   ↓
+EVM execution
+```
+
+This creates the core XDaLa loop:
+
+```text
+validate → decide → execute
+```
+
+rather than merely:
+
+```text
+execute transaction
+```
+
+---
+
+# 11. End-to-end workflow
+
+The normal lifecycle is:
+
+```text
+XRC-137 rule
+      ↓
+deploy XRC-137
+      ↓
+XRC-729 orchestration
+      ↓
+deploy / configure XRC-729
+      ↓
+Session Permit
+      ↓
+Session Start
+      ↓
+XDaLa execution
+      ↓
+wait / spawn / join / execute
+      ↓
+execution evidence
+```
+
+---
+
+## 11.1 Create the XRC-137 rule
+
+Write the rule JSON.
+
+Validate it against:
+
+- the current XRC-137 specification,
+- hard limits,
+- expression rules,
+- authoring rules.
+
+For agent-assisted authoring, the XGR MCP exposes canonical schemas and validators.
+
+---
+
+## 11.2 Deploy XRC-137
+
+The current XRC-137 contract accepts the initial rule JSON through its constructor.
+
+Conceptually:
+
+```solidity
+constructor(string memory _json)
+```
+
+A plaintext deployment initializes the contract with the rule JSON.
+
+Later plaintext updates use:
+
+```text
+updateRule(...)
+```
+
+Encrypted rule updates use the encryption-aware path:
+
+```text
+setRuleAndEncrypted(...)
+```
+
+After deployment, verify the actual runtime contract using:
+
+```text
+getRule()
+getRuleHash()
+getRuleVersion()
+isEncrypted()
+```
+
+Do not assume a locally stored copy still matches the deployed runtime.
+
+---
+
+## 11.3 Create the XRC-729 orchestration
+
+Example single-step OSTC:
 
 ```json
 {
@@ -260,19 +854,27 @@ An orchestration (“OSTC”) is JSON stored in an XRC-729 registry.
 }
 ```
 
-Store it under an ID in your XRC-729 contract (the standard recommends `setOSTC(id, json)`).
+The current XRC-729 contract can receive initial OSTCs and executors during deployment or be populated later through:
 
-**Why the hash matters:** sessions can pin the orchestration by `ostcHash` for auditability and determinism.
+```text
+setOSTC(...)
+```
+
+The orchestration references deployed XRC-137 contracts.
 
 ---
 
-### 7.4 Compute `ostcHash` (Keccak-256 of the UTF-8 JSON)
+## 11.4 OSTC hash
 
-Your client computes:
+XRC-729 tracks a hash of each stored orchestration.
 
-- `ostcHash = keccak256(bytes(ostcJsonUtf8))`
+The hash is based on:
 
-Example (ethers v6 shape):
+```text
+keccak256(bytes(ostcJson))
+```
+
+Equivalent ethers v6 calculation:
 
 ```js
 import { keccak256, toUtf8Bytes } from "ethers";
@@ -280,13 +882,13 @@ import { keccak256, toUtf8Bytes } from "ethers";
 const ostcHash = keccak256(toUtf8Bytes(ostcJson));
 ```
 
+The hash allows a Session Permit to bind execution to a specific orchestration representation.
+
 ---
 
-### 7.5 Fetch chain/session primitives via RPC
+## 11.5 Obtain session primitives
 
-Before signing permits, fetch:
-
-1) **Core addrs + chainId**
+Before creating the Session Permit, clients can obtain the current chain configuration through:
 
 ```json
 {
@@ -297,7 +899,7 @@ Before signing permits, fetch:
 }
 ```
 
-2) **Next root session id**
+The next root session ID can be requested through:
 
 ```json
 {
@@ -305,73 +907,79 @@ Before signing permits, fetch:
   "id": 2,
   "method": "xgr_getNextProcessId",
   "params": [
-    { "from": "0x<your_eoa>" }
+    {
+      "from": "0x<signer>"
+    }
   ]
 }
 ```
 
-Use the returned id as `sessionId` (root pid) in your SessionPermit.
+The returned value is used as the root `sessionId`.
 
 ---
 
-### 7.6 Sign a SessionPermit (EIP-712 typed data)
+## 11.6 Session Permit
 
-A **SessionPermit** authorizes starting/continuing a session under a specific orchestration.
+Session Start uses an EIP-712 signed Session Permit.
 
-Core fields (conceptually):
+Core permit data includes:
 
-- `from` (EOA signer)  
-- `ostcId`  
-- `ostcHash`  
-- `sessionId`  
-- `maxTotalGas`  
-- `expiry`  
-
-**Authority rule (high level):** the engine enforces that the signer matches the on-chain **owner of the orchestration registry** (XRC-729 owner), so session execution authority is explicit and auditable.
-
-**Typed data (shape):**
-
-```json
-{
-  "domain": {
-    "name": "XDaLa SessionPermit",
-    "version": "1",
-    "chainId": 1879
-  },
-  "primaryType": "SessionPermit",
-  "types": {
-    "EIP712Domain": [
-      { "name": "name", "type": "string" },
-      { "name": "version", "type": "string" },
-      { "name": "chainId", "type": "uint256" }
-    ],
-    "SessionPermit": [
-      { "name": "from", "type": "address" },
-      { "name": "ostcId", "type": "string" },
-      { "name": "ostcHash", "type": "bytes32" },
-      { "name": "sessionId", "type": "uint256" },
-      { "name": "maxTotalGas", "type": "uint256" },
-      { "name": "expiry", "type": "uint256" }
-    ]
-  },
-  "message": {
-    "from": "0x<your_eoa>",
-    "ostcId": "hello_xdala",
-    "ostcHash": "0x<keccak256>",
-    "sessionId": "1",
-    "maxTotalGas": "5000000",
-    "expiry": 1760000000
-  }
-}
+```text
+from
+ostcId
+ostcHash
+sessionId
+maxTotalGas
+expiry
 ```
 
-You typically sign this via `eth_signTypedData_v4` in your wallet.
+The actual permit schema must follow:
+
+```text
+XDaLa_Permit_Catalog.md
+```
+
+The configured chain ID must match the connected XGRChain network.
+
+The engine verifies the EIP-712 signature before accepting the request.
 
 ---
 
-### 7.7 Start/advance the session via `xgr_validateDataTransfer`
+## 11.7 Session Start authority
 
-This is the main entry point: you submit a step execution request for a session.
+The current engine does **not** enforce an owner-only Session Start model.
+
+The signer must be authorized by the deployed XRC-729 contract.
+
+Current authorization accepts:
+
+```text
+XRC-729 owner
+```
+
+or:
+
+```text
+authorized XRC-729 executor
+```
+
+where supported by the deployed contract.
+
+This allows controlled delegated execution without giving executors permission to modify the orchestration itself.
+
+Contract mutation and process execution authority are separate concerns.
+
+---
+
+## 11.8 Start the session
+
+The main XDaLa RPC entry point is:
+
+```text
+xgr_validateDataTransfer
+```
+
+Example:
 
 ```json
 {
@@ -381,29 +989,41 @@ This is the main entry point: you submit a step execution request for a session.
   "params": [
     {
       "stepId": "S1",
-      "payload": { "Amount": 42 },
-      "permit": { "...": "SessionPermit object including signature" },
+      "payload": {
+        "Amount": 42
+      },
+      "permit": {
+        "...": "signed SessionPermit"
+      },
       "orchestration": "0x<your_XRC729_contract_address>"
     }
   ]
 }
 ```
 
-Typical response shape:
+Before the session is enqueued, the engine performs preflight checks including:
 
-- which process ran  
-- `finalResult` (valid/invalid at rule level)  
-- executed step receipts  
-- sanitized payload (defaults applied)  
-- `outputPayload` (branch payload)  
+- permit verification,
+- orchestration address validation,
+- start authority,
+- expected session ID,
+- OSTC hash format,
+- orchestration loading,
+- XRC-729 hard-limit validation.
 
-From here, the orchestration determines what gets spawned next, what waits, what joins, etc.
+A failed preflight does not create a valid running session.
 
 ---
 
-### 7.8 Wake waiting processes (optional, when your flow requires it)
+## 11.9 Wake a waiting process
 
-If a process is waiting (e.g., it parked itself via `waitSec` or is waiting for external input), clients can explicitly wake it via the wake endpoint using a signed control permit.
+A waiting process can be explicitly resumed through:
+
+```text
+xgr_wakeUpProcess
+```
+
+Example PID-targeted request:
 
 ```json
 {
@@ -413,23 +1033,48 @@ If a process is waiting (e.g., it parked itself via `waitSec` or is waiting for 
   "params": [
     {
       "processId": "123:2",
-      "payload": { "X": 1 },
-      "permit": { "...": "ControlPermit(action='wake') object including signature" }
+      "payload": {
+        "X": 1
+      },
+      "permit": {
+        "...": "signed ControlPermit with action='wake'"
+      }
     }
   ]
 }
 ```
 
+The engine currently supports two wake targeting modes:
+
+```text
+specific processId
+```
+
+or:
+
+```text
+signed permit.message.stepId
+```
+
+The two modes are intentionally distinct.
+
+Wake-up authorization is verified before waiting process state is changed.
+
 ---
 
-## 8) A slightly more “real” example (parallel spawn + join)
+# 12. Parallel spawn and join example
 
-**Orchestration idea:**
+Example process:
 
-- Step `A1` spawns `G1` and `H1` in parallel  
-- Join `J1` proceeds once **any** producer is valid  
+```text
+A1
+├── G1
+└── H1
+     ↓
+    J1
+```
 
-Illustrative snippet:
+Illustrative OSTC:
 
 ```json
 {
@@ -438,53 +1083,428 @@ Illustrative snippet:
     "A1": {
       "rule": "0x<addr_A1>",
       "onValid": {
-        "spawns": ["G1", "H1"],
+        "spawns": [
+          "G1",
+          "H1"
+        ],
         "join": {
           "joinid": "J1",
           "mode": "any",
           "waitonjoin": "kill",
           "from": [
-            { "node": "G1", "when": "valid" },
-            { "node": "H1", "when": "valid" }
+            {
+              "node": "G1",
+              "when": "valid"
+            },
+            {
+              "node": "H1",
+              "when": "valid"
+            }
           ]
         }
       }
     },
-    "G1": { "rule": "0x<addr_G1>" },
-    "H1": { "rule": "0x<addr_H1>" },
-    "J1": { "rule": "0x<addr_J1>" }
+    "G1": {
+      "rule": "0x<addr_G1>"
+    },
+    "H1": {
+      "rule": "0x<addr_H1>"
+    },
+    "J1": {
+      "rule": "0x<addr_J1>"
+    }
   }
 }
 ```
 
-Key property: join scoping ensures `J1` only consumes deliveries from the correct producer group (no accidental cross-branch mixing).
+The join consumes results belonging to its defined producer scope.
+
+Unrelated branch deliveries must not be mixed into that join.
 
 ---
 
-## 9) Testnet chain parameters (based on your sample genesis)
+# 13. Typical use cases
 
-If you are targeting your current testnet genesis snapshot:
+XDaLa is designed for workflows where execution depends on more than one isolated transaction.
 
-- `chainId = 1879`  
-- IBFT PoA with `validator_type = bls`  
-- baseline forks enabled from genesis (including London at block 0)  
-- `EIP2930`, `EIP2929`, `EIP3860`, and `EIP3651` activated from block `1208500`  
-- effectively **Berlin + partial Shanghai** from block `1208500` onward  
-- withdrawals are **not** enabled  
-- engine registry address configured (`engineRegistryAddress` present)  
+Examples include:
 
-This is useful for wallets and EIP-712 domain `chainId`, and for aligning expectations around finality, execution semantics, and RPC compatibility.
+## Payments and settlement
+
+```text
+input
+  ↓
+validation
+  ↓
+external information
+  ↓
+approvals
+  ↓
+execution
+```
+
+ISO 20022-style structured payment flows are one possible application.
+
+ISO 20022 is not the architectural core of XDaLa.
 
 ---
 
-## 10) Where to go next
+## Compliance workflows
 
-- **XRC-137 Rule Documents** — schema, contract reads, API calls, branch semantics  
-- **Expressions** — templates vs CEL evaluation, defaults, soft-invalid vs hard errors  
-- **XRC-729 Orchestration** — spawn/join semantics, scoping, delivery/merge rules  
-- **XRC-563 Grants** — RID/scope, encryption, lifecycle  
-- **Validation Gas** — deterministic budgeting separate from EVM gas  
-- **JSON-RPC Extensions** — session lifecycle, permits, control endpoints  
+Examples:
 
-If Ethereum was about *programmable value*,  
-**XDaLa is about programmable processes.**
+- KYC/KYB process steps,
+- sanctions or policy checks,
+- approval chains,
+- regulatory evidence,
+- controlled execution after successful checks.
+
+---
+
+## Financial processes
+
+Examples:
+
+- RFQ workflows,
+- pricing checks,
+- risk limits,
+- parallel quotes,
+- multi-party approvals,
+- settlement triggers.
+
+---
+
+## Enterprise workflows
+
+Examples:
+
+- departmental approvals,
+- controlled contract execution,
+- notarial processes,
+- evidence-driven workflows,
+- multi-stage automation.
+
+---
+
+## Supply-chain processes
+
+Examples:
+
+- parallel confirmations,
+- external API evidence,
+- delivery state,
+- staged releases,
+- k-of-n approval conditions.
+
+---
+
+# 14. Privacy model
+
+Public blockchain execution and confidential business information have different requirements.
+
+XDaLa therefore supports encrypted process artifacts and controlled access.
+
+The objective is:
+
+```text
+verifiable process execution
++
+controlled data visibility
+```
+
+rather than:
+
+```text
+all process data must be public
+```
+
+Sensitive process content does not need to be exposed as plaintext merely because a workflow interacts with a blockchain.
+
+The detailed encryption and grant model is defined separately.
+
+---
+
+# 15. Auditability
+
+XDaLa separates several evidence layers:
+
+```text
+deployed XRC definitions
+```
+
+```text
+XDaLa session state and receipts
+```
+
+```text
+XGRChain transactions and contract state
+```
+
+```text
+Explorer-indexed execution evidence
+```
+
+This allows an auditor or agent to distinguish:
+
+- what process was defined,
+- which rule version was deployed,
+- which orchestration version was used,
+- what transaction occurred,
+- which session executed,
+- which process branch was selected,
+- which external or contract-derived values influenced execution.
+
+External evidence remains external evidence.
+
+A blockchain cannot make an external HTTP source inherently trustworthy.
+
+XDaLa instead makes its use inside the process explicit and auditable.
+
+---
+
+# 16. XGR MCP
+
+The XGR MCP Gateway provides the agent-native interface to the XGR ecosystem.
+
+Public endpoints:
+
+```text
+Mainnet:
+https://mcp.xgr.network/mcp
+
+Testnet:
+https://mcp.testnet.xgr.network/mcp
+```
+
+Through MCP, compatible agents can:
+
+- inspect XGRChain state,
+- inspect transactions,
+- inspect XDaLa sessions,
+- inspect XRC contracts,
+- inspect process graphs,
+- inspect historical execution evidence,
+- inspect native XGR address relations and value flow,
+- retrieve XRC schemas and authoring rules,
+- validate XDaLa artifacts,
+- prepare deployment handoffs,
+- prepare Session Start handoffs,
+- use optional XGR purchase services,
+- use optional Starter Gas.
+
+MCP does not replace XDaLa.
+
+It is an access and tooling layer over the XGR/XDaLa infrastructure.
+
+Detailed MCP behavior is documented under:
+
+```text
+docs/mcp/
+```
+
+---
+
+# 17. Network identifiers
+
+Current XGR network chain IDs are:
+
+| Network | Chain ID |
+|---|---:|
+| XGRChain Mainnet | `1643` |
+| XGRChain Testnet | `1879` |
+| XGRChain Devnet | `1887` |
+
+Mainnet uses IBFT deterministic finality.
+
+Validator participation transitioned from the initial PoA phase to delegated PoS at:
+
+```text
+block 5,446,500
+```
+
+The chain-level documentation and published Mainnet genesis are authoritative for:
+
+- consensus configuration,
+- fork activation,
+- validator configuration,
+- PoS parameters,
+- bootnodes,
+- gas configuration,
+- protocol addresses.
+
+Do not use this general overview as the canonical chain configuration source.
+
+See:
+
+```text
+docs/chain/
+genesis/mainnet/genesis.json
+```
+
+---
+
+# 18. Separation of gas models
+
+XDaLa uses concepts that must not be confused.
+
+## EVM gas
+
+Pays for blockchain transaction execution.
+
+## ValidationGas
+
+Models XDaLa validation and processing work.
+
+ValidationGas is not EVM gas.
+
+It covers operations such as:
+
+- payload processing,
+- expressions,
+- contract reads,
+- API processing,
+- outcome construction,
+- execution preparation.
+
+The detailed cost model is defined in:
+
+```text
+XRC-137_Validation_Gas.md
+```
+
+---
+
+# 19. Security model
+
+The system separates:
+
+```text
+process definition authority
+process execution authority
+wallet signing authority
+data access authority
+```
+
+These are not interchangeable.
+
+For example:
+
+- an XRC-729 executor may be allowed to start a process without being allowed to modify the orchestration,
+- a wallet may have sufficient XGR for gas but no workflow authority,
+- an address may have workflow authority but insufficient XGR,
+- a user may receive access to encrypted evidence without receiving ownership of the underlying XRC contract.
+
+This separation is fundamental to the XDaLa security model.
+
+---
+
+# 20. Recommended developer path
+
+For a new integration:
+
+```text
+1. Understand XRC-137
+2. Understand XRC-729
+3. Create a simple rule
+4. Validate the rule
+5. Deploy XRC-137
+6. Create the orchestration
+7. Validate the process graph
+8. Deploy XRC-729
+9. Read the deployed runtime back
+10. Resolve Session Start authority
+11. Obtain the next session ID
+12. Sign the Session Permit
+13. Start the XDaLa session
+14. Inspect session and receipt evidence
+15. Add APIs, reads, waits, joins and execution only as required
+```
+
+For agent-based integrations, use the XGR MCP knowledge and validation tools before preparing deployment or Session Start handoffs.
+
+---
+
+# 21. Where to go next
+
+## XRC-137
+
+```text
+XRC-137_Rule_Document_Spec.md
+XRC-137_Smart_Contract_Standard.md
+XRC-137_Validation_Gas.md
+```
+
+## XRC-729
+
+```text
+XRC-729_Smart_Contract_Standard.md
+xrc_729_orchestration_session_manager.md
+```
+
+## XDaLa
+
+```text
+XDaLa_XGR_Endpoint_Reference.md
+XDaLa_Permit_Catalog.md
+XDaLa_Limits.md
+XDaLa_Agent_Authoring_Rules.md
+xgr_expression_evaluation_developer_guide.md
+```
+
+## Encryption and grants
+
+```text
+xgr_encryptionGrants.md
+```
+
+## XGRChain
+
+```text
+docs/chain/
+```
+
+## XGR MCP
+
+```text
+docs/mcp/
+```
+
+---
+
+# 22. Core repositories
+
+Public specifications and contracts:
+
+```text
+https://github.com/xgr-network/XGR
+```
+
+XGRChain node:
+
+```text
+https://github.com/xgr-network/xgr-node
+```
+
+XDaLa engine:
+
+```text
+https://github.com/xgr-network/xgrEngine
+```
+
+XGR MCP:
+
+```text
+https://github.com/xgr-network/xgr-mcp
+```
+
+---
+
+If Ethereum introduced programmable value, XDaLa extends the model toward programmable processes:
+
+```text
+define
+→ validate
+→ orchestrate
+→ execute
+→ verify
+```
