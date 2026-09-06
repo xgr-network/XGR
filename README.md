@@ -114,7 +114,8 @@ This repository is intended for:
 
 ## Project Status
 
-- XGRChain: Mainnet live, testnet available
+- XGRChain: Mainnet live, testnet available; current public node release `v2.1.0`
+- XGRChain State Growth Control: Online State Trie Sweeper available in `v2.1.0` for configurable historical-state retention and reclamation of unreachable trie/code data
 - XDaLa: Active specification and implementation phase
 - MCP Gateway: Mainnet and testnet live
 - MCP chain, transaction, session, XRC, evidence, validation, diagram and handoff tools: Live
