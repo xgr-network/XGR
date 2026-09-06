@@ -19,6 +19,7 @@
 - chain/XGRCHAIN_Networking_P2P.md
 - chain/XGRCHAIN_Node_Operation.md
 - chain/XGRCHAIN_State_Storage_and_Retention.md
+- chain/XGRCHAIN_v2.1.0_Release_and_Operator_Notes.md
 - chain/XGRCHAIN_Network_Upgrade_and_Hardfork_Process.md
 - chain/XGRCHAIN_Ethereum_JSON_RPC_Reference.md
 - chain/XGRCHAIN_Node_Operator_RPC_Reference.md
