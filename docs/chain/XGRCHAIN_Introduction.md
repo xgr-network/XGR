@@ -1,9 +1,9 @@
 # XGR Chain — Introduction
 
 **Document ID:** XGRCHAIN-INTRO  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-09-06  
 **Audience:** Developers, node operators, validators, auditors, integrators  
-**Release baseline:** `xgr-node` release tag `v2.0.5`  
+**Release baseline:** `xgr-node` release tag `v2.1.0`  
 **Mainnet genesis source:** `xgr-network/XGR` branch `main`, path `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Operating mode covered here:** Public standalone XGR Chain node, without xgrEngine and without XDaLa
@@ -47,7 +47,7 @@ https://github.com/xgr-network/xgr-node
 The current public release baseline for this documentation is:
 
 ```text
-v2.0.5
+v2.1.0
 ```
 
 This public node release builds as a standalone XGR Chain node.
@@ -67,7 +67,7 @@ Standard public build:
 git clone https://github.com/xgr-network/xgr-node.git
 cd xgr-node
 git fetch --all --tags
-git checkout v2.0.5
+git checkout v2.1.0
 go build -o xgrchain .
 ```
 
@@ -110,7 +110,7 @@ Mainnet identity:
 
 ## 3. Current public baseline
 
-The public `v2.0.5` node baseline covers:
+The public `v2.1.0` node baseline covers:
 
 | Area | Status |
 |---|---|
@@ -125,6 +125,18 @@ The public `v2.0.5` node baseline covers:
 | Public PoS monitoring RPC | Active |
 | Genesis and configuration loading | Active |
 | Node operation | Active |
+| State Growth Control / Online State Trie Sweeper | Available, operator-controlled |
+| Configurable historical-state retention | Available, operator-controlled |
+
+State Growth Control was introduced in `v2.1.0`.
+
+It is a local node-storage feature and does not change consensus, EVM execution, canonical state roots, genesis configuration or fork activation.
+
+Detailed state-storage and retention behavior is documented in:
+
+```text
+XGRCHAIN_State_Storage_and_Retention.md
+```
 
 Public PoS monitoring RPC methods:
 
@@ -353,6 +365,22 @@ RPC consumers must treat live node data as authoritative for current chain state
 
 Historical analytics should be built through indexing, not by assuming a live endpoint is a full history database.
 
+### 11.1 Historical state retention
+
+Starting with `xgr-node v2.1.0`, node operators may enable State Growth Control through the Online State Trie Sweeper.
+
+When enabled, the node may reclaim historical trie state outside the configured retention window.
+
+This does not remove canonical block, transaction, receipt or log history, but historical RPC calls that require EVM state from an older block are only guaranteed while the required state remains locally retained.
+
+Archive-style operators should configure retention accordingly or leave the trie sweeper disabled.
+
+See:
+
+```text
+XGRCHAIN_State_Storage_and_Retention.md
+```
+
 ---
 
 ## 12. Gas and fee behavior
@@ -398,11 +426,12 @@ An XGR node is responsible for:
 
 The practical node runbook explains:
 
-- how to build `v2.0.5`
+- how to build `v2.1.0`
 - how to install the binary
 - how to install the mainnet genesis
 - how to start a full node
 - how to start an RPC node
+- how to configure State Growth Control and historical-state retention
 - how to join as validator
 - how to open a delegation pool
 - how to activate or deactivate a validator
@@ -489,12 +518,13 @@ This document must be updated whenever one of the following changes:
 - public PoS RPC behavior
 - fork activation settings
 - gas or fee behavior
+- state-storage or historical-state-retention behavior
 - node build requirements
 - operator runbook assumptions
 
 For the current public baseline, use:
 
 ```text
-xgr-node v2.0.5
+xgr-node v2.1.0
 xgr-network/XGR main genesis/mainnet/genesis.json
 ```
