@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare MerkleTreeHook ProtocolFee and Mailbox setters
+      - name: Prepare MerkleTreeHook and zero ProtocolFee
         shell: bash
         run: |
           set -euo pipefail
@@ -40,13 +40,6 @@ jobs:
           const pAddr=ethers.utils.getContractAddress({from,nonce:nonce+1});
 
           const mb=new Mailbox__factory();
-          const setIsm=mb.interface.encodeFunctionData('setDefaultIsm',[routingIsm]);
-          const setDefaultHook=mb.interface.encodeFunctionData('setDefaultHook',[mAddr]);
-          const setRequiredHook=mb.interface.encodeFunctionData('setRequiredHook',[pAddr]);
-          const gasIsm=await provider.estimateGas({from,to:mailbox,data:setIsm});
-          const gasDefault=await provider.estimateGas({from,to:mailbox,data:setDefaultHook});
-          const gasRequired=await provider.estimateGas({from,to:mailbox,data:setRequiredHook});
-
           console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
           console.log('PENDING_NONCE='+nonce);
           console.log('MERKLE_ADDRESS='+mAddr);
@@ -55,11 +48,8 @@ jobs:
           console.log('PROTOCOL_ADDRESS='+pAddr);
           console.log('PROTOCOL_GAS='+pGas.toString());
           console.log('PROTOCOL_DATA='+ptx.data);
-          console.log('SET_ISM_GAS='+gasIsm.toString());
-          console.log('SET_ISM_DATA='+setIsm);
-          console.log('SET_DEFAULT_HOOK_GAS='+gasDefault.toString());
-          console.log('SET_DEFAULT_HOOK_DATA='+setDefaultHook);
-          console.log('SET_REQUIRED_HOOK_GAS='+gasRequired.toString());
-          console.log('SET_REQUIRED_HOOK_DATA='+setRequiredHook);
+          console.log('SET_ISM_DATA='+mb.interface.encodeFunctionData('setDefaultIsm',[routingIsm]));
+          console.log('SET_DEFAULT_HOOK_DATA='+mb.interface.encodeFunctionData('setDefaultHook',[mAddr]));
+          console.log('SET_REQUIRED_HOOK_DATA='+mb.interface.encodeFunctionData('setRequiredHook',[pAddr]));
           NODE
           node p.mjs
