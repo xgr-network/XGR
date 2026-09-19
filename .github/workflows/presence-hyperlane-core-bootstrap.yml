@@ -1,15 +1,10 @@
 name: Presence Hyperlane Core Bootstrap
-
 on:
   push:
-    branches:
-      - presence/hyperlane-core-bootstrap-20260919
-    paths:
-      - .github/workflows/presence-hyperlane-core-bootstrap.yml
-
+    branches: [presence/hyperlane-core-bootstrap-20260919]
+    paths: [.github/workflows/presence-hyperlane-core-bootstrap.yml]
 permissions:
   contents: read
-
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -18,54 +13,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Estimate remaining Hyperlane Core factories on XGRChain
+      - name: Prepare StaticAggregationIsmFactory
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/hyperlane-preflight
-          cd /tmp/hyperlane-preflight
+          mkdir -p /tmp/h && cd /tmp/h
           npm init -y >/dev/null
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
-          cat > estimate.mjs <<'NODE'
+          cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import {
-            StaticMessageIdMultisigIsmFactory__factory,
-            StaticAggregationIsmFactory__factory,
-            StaticAggregationHookFactory__factory,
-            DomainRoutingIsmFactory__factory,
-            IncrementalDomainRoutingIsmFactory__factory,
-            StaticMerkleRootWeightedMultisigIsmFactory__factory,
-            StaticMessageIdWeightedMultisigIsmFactory__factory
-          } from '@hyperlane-xyz/core';
-
-          const rpc='https://rpc.xgr.network';
+          import { StaticAggregationIsmFactory__factory } from '@hyperlane-xyz/core';
+          const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
           const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
-          const provider=new ethers.providers.JsonRpcProvider(rpc);
-          const net=await provider.getNetwork();
-          if(Number(net.chainId)!==1643) throw new Error('wrong chain '+net.chainId);
-          const pendingNonce=await provider.getTransactionCount(from,'pending');
-          const gasPrice=await provider.getGasPrice();
-          const defs=[
-            ['StaticMessageIdMultisigIsmFactory',new StaticMessageIdMultisigIsmFactory__factory()],
-            ['StaticAggregationIsmFactory',new StaticAggregationIsmFactory__factory()],
-            ['StaticAggregationHookFactory',new StaticAggregationHookFactory__factory()],
-            ['DomainRoutingIsmFactory',new DomainRoutingIsmFactory__factory()],
-            ['IncrementalDomainRoutingIsmFactory',new IncrementalDomainRoutingIsmFactory__factory()],
-            ['StaticMerkleRootWeightedMultisigIsmFactory',new StaticMerkleRootWeightedMultisigIsmFactory__factory()],
-            ['StaticMessageIdWeightedMultisigIsmFactory',new StaticMessageIdWeightedMultisigIsmFactory__factory()]
-          ];
-          let total=ethers.BigNumber.from(0);
-          console.log('PENDING_NONCE='+pendingNonce);
-          console.log('GAS_PRICE_WEI='+gasPrice.toString());
-          for(let i=0;i<defs.length;i++){
-            const [name,factory]=defs[i];
-            const tx=factory.getDeployTransaction();
-            const gas=await provider.estimateGas({from,data:tx.data});
-            total=total.add(gas);
-            const addr=ethers.utils.getContractAddress({from,nonce:pendingNonce+i});
-            console.log(['FACTORY',name,'NONCE',pendingNonce+i,'ADDRESS',addr,'GAS',gas.toString(),'BYTES',(tx.data.length-2)/2,'KECCAK',ethers.utils.keccak256(tx.data)].join('|'));
-          }
-          console.log('TOTAL_ESTIMATED_GAS='+total.toString());
-          console.log('TOTAL_ESTIMATED_XGR_AT_CURRENT_GAS_PRICE='+ethers.utils.formatEther(total.mul(gasPrice)));
+          const n=await provider.getTransactionCount(from,'pending');
+          const f=new StaticAggregationIsmFactory__factory();
+          const tx=f.getDeployTransaction();
+          const gas=await provider.estimateGas({from,data:tx.data});
+          console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
+          console.log('NONCE='+n);
+          console.log('ADDRESS='+ethers.utils.getContractAddress({from,nonce:n}));
+          console.log('GAS='+gas.toString());
+          console.log('KECCAK='+ethers.utils.keccak256(tx.data));
+          console.log('CREATION_DATA_BEGIN');
+          console.log(tx.data);
+          console.log('CREATION_DATA_END');
           NODE
-          node estimate.mjs
+          node p.mjs
