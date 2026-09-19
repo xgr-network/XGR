@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare DomainRoutingIsmFactory
+      - name: Prepare Hyperlane ProxyAdmin
         shell: bash
         run: |
           set -euo pipefail
@@ -22,11 +22,11 @@ jobs:
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
           cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import { DomainRoutingIsmFactory__factory } from '@hyperlane-xyz/core';
+          import { ProxyAdmin__factory } from '@hyperlane-xyz/core';
           const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
           const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
           const n=await provider.getTransactionCount(from,'pending');
-          const f=new DomainRoutingIsmFactory__factory();
+          const f=new ProxyAdmin__factory();
           const tx=f.getDeployTransaction();
           const gas=await provider.estimateGas({from,data:tx.data});
           console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
