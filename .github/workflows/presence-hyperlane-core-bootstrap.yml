@@ -1,4 +1,4 @@
-name: Presence Hyperlane Core Bootstrap
+name: Presence Hyperlane Security Bootstrap
 on:
   push:
     branches: [presence/hyperlane-core-bootstrap-20260919]
@@ -6,37 +6,46 @@ on:
 permissions:
   contents: read
 jobs:
-  audit:
+  prepare:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Audit deployed XGR Hyperlane Mailbox
+      - name: Prepare Base-origin 3-of-5 MerkleRootMultisig ISM on XGRChain
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/h && cd /tmp/h
           npm init -y >/dev/null
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
-          cat > audit.mjs <<'NODE'
+          cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import { Mailbox__factory } from '@hyperlane-xyz/core';
-          const p=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
-          const mailbox='0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79';
-          const m=Mailbox__factory.connect(mailbox,p);
-          const implSlot='0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
-          const adminSlot='0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
-          const addr=(x)=>ethers.utils.getAddress('0x'+x.slice(-40));
-          console.log('CHAIN_ID='+(await p.getNetwork()).chainId);
-          console.log('LOCAL_DOMAIN='+(await m.localDomain()).toString());
-          console.log('OWNER='+await m.owner());
-          console.log('DEFAULT_ISM='+await m.defaultIsm());
-          console.log('DEFAULT_HOOK='+await m.defaultHook());
-          console.log('REQUIRED_HOOK='+await m.requiredHook());
-          console.log('IMPLEMENTATION='+addr(await p.getStorageAt(mailbox,implSlot)));
-          console.log('ADMIN='+addr(await p.getStorageAt(mailbox,adminSlot)));
-          console.log('CODE_BYTES='+((await p.getCode(mailbox)).length-2)/2);
+          import { StaticMerkleRootMultisigIsmFactory__factory } from '@hyperlane-xyz/core';
+
+          const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
+          const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
+          const factoryAddress='0xefBbbe5739662201d66b4B79017c4F6FC4E23896';
+          const validators=[
+            '0xa5962efa3ec138bf7ca8f7fde86b7ee32e24bf03',
+            '0x5450447aee7b544c462c9352bef7cad049b0c2dc',
+            '0xb8cf45d7bab79c965843206d5f4d83bb866d6e86',
+            '0xe957310e17730f29862e896709cce62d24e4b773',
+            '0x34a14934d7c18a21440b59dfe9bf132ce601457d'
+          ].sort();
+          const threshold=3;
+          const factory=StaticMerkleRootMultisigIsmFactory__factory.connect(factoryAddress,provider);
+          const predicted=await factory.getAddress(validators,threshold);
+          const code=await provider.getCode(predicted);
+          const tx=await factory.populateTransaction.deploy(validators,threshold);
+          const gas=code==='0x' ? await provider.estimateGas({from,to:factoryAddress,data:tx.data}) : ethers.BigNumber.from(0);
+          console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
+          console.log('VALIDATORS='+validators.join(','));
+          console.log('THRESHOLD='+threshold);
+          console.log('PREDICTED_ISM='+predicted);
+          console.log('EXISTING_CODE_BYTES='+((code.length-2)/2));
+          console.log('ESTIMATED_GAS='+gas.toString());
+          console.log('CALLDATA='+tx.data);
           NODE
-          node audit.mjs
+          node p.mjs
