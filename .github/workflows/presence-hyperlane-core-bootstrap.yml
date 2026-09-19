@@ -1,4 +1,4 @@
-name: Presence Hyperlane Security Audit
+name: Presence Hyperlane ValidatorAnnounce
 on:
   push:
     branches: [presence/hyperlane-core-bootstrap-20260919]
@@ -6,57 +6,34 @@ on:
 permissions:
   contents: read
 jobs:
-  audit:
+  prepare:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Audit active XGR Hyperlane security configuration
+      - name: Prepare ValidatorAnnounce
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/h && cd /tmp/h
           npm init -y >/dev/null
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
-          cat > audit.mjs <<'NODE'
+          cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import {
-            Mailbox__factory,
-            DomainRoutingIsm__factory,
-            StaticMerkleRootMultisigIsm__factory,
-            MerkleTreeHook__factory,
-            ProtocolFee__factory
-          } from '@hyperlane-xyz/core';
+          import { ValidatorAnnounce__factory } from '@hyperlane-xyz/core';
           const p=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
+          const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
           const mailbox='0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79';
-          const routing='0xAf03B407FED3c4857A24Be9ac8EC64b7d178AA51';
-          const baseIsm='0x15Aad8569fe7e6E3E6eC6c6dE3f696bB1eEF7148';
-          const merkle='0xeD98Af715b5a72dCD412567eb086d48225CDDACF';
-          const protocol='0xf5f7A6D1Bd721D56F016b77e4Fc59C24bE5EA75f';
-          const m=Mailbox__factory.connect(mailbox,p);
-          const r=DomainRoutingIsm__factory.connect(routing,p);
-          const i=StaticMerkleRootMultisigIsm__factory.connect(baseIsm,p);
-          const h=MerkleTreeHook__factory.connect(merkle,p);
-          const f=ProtocolFee__factory.connect(protocol,p);
-          const encodedMessage='0x';
-          const vt=await i.validatorsAndThreshold(encodedMessage);
+          const nonce=await p.getTransactionCount(from,'pending');
+          const f=new ValidatorAnnounce__factory();
+          const tx=f.getDeployTransaction(mailbox);
+          const gas=await p.estimateGas({from,data:tx.data});
           console.log('CHAIN_ID='+(await p.getNetwork()).chainId);
-          console.log('LOCAL_DOMAIN='+(await m.localDomain()).toString());
-          console.log('MAILBOX_OWNER='+await m.owner());
-          console.log('DEFAULT_ISM='+await m.defaultIsm());
-          console.log('DEFAULT_HOOK='+await m.defaultHook());
-          console.log('REQUIRED_HOOK='+await m.requiredHook());
-          console.log('ROUTING_OWNER='+await r.owner());
-          console.log('ROUTING_MODULE_BASE='+await r.module(8453));
-          console.log('BASE_THRESHOLD='+vt[1].toString());
-          console.log('BASE_VALIDATORS='+vt[0].join(','));
-          console.log('MERKLE_MAILBOX='+await h.mailbox());
-          console.log('MERKLE_COUNT='+(await h.count()).toString());
-          console.log('PROTOCOL_OWNER='+await f.owner());
-          console.log('PROTOCOL_MAX='+(await f.MAX_PROTOCOL_FEE()).toString());
-          console.log('PROTOCOL_FEE='+(await f.protocolFee()).toString());
-          console.log('PROTOCOL_BENEFICIARY='+await f.beneficiary());
+          console.log('NONCE='+nonce);
+          console.log('ADDRESS='+ethers.utils.getContractAddress({from,nonce}));
+          console.log('GAS='+gas.toString());
+          console.log('DATA='+tx.data);
           NODE
-          node audit.mjs
+          node p.mjs
