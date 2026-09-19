@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare Base-origin 3-of-5 MerkleRootMultisig ISM on XGRChain
+      - name: Prepare Base-only DomainRoutingIsm on XGRChain
         shell: bash
         run: |
           set -euo pipefail
@@ -22,29 +22,19 @@ jobs:
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
           cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import { StaticMerkleRootMultisigIsmFactory__factory } from '@hyperlane-xyz/core';
-
+          import { DomainRoutingIsmFactory__factory } from '@hyperlane-xyz/core';
           const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
           const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
-          const factoryAddress='0xefBbbe5739662201d66b4B79017c4F6FC4E23896';
-          const validators=[
-            '0xa5962efa3ec138bf7ca8f7fde86b7ee32e24bf03',
-            '0x5450447aee7b544c462c9352bef7cad049b0c2dc',
-            '0xb8cf45d7bab79c965843206d5f4d83bb866d6e86',
-            '0xe957310e17730f29862e896709cce62d24e4b773',
-            '0x34a14934d7c18a21440b59dfe9bf132ce601457d'
-          ].sort();
-          const threshold=3;
-          const factory=StaticMerkleRootMultisigIsmFactory__factory.connect(factoryAddress,provider);
-          const predicted=await factory.getAddress(validators,threshold);
-          const code=await provider.getCode(predicted);
-          const tx=await factory.populateTransaction.deploy(validators,threshold);
-          const gas=code==='0x' ? await provider.estimateGas({from,to:factoryAddress,data:tx.data}) : ethers.BigNumber.from(0);
+          const factoryAddress='0xfbcE47b2A2Eb371700C6b82bf001d82996C64035';
+          const baseIsm='0x15Aad8569fe7e6E3E6eC6c6dE3f696bB1eEF7148';
+          const domains=[8453];
+          const modules=[baseIsm];
+          const factory=DomainRoutingIsmFactory__factory.connect(factoryAddress,provider);
+          const tx=await factory.populateTransaction.deploy(from,domains,modules);
+          const gas=await provider.estimateGas({from,to:factoryAddress,data:tx.data});
+          const nonce=await provider.getTransactionCount(from,'pending');
           console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
-          console.log('VALIDATORS='+validators.join(','));
-          console.log('THRESHOLD='+threshold);
-          console.log('PREDICTED_ISM='+predicted);
-          console.log('EXISTING_CODE_BYTES='+((code.length-2)/2));
+          console.log('NONCE='+nonce);
           console.log('ESTIMATED_GAS='+gas.toString());
           console.log('CALLDATA='+tx.data);
           NODE
