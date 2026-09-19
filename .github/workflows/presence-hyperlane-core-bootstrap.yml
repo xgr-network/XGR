@@ -1,4 +1,4 @@
-name: Presence Hyperlane Security Bootstrap
+name: Presence Hyperlane Hooks Bootstrap
 on:
   push:
     branches: [presence/hyperlane-core-bootstrap-20260919]
@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare Base-only DomainRoutingIsm on XGRChain
+      - name: Prepare MerkleTreeHook ProtocolFee and Mailbox setters
         shell: bash
         run: |
           set -euo pipefail
@@ -22,20 +22,44 @@ jobs:
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
           cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import { DomainRoutingIsmFactory__factory } from '@hyperlane-xyz/core';
+          import { MerkleTreeHook__factory, ProtocolFee__factory, Mailbox__factory } from '@hyperlane-xyz/core';
           const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
           const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
-          const factoryAddress='0xfbcE47b2A2Eb371700C6b82bf001d82996C64035';
-          const baseIsm='0x15Aad8569fe7e6E3E6eC6c6dE3f696bB1eEF7148';
-          const domains=[8453];
-          const modules=[baseIsm];
-          const factory=DomainRoutingIsmFactory__factory.connect(factoryAddress,provider);
-          const tx=await factory.populateTransaction.deploy(from,domains,modules);
-          const gas=await provider.estimateGas({from,to:factoryAddress,data:tx.data});
+          const mailbox='0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79';
+          const routingIsm='0xAf03B407FED3c4857A24Be9ac8EC64b7d178AA51';
           const nonce=await provider.getTransactionCount(from,'pending');
+
+          const mh=new MerkleTreeHook__factory();
+          const mtx=mh.getDeployTransaction(mailbox);
+          const mGas=await provider.estimateGas({from,data:mtx.data});
+          const mAddr=ethers.utils.getContractAddress({from,nonce});
+
+          const pf=new ProtocolFee__factory();
+          const ptx=pf.getDeployTransaction(0,0,from,from);
+          const pGas=await provider.estimateGas({from,data:ptx.data});
+          const pAddr=ethers.utils.getContractAddress({from,nonce:nonce+1});
+
+          const mb=new Mailbox__factory();
+          const setIsm=mb.interface.encodeFunctionData('setDefaultIsm',[routingIsm]);
+          const setDefaultHook=mb.interface.encodeFunctionData('setDefaultHook',[mAddr]);
+          const setRequiredHook=mb.interface.encodeFunctionData('setRequiredHook',[pAddr]);
+          const gasIsm=await provider.estimateGas({from,to:mailbox,data:setIsm});
+          const gasDefault=await provider.estimateGas({from,to:mailbox,data:setDefaultHook});
+          const gasRequired=await provider.estimateGas({from,to:mailbox,data:setRequiredHook});
+
           console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
-          console.log('NONCE='+nonce);
-          console.log('ESTIMATED_GAS='+gas.toString());
-          console.log('CALLDATA='+tx.data);
+          console.log('PENDING_NONCE='+nonce);
+          console.log('MERKLE_ADDRESS='+mAddr);
+          console.log('MERKLE_GAS='+mGas.toString());
+          console.log('MERKLE_DATA='+mtx.data);
+          console.log('PROTOCOL_ADDRESS='+pAddr);
+          console.log('PROTOCOL_GAS='+pGas.toString());
+          console.log('PROTOCOL_DATA='+ptx.data);
+          console.log('SET_ISM_GAS='+gasIsm.toString());
+          console.log('SET_ISM_DATA='+setIsm);
+          console.log('SET_DEFAULT_HOOK_GAS='+gasDefault.toString());
+          console.log('SET_DEFAULT_HOOK_DATA='+setDefaultHook);
+          console.log('SET_REQUIRED_HOOK_GAS='+gasRequired.toString());
+          console.log('SET_REQUIRED_HOOK_DATA='+setRequiredHook);
           NODE
           node p.mjs
