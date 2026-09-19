@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare Hyperlane Mailbox implementation
+      - name: Prepare Mailbox initialization and proxy
         shell: bash
         run: |
           set -euo pipefail
@@ -22,21 +22,28 @@ jobs:
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
           cat > p.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import { Mailbox__factory } from '@hyperlane-xyz/core';
+          import { Mailbox__factory, TransparentUpgradeableProxy__factory } from '@hyperlane-xyz/core';
           const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
           const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
-          const n=await provider.getTransactionCount(from,'pending');
-          const f=new Mailbox__factory();
-          const tx=f.getDeployTransaction(1643);
-          const gas=await provider.estimateGas({from,data:tx.data});
+          const impl='0xAAFc36b53FdC857429351256447E82f626d47F8a';
+          const admin='0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3';
+          const mailbox=new Mailbox__factory();
+          const init=mailbox.interface.encodeFunctionData('initialize',[from,admin,admin,admin]);
+          const nonce=await provider.getTransactionCount(from,'pending');
+          const initGas=await provider.estimateGas({from,to:impl,data:init});
+          const pf=new TransparentUpgradeableProxy__factory();
+          const ptx=pf.getDeployTransaction(impl,admin,init);
+          const proxyGas=await provider.estimateGas({from,data:ptx.data});
           console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
-          console.log('NONCE='+n);
-          console.log('ADDRESS='+ethers.utils.getContractAddress({from,nonce:n}));
-          console.log('GAS='+gas.toString());
-          console.log('KECCAK='+ethers.utils.keccak256(tx.data));
-          console.log('INIT_DATA='+f.interface.encodeFunctionData('initialize',[from,'0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3','0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3','0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3']));
-          console.log('CREATION_DATA_BEGIN');
-          console.log(tx.data);
-          console.log('CREATION_DATA_END');
+          console.log('PENDING_NONCE='+nonce);
+          console.log('INIT_GAS='+initGas.toString());
+          console.log('INIT_DATA='+init);
+          console.log('PROXY_NONCE='+(nonce+1));
+          console.log('PROXY_ADDRESS='+ethers.utils.getContractAddress({from,nonce:nonce+1}));
+          console.log('PROXY_GAS='+proxyGas.toString());
+          console.log('PROXY_KECCAK='+ethers.utils.keccak256(ptx.data));
+          console.log('PROXY_DATA_BEGIN');
+          console.log(ptx.data);
+          console.log('PROXY_DATA_END');
           NODE
           node p.mjs
