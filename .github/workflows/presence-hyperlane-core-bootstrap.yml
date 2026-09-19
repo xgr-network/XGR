@@ -1,0 +1,68 @@
+name: Presence Hyperlane Core Bootstrap
+
+on:
+  push:
+    branches:
+      - presence/hyperlane-core-bootstrap-20260919
+    paths:
+      - .github/workflows/presence-hyperlane-core-bootstrap.yml
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build exact Hyperlane factory creation transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hyperlane-preflight
+          cd /tmp/hyperlane-preflight
+          npm init -y >/dev/null
+          npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
+          cat > preflight.mjs <<'NODE'
+          import { ethers } from 'ethers';
+          import { StaticMerkleRootMultisigIsmFactory__factory } from '@hyperlane-xyz/core';
+
+          const rpc = 'https://rpc.xgr.network';
+          const from = '0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
+          const provider = new ethers.providers.JsonRpcProvider(rpc);
+          const network = await provider.getNetwork();
+          if (Number(network.chainId) !== 1643) {
+            throw new Error('Unexpected chain id: ' + network.chainId);
+          }
+
+          const factory = new StaticMerkleRootMultisigIsmFactory__factory();
+          const tx = factory.getDeployTransaction();
+          if (!tx.data || typeof tx.data !== 'string' || !tx.data.startsWith('0x')) {
+            throw new Error('Missing creation bytecode');
+          }
+
+          const estimatedGas = await provider.estimateGas({ from, data: tx.data });
+          const gasPrice = await provider.getGasPrice();
+          const predictedAddress = ethers.utils.getContractAddress({ from, nonce: 0 });
+          const byteLength = (tx.data.length - 2) / 2;
+          const codeHash = ethers.utils.keccak256(tx.data);
+
+          console.log('HYPERLANE_CORE_PACKAGE=12.1.0');
+          console.log('CHAIN_ID=' + network.chainId);
+          console.log('CONTRACT=StaticMerkleRootMultisigIsmFactory');
+          console.log('FROM=' + from);
+          console.log('PREDICTED_ADDRESS=' + predictedAddress);
+          console.log('ESTIMATED_GAS=' + estimatedGas.toString());
+          console.log('GAS_PRICE_WEI=' + gasPrice.toString());
+          console.log('CREATION_BYTES=' + byteLength);
+          console.log('CREATION_KECCAK=' + codeHash);
+          console.log('CREATION_DATA_BEGIN');
+          console.log(tx.data);
+          console.log('CREATION_DATA_END');
+          NODE
+          node preflight.mjs
