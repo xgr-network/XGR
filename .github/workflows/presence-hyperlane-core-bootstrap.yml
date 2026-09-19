@@ -6,44 +6,37 @@ on:
 permissions:
   contents: read
 jobs:
-  prepare:
+  audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare Mailbox initialization and proxy
+      - name: Audit deployed XGR Hyperlane Mailbox
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/h && cd /tmp/h
           npm init -y >/dev/null
           npm install --silent @hyperlane-xyz/core@12.1.0 ethers@5
-          cat > p.mjs <<'NODE'
+          cat > audit.mjs <<'NODE'
           import { ethers } from 'ethers';
-          import { Mailbox__factory, TransparentUpgradeableProxy__factory } from '@hyperlane-xyz/core';
-          const provider=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
-          const from='0xE3dA0303c8d48Dd8d4d6f9ba438cD5816b36BBD1';
-          const impl='0xAAFc36b53FdC857429351256447E82f626d47F8a';
-          const admin='0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3';
-          const mailbox=new Mailbox__factory();
-          const init=mailbox.interface.encodeFunctionData('initialize',[from,admin,admin,admin]);
-          const nonce=await provider.getTransactionCount(from,'pending');
-          const initGas=await provider.estimateGas({from,to:impl,data:init});
-          const pf=new TransparentUpgradeableProxy__factory();
-          const ptx=pf.getDeployTransaction(impl,admin,init);
-          const proxyGas=await provider.estimateGas({from,data:ptx.data});
-          console.log('CHAIN_ID='+(await provider.getNetwork()).chainId);
-          console.log('PENDING_NONCE='+nonce);
-          console.log('INIT_GAS='+initGas.toString());
-          console.log('INIT_DATA='+init);
-          console.log('PROXY_NONCE='+(nonce+1));
-          console.log('PROXY_ADDRESS='+ethers.utils.getContractAddress({from,nonce:nonce+1}));
-          console.log('PROXY_GAS='+proxyGas.toString());
-          console.log('PROXY_KECCAK='+ethers.utils.keccak256(ptx.data));
-          console.log('PROXY_DATA_BEGIN');
-          console.log(ptx.data);
-          console.log('PROXY_DATA_END');
+          import { Mailbox__factory } from '@hyperlane-xyz/core';
+          const p=new ethers.providers.JsonRpcProvider('https://rpc.xgr.network');
+          const mailbox='0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79';
+          const m=Mailbox__factory.connect(mailbox,p);
+          const implSlot='0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+          const adminSlot='0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
+          const addr=(x)=>ethers.utils.getAddress('0x'+x.slice(-40));
+          console.log('CHAIN_ID='+(await p.getNetwork()).chainId);
+          console.log('LOCAL_DOMAIN='+(await m.localDomain()).toString());
+          console.log('OWNER='+await m.owner());
+          console.log('DEFAULT_ISM='+await m.defaultIsm());
+          console.log('DEFAULT_HOOK='+await m.defaultHook());
+          console.log('REQUIRED_HOOK='+await m.requiredHook());
+          console.log('IMPLEMENTATION='+addr(await p.getStorageAt(mailbox,implSlot)));
+          console.log('ADMIN='+addr(await p.getStorageAt(mailbox,adminSlot)));
+          console.log('CODE_BYTES='+((await p.getCode(mailbox)).length-2)/2);
           NODE
-          node p.mjs
+          node audit.mjs
