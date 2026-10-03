@@ -1,10 +1,10 @@
 # XGR Network
 
-XGR Network develops XGRChain, an EVM-compatible blockchain focused on deterministic on-chain process execution rather than simple value transfer.
+XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on deterministic on-chain process execution rather than simple value transfer.
 
 The core technology is XDaLa, a validation-to-execution engine that extends transactions into auditable multi-step workflows by combining on-chain rules, external data sources and smart contract execution.
 
-XGR Network also provides native interchain infrastructure for transferring XGR between XGRChain and supported external networks.
+XGR Network also provides Interchain infrastructure for transferring XGR between XGRChain and supported external networks.
 
 This repository contains the public specifications, standards and reference documentation for XGR Network.
 
@@ -22,7 +22,8 @@ Current public chain baseline:
 - **Mainnet:** live
 - **Testnet:** available
 - **Execution environment:** EVM compatible
-- **Consensus:** staking-based validator consensus with stake-weighted voting power
+- **Finality protocol:** IBFT
+- **Validator model:** delegated PoS with stake- and uptime-weighted voting power
 - **Mainnet RPC:** `https://rpc.xgr.network`
 
 The public node implementation is maintained in:
@@ -30,6 +31,10 @@ The public node implementation is maintained in:
 https://github.com/xgr-network/xgr-node
 
 The documentation under `docs/chain/` is maintained against the current public XGRChain node baseline unless a document explicitly describes a historical release.
+
+Documentation index:
+
+https://github.com/xgr-network/XGR/blob/main/docs/INDEX.md
 
 ---
 
@@ -52,9 +57,9 @@ XDaLa is designed for use cases that require deterministic behavior, regulatory 
 
 ## Interchain
 
-XGR Network operates native interchain infrastructure for cross-chain XGR transfers.
+XGR Network maintains Interchain infrastructure for cross-chain XGR transfers.
 
-The first implemented production route connects:
+The first implemented and mainnet-validated XGR asset route connects:
 
 - **XGRChain** — chain/domain `1643`
 - **Base** — chain/domain `8453`
@@ -63,49 +68,49 @@ The route preserves native XGR on XGRChain and represents bridged XGR as synthet
 
 ### XGRChain → Base
 
-```text
-native XGR
-    │
-    │ lock
-    ▼
-XGR native router
-    │
-    │ cross-chain message
-    ▼
-Base synthetic router
-    │
-    │ mint
-    ▼
-wXGR
-```
+    native XGR
+        │
+        │ lock
+        ▼
+    XGR native router
+        │
+        │ cross-chain message
+        ▼
+    Base synthetic router
+        │
+        │ mint
+        ▼
+    wXGR
 
 ### Base → XGRChain
 
-```text
-wXGR
-    │
-    │ burn
-    ▼
-Base synthetic router
-    │
-    │ cross-chain message
-    ▼
-XGR native router
-    │
-    │ unlock
-    ▼
-native XGR
-```
+    wXGR
+        │
+        │ burn
+        ▼
+    Base synthetic router
+        │
+        │ cross-chain message
+        ▼
+    XGR native router
+        │
+        │ unlock
+        ▼
+    native XGR
 
 Both directions have been validated end-to-end on mainnet.
 
-The interchain backend combines Hyperlane-compatible messaging with XGR-specific validator, BLS, Merkle-proof and destination security-module infrastructure.
+Bidirectional end-to-end validation demonstrates that both transfer paths have operated successfully on mainnet. It does not by itself imply that every route direction is continuously enabled, that every relayer is currently submitting transactions, or that a public user-facing bridge is open.
 
-Implementation and deployment tooling are maintained separately in:
+Current route, deployment and operational state is maintained separately in the Interchain repository and its deployment manifests.
+
+The Interchain backend combines Hyperlane-compatible messaging with XGR-specific validator, BLS, Merkle-proof and destination security-module infrastructure.
+
+Implementation and deployment tooling are maintained in:
 
 https://github.com/xgr-network/xgr-hyperlane
 
-Detailed architecture, deployment and operator documentation is maintained separately from the node implementation.
+Detailed architecture, deployment and operator documentation is maintained separately from the XGRChain node implementation.
 
 ---
 
@@ -149,13 +154,28 @@ User deployment, Session Start and contract-call transactions remain under the c
 
 ## Repository Contents
 
+### Documentation Index
+
+The complete public documentation index is maintained at:
+
+`docs/INDEX.md`
+
+It provides the entry points for:
+
+- XGRChain,
+- XDaLa,
+- XRC standards,
+- MCP,
+- UI documentation,
+- separately maintained Interchain documentation.
+
 ### XGRChain
 
 The `docs/chain/` section contains the public technical documentation for XGRChain, including:
 
 - chain architecture and specification,
-- consensus,
-- validator and staking behavior,
+- IBFT consensus,
+- delegated PoS validator and staking behavior,
 - genesis and chain configuration,
 - node operation,
 - peer-to-peer networking,
@@ -199,16 +219,18 @@ Specifications and interfaces may evolve independently and are subject to their 
 
 ## Privacy and Security Model
 
-XDaLa is privacy-first by design.
+XDaLa is designed to support privacy-preserving execution.
 
 - Payloads and outputs can be end-to-end encrypted.
-- Decryption remains on the user side using wallet-based keys.
-- No plaintext sensitive data is required to be stored on-chain.
-- Validation and execution are separated from data visibility.
+- Decryption can remain on the user side using wallet-based keys.
+- Plaintext sensitive data does not need to be stored on-chain.
+- Validation and execution can be separated from data visibility.
 
-This enables auditable processes without compromising data sovereignty.
+This enables auditable processes while preserving data-sovereignty boundaries.
 
 Interchain infrastructure uses a separate security model based on authenticated cross-chain messages, validator attestations, destination-side security modules and explicit asset locking, minting, burning and unlocking.
+
+XGRChain consensus authority, XDaLa permissions, MCP service authority and Interchain service authority are separate security domains.
 
 ---
 
@@ -221,7 +243,7 @@ This repository is intended for:
 - infrastructure and protocol engineers,
 - teams working on regulated or compliance-sensitive workflows,
 - agent builders integrating the XGR MCP Gateway,
-- interchain integrators,
+- Interchain integrators,
 - auditors and reviewers evaluating deterministic execution and cross-chain security models.
 
 ---
@@ -230,7 +252,7 @@ This repository is intended for:
 
 - **XGRChain:** Mainnet live; testnet available
 - **Current public node release:** `v3.1.1`
-- **Consensus:** Active on XGRChain mainnet
+- **Consensus:** IBFT finality with delegated PoS validator participation active on XGRChain mainnet
 - **State Growth Control:** Online State Trie Sweeper available for configurable historical-state retention and reclamation of unreachable trie/code data
 - **XDaLa:** Active specification and implementation
 - **MCP Gateway:** Mainnet and testnet live
@@ -239,7 +261,7 @@ This repository is intended for:
 - **MCP XDaLa start-payload history tools:** Live
 - **Mainnet XGR purchase tools:** Implemented and deployment-controlled
 - **Native XGR starter-gas service:** Implemented and deployment-controlled
-- **XGR Interchain:** XGRChain ↔ Base backend implemented and bidirectionally validated on mainnet
+- **XGR Interchain:** XGRChain ↔ Base backend implemented and bidirectionally validated on mainnet; current operational availability is maintained separately
 - **XRC standards:** Maintained as independently versioned specifications
 
 The repository reflects the public and stable interfaces of the XGR ecosystem.
@@ -252,15 +274,19 @@ XGR components use independent but coordinated versioning.
 
 The current XGRChain documentation baseline is:
 
-```text
-xgr-node v3.1.1
-```
+    xgr-node v3.1.1
 
 This version applies to the public node and the Chain documentation describing that node baseline.
 
-XDaLa, XRC standards, MCP services, user interfaces and interchain infrastructure may evolve independently and therefore retain their own specification, interface or deployment versioning where required.
+XDaLa, XRC standards, MCP services, user interfaces and Interchain infrastructure may evolve independently and therefore retain their own specification, interface or deployment versioning where required.
 
-Historical release documents remain historical. A document explicitly describing an older release must not be rewritten to imply that it describes the current node version.
+A new `xgr-node` release does not automatically imply:
+
+- a new mainnet genesis,
+- a hardfork,
+- a new Interchain deployment,
+- a new XDaLa version,
+- a new XRC specification version.
 
 ---
 
