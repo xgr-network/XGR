@@ -1,70 +1,122 @@
 # XGR Chain — Genesis & Network Configuration
 
 **Document ID:** XGRCHAIN-GENESIS-CONFIG  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-10-03  
 **Audience:** Node operators, protocol developers, auditors, infrastructure engineers  
-**Implementation status:** XGR2.0 mainnet baseline with delegated PoS active  
-**Source of truth:** `xgr-network/XGR` `main` branch `genesis/mainnet/genesis.json`, public `xgr-network/xgr-node` branch `XGR2.0`, and official XGR Network operator announcements
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
+**Node implementation:** `xgr-network/xgr-node`  
+**Scope:** Genesis and network-defining XGRChain configuration
 
 ---
 
 ## 1. Purpose
 
-This document explains the genesis and network-defining configuration of XGR Chain.
+This document describes the genesis and network-defining configuration of XGRChain.
 
-The genesis configuration defines the initial state and protocol parameters of the network.
+The genesis configuration defines the initial chain state and the protocol parameters from which the network originates.
 
 It covers:
 
-- canonical genesis file location
-- genesis file structure
-- chain identity
-- network-defining fields
-- genesis block header fields
-- consensus configuration
-- initial validator set
-- PoA to delegated PoS transition
-- PoS epoch configuration
-- genesis allocations
-- fork activation configuration
-- gas and base-fee genesis fields
-- EngineRegistry and bootstrap fields
-- bootnodes
-- runtime configuration boundaries
-- local/test network boundaries
-- operator validation checklist
+- canonical genesis location,
+- genesis structure,
+- chain identity,
+- genesis block fields,
+- initial state,
+- consensus configuration,
+- initial validator set,
+- PoA-to-PoS transition,
+- PoS validator limits,
+- epoch configuration,
+- fork activation,
+- gas and fee-related genesis fields,
+- EngineRegistry configuration,
+- bootnodes,
+- runtime versus network-defining configuration,
+- local/test-network boundaries,
+- operator validation.
 
-This document is chain-level configuration documentation.
+This document does not define:
 
-It does not define XDaLa process semantics, XRC standards, UI behavior or application-layer workflows.
+- node service management,
+- trie-pruning operations,
+- validator onboarding procedures,
+- XDaLa application semantics,
+- XRC standards,
+- interchain relayer configuration,
+- Hyperlane routing or security modules,
+- UI behavior.
+
+Those topics are documented separately.
 
 ---
 
-## 2. Canonical genesis file
+## 2. Canonical mainnet genesis
 
-The canonical published mainnet genesis file is stored in the public documentation/configuration repository:
+The canonical XGRChain mainnet genesis is maintained in:
 
 ```text
-xgr-network/XGR
+Repository: xgr-network/XGR
+Branch:     main
+Path:       genesis/mainnet/genesis.json
 ```
 
-Canonical path:
+Raw path:
+
+```text
+https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json
+```
+
+A node joining XGRChain mainnet must use the canonical network configuration.
+
+The genesis file is not a local operator preference file.
+
+It defines the network.
+
+Changing consensus-critical genesis values creates a different chain or an incompatible node configuration.
+
+---
+
+## 3. Release version versus genesis version
+
+The current public node release is:
+
+```text
+xgr-node v3.1.1
+```
+
+This does **not** mean that XGRChain uses a new mainnet genesis.
+
+The canonical mainnet genesis remains the published:
 
 ```text
 genesis/mainnet/genesis.json
 ```
 
-A node joining the published XGR Chain mainnet must use the same genesis configuration and active network-defining upgrade configuration.
+The distinction is:
 
-Changing network-defining genesis or chain-configuration fields creates a different network identity and prevents the node from joining the same chain.
+```text
+xgr-node v3.1.1
+    = software implementation baseline
 
-The genesis file is not a local operator preference file. It defines the network.
+genesis/mainnet/genesis.json
+    = canonical XGRChain mainnet network configuration
+```
+
+A software upgrade does not automatically imply:
+
+- a new chain ID,
+- a new genesis hash,
+- a new initial allocation,
+- a new validator genesis,
+- a new PoS activation block.
 
 ---
 
-## 3. Node schema for chain configuration
+## 4. Chain-configuration schema
 
-The `xgr-node` chain configuration schema contains the following top-level fields:
+The public node chain configuration uses the high-level structure:
 
 ```json
 {
@@ -75,33 +127,36 @@ The `xgr-node` chain configuration schema contains the following top-level field
 }
 ```
 
-The node imports the chain configuration into this structure:
+Main sections:
 
 | Section | Purpose |
-|---|---|
+| --- | --- |
 | `name` | Human-readable chain name |
-| `genesis` | Genesis block header fields and initial state |
-| `genesis.alloc` | Initial account allocation used for genesis state |
-| `params` | Chain parameters, forks, chain ID, consensus engine and configured protocol addresses |
-| `bootnodes` | Initial peer-discovery entries |
+| `genesis` | Genesis block and initial state |
+| `genesis.alloc` | Runtime genesis account allocation |
+| `params` | Chain ID, forks, consensus and protocol parameters |
+| `params.engine` | Consensus-engine configuration |
+| `bootnodes` | Initial P2P discovery peers |
 
-Runtime genesis state is defined by:
+The published file additionally contains a top-level:
+
+```text
+alloc
+```
+
+object mirroring:
 
 ```text
 genesis.alloc
 ```
 
-The published genesis file also contains a top-level `alloc` object that mirrors the allocation.
-
-The node runtime allocation source is still `genesis.alloc`.
-
-The node expects exactly one configured consensus engine in `params.engine`.
+For runtime genesis-state construction, `genesis.alloc` is the relevant allocation source.
 
 ---
 
-## 4. Published genesis structure
+## 5. Published mainnet structure
 
-The published mainnet genesis file has this high-level structure:
+The current mainnet genesis has the following high-level form:
 
 ```json
 {
@@ -139,87 +194,112 @@ The published mainnet genesis file has this high-level structure:
 }
 ```
 
-The concrete `params.engine.ibft` object is network-defining.
-
-For XGR2.0 mainnet, the published genesis defines a scheduled transition from PoA to PoS.
+The concrete contents of these objects are network-defining.
 
 ---
 
-## 5. Chain identity
+## 6. Chain identity
+
+Published mainnet identity:
 
 | Field | Value |
-|---|---|
-| `name` | `xgrchain` |
-| `params.chainID` | `1643` |
-| Transaction replay protection | EIP-155 chain ID |
-| Native token decimals | 18 |
-| Execution model | EVM-compatible |
-| Standard RPC model | Ethereum-compatible JSON-RPC |
-| Consensus finality | IBFT |
-| Validator model after XGR2.0 cutover | Delegated PoS |
+| --- | --- |
+| Network name | `xgrchain` |
+| Chain ID | `1643` |
+| Chain ID hex | `0x66b` |
+| Native asset | XGR |
+| Native decimals | `18` |
+| Execution environment | EVM-compatible |
+| Transaction replay protection | EIP-155 |
+| Consensus | IBFT |
+| Current validator phase | Delegated PoS |
 
-Mainnet transactions must be signed for:
+Transactions must use:
 
 ```text
 chainId = 1643
 ```
 
-Changing `params.chainID` changes the signing domain and defines a different network.
+Changing the chain ID changes the transaction signing domain and defines an incompatible network.
 
 ---
 
-## 6. Network-defining fields
+## 7. Network-defining versus operational configuration
 
-The following field groups define the network.
+Not every node setting belongs in genesis.
 
-Changing them changes either the genesis block, protocol behavior, validator configuration, or network identity.
+### Network-defining configuration
 
-| Field group | Examples | Effect of change |
-|---|---|---|
-| Chain identity | `name`, `params.chainID` | Different network identity / signing domain |
-| Genesis block header | `nonce`, `timestamp`, `extraData`, `gasLimit`, `difficulty`, `mixHash`, `coinbase`, `number`, `gasUsed`, `parentHash`, `baseFee` | Different genesis block |
-| Initial state | `genesis.alloc` | Different initial balances/state |
-| Consensus engine | `params.engine.ibft.*` | Different consensus behavior |
-| PoA/PoS schedule | `params.engine.ibft.types[]`, `type`, `from`, `to`, `deployment` | Different validator-set transition behavior |
-| PoS epoch config | `microEpochSize`, `macroEpochMicroFactor`, uptime-related micro-epoch fields | Different PoS epoch/weighting behavior |
-| Fork schedule | `params.forks.*` | Different EVM execution rules |
-| Registry fields | `params.engineRegistryAddress`, `params.bootstrapEngineEOA` | Different configured registry/bootstrap behavior |
-| Fee-related genesis fields | `params.blockGasTarget`, `burnContract`, `burnContractDestinationAddress` | Different fee/gas policy baseline |
-| Bootnodes | `bootnodes` | Different default peer discovery configuration |
+Examples:
 
-Bootnodes support initial peer discovery.
+- chain ID,
+- genesis header,
+- initial allocation,
+- IBFT configuration,
+- validator type schedule,
+- PoS activation,
+- validator limits,
+- fork activation,
+- EngineRegistry address.
 
-They do not grant validator authority.
+### Local operational configuration
+
+Examples:
+
+- data directory,
+- RPC bind address,
+- P2P bind address,
+- log level,
+- metrics endpoint,
+- peer limits,
+- trie sweeper,
+- state-retention window,
+- service management,
+- reverse proxy,
+- firewall.
+
+### External-service configuration
+
+Examples:
+
+- interchain relayer accounts,
+- Hyperlane router addresses,
+- Interchain Security Modules,
+- relayer submission mode,
+- checkpoint state,
+- external chain RPC endpoints.
+
+These layers must not be confused.
 
 ---
 
-## 7. Genesis block header fields
+## 8. Genesis block header
 
-Published mainnet genesis block fields:
+Published mainnet genesis-header values:
 
 | Field | Value |
-|---|---|
-| `genesis.nonce` | `0x0000000000000000` |
-| `genesis.timestamp` | `0x0` |
-| `genesis.gasLimit` | `0x3938700` |
-| `genesis.gasLimit` decimal | `60,000,000` |
-| `genesis.difficulty` | `0x1` |
-| `genesis.mixHash` | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `genesis.coinbase` | `0x0000000000000000000000000000000000000000` |
-| `genesis.number` | `0x0` |
-| `genesis.gasUsed` | `0x00000` |
-| `genesis.parentHash` | `0x0000000000000000000000000000000000000000000000000000000000000000` |
-| `genesis.baseFee` | `0x0` |
-| `genesis.baseFeeEM` | `0x0` |
-| `genesis.baseFeeChangeDenom` | `0x0` |
+| --- | --- |
+| `nonce` | `0x0000000000000000` |
+| `timestamp` | `0x0` |
+| `gasLimit` | `0x3938700` |
+| Gas limit decimal | `60,000,000` |
+| `difficulty` | `0x1` |
+| `mixHash` | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| `coinbase` | `0x0000000000000000000000000000000000000000` |
+| `number` | `0x0` |
+| `gasUsed` | `0x00000` |
+| `parentHash` | `0x0000000000000000000000000000000000000000000000000000000000000000` |
+| `baseFee` | `0x0` |
+| `baseFeeEM` | `0x0` |
+| `baseFeeChangeDenom` | `0x0` |
 
-The genesis header is the root of the chain.
+The genesis block is the root of the chain.
 
-A node with different genesis header values will not be on the same network.
+Changing these fields changes the genesis block and therefore the resulting network.
 
 ---
 
-## 8. Consensus configuration
+## 9. Consensus engine
 
 Consensus configuration is stored under:
 
@@ -227,255 +307,255 @@ Consensus configuration is stored under:
 params.engine.ibft
 ```
 
-XGR Chain uses IBFT for deterministic finality.
-
-The published mainnet IBFT engine configuration contains:
+Published mainnet parameters:
 
 | Field | Value |
-|---|---|
+| --- | ---: |
 | `blockTime` | `2000000000` |
 | `microEpochSize` | `25` |
 | `macroEpochMicroFactor` | `40` |
 | `microEpochInactivityDecayBps` | `9000` |
 | `microEpochNominalWeightUnits` | `10000` |
 
-The published mainnet configuration uses an IBFT `types` schedule.
+`blockTime` is expressed in nanoseconds.
+
+Therefore:
+
+```text
+2000000000 ns = approximately 2 seconds
+```
 
 ---
 
-## 9. PoA to delegated PoS transition
+## 10. Consensus phase schedule
 
-The published mainnet genesis defines the IBFT type schedule as:
+Published IBFT phase schedule:
 
 | Phase | Type | Validator type | From | To | Deployment |
-|---|---|---|---:|---:|---:|
-| Pre-XGR2.0 | `PoA` | `bls` | `0` | `5446499` | n/a |
-| XGR2.0 and later | `PoS` | `bls` | `5446500` | n/a | `5446500` |
+| --- | --- | --- | ---: | ---: | ---: |
+| Initial phase | `PoA` | `bls` | `0` | `5446499` | n/a |
+| Delegated PoS | `PoS` | `bls` | `5446500` | n/a | `5446500` |
 
-The delegated PoS activation block is:
-
-```text
-5446500
-```
-
-The PoS deployment block is:
+PoS activation:
 
 ```text
 5446500
 ```
 
-IBFT remains the deterministic-finality consensus mechanism.
+PoS deployment:
 
-Delegated PoS defines validator participation, staking, delegation and validator-set evolution after the cutover.
+```text
+5446500
+```
+
+IBFT remains the finality protocol.
+
+The PoS transition changes validator participation and voting-power behavior.
 
 ---
 
-## 10. PoS validator limits
+## 11. PoS validator limits
 
-The published PoS type entry defines:
+The PoS entry specifies:
+
+```text
+minValidatorCount = 4
+maxValidatorCount = 25
+```
+
+These limits are part of the network's PoS configuration.
+
+They should not be changed locally by an operator attempting to join mainnet.
+
+---
+
+## 12. Micro and macro epochs
+
+Published PoS epoch parameters:
+
+```text
+microEpochSize = 25
+macroEpochMicroFactor = 40
+```
+
+Derived macro-epoch size:
+
+```text
+25 × 40 = 1000 blocks
+```
+
+At the nominal two-second block target:
+
+```text
+1000 blocks ≈ 2000 seconds
+≈ 33 minutes 20 seconds
+```
+
+This is only an approximate wall-clock duration.
+
+Consensus is based on block numbers, not elapsed wall-clock time.
+
+---
+
+## 13. Uptime parameters
+
+Published parameters:
 
 | Field | Value |
-|---|---:|
-| `minValidatorCount` | `4` |
-| `maxValidatorCount` | `25` |
+| --- | ---: |
+| `microEpochInactivityDecayBps` | `9000` |
+| `microEpochNominalWeightUnits` | `10000` |
 
-These values are part of the active PoS validator-set configuration.
+These parameters participate in deterministic PoS uptime and voting-power behavior.
 
-Changing them changes validator-set behavior and defines a different network configuration.
-
----
-
-## 11. PoS epoch configuration
-
-When PoS is active, the node does not use legacy `epochSize` as the direct PoS macro-epoch size.
-
-For PoS mode, the node derives the PoS epoch size from:
-
-```text
-microEpochSize * macroEpochMicroFactor
-```
-
-For published XGR2.0 mainnet values:
-
-```text
-25 * 40 = 1000 blocks
-```
-
-With an approximate block time of 2 seconds:
-
-```text
-1000 blocks * 2 seconds ≈ 2000 seconds ≈ 33.3 minutes
-```
-
-The genesis-generation and runtime code distinguish between:
-
-- non-PoS IBFT `epochSize`
-- PoS `microEpochSize`
-- PoS `macroEpochMicroFactor`
-
-Operators must use the published active network configuration and must not infer PoS epoch semantics from legacy PoA `epochSize` alone.
+They are therefore consensus-relevant network configuration.
 
 ---
 
-## 12. FeePoolSplit alignment with PoS cutover
+## 14. `feePoolSplit` alignment
 
-The XGR2.0 node aligns the `FeePoolSplit` fork with the first PoS IBFT fork.
-
-Behavior:
-
-- the node scans IBFT fork entries for the first `PoS` entry
-- if no PoS entry exists, no alignment is performed
-- if `FeePoolSplit` exists and its block differs from the first PoS block, startup/config validation fails
-- if `FeePoolSplit` is missing and a PoS fork exists, the node sets `FeePoolSplit` to the first PoS block
-
-For the published XGR2.0 mainnet genesis, the first PoS block is:
+The published genesis does not explicitly contain:
 
 ```text
-5446500
+feePoolSplit
 ```
 
-Therefore `FeePoolSplit` aligns to block `5446500`.
+inside `params.forks`.
+
+However, `xgr-node v3.1.1` aligns the effective `FeePoolSplit` fork with the first PoS fork.
+
+For mainnet:
+
+```text
+first PoS block = 5446500
+```
+
+Therefore:
+
+```text
+effective FeePoolSplit activation = 5446500
+```
+
+If `feePoolSplit` is explicitly configured to a different height from the first PoS fork, node configuration validation fails.
+
+This prevents PoS accounting and fee-pool activation from diverging.
 
 ---
 
-## 13. Initial validator set
+## 15. Initial validator set
 
-IBFT requires an initial validator set.
-
-In the published XGR Chain genesis, the initial validator set is encoded in:
+The genesis validator set is encoded in:
 
 ```text
 genesis.extraData
 ```
 
-The structure follows Istanbul-style extra data:
+The IBFT genesis extra data contains:
 
 ```text
-32 bytes vanity || RLP(IstanbulExtra)
+32-byte vanity prefix
++
+RLP-encoded Istanbul extra data
 ```
 
-`IstanbulExtra` contains:
-
-- initial validator addresses
-- BLS public keys
-- empty genesis seal fields
-
-Decoded published mainnet genesis validator set:
+The published genesis contains five initial BLS validators:
 
 | # | Validator address | BLS public key |
-|---:|---|---|
+| ---: | --- | --- |
 | 1 | `0x7913fdae82c678f42b98ca8076fe7d13b3edff15` | `0xb56b72d028aa6d063d36917f9f18a3ee4b216e22694a701814af4fd55e6cbbe99209fc1359012e4733987ebdd0123e88` |
 | 2 | `0x7e8f8fd2a198f77df298041b48d79b0df4c8b1fa` | `0xa32a09397128b801da5b88319bcca6cc33d4400e12ef7e1a94141b2360abd70306aaeb5599dd0d0984bb02f88fe20b71` |
 | 3 | `0x82f0b6f1efbb3fc9bcde0ee5a08e01e76cc29e13` | `0x8b94120a8ae2a89a0f7deb09f266d90bf5d5152a6ee559977d7f3361a0ce1cc65b012f3a820c7f1c18a01cef9ba8ae90` |
 | 4 | `0xc5cc7b4ee5b0f6524ecac177ed37b2b567180707` | `0x91bf571d3f5563976e560c5f7d9898f75a0829804ce5e212370834303c23953388f01e06d0a9da2615c5e7f1aaf10da7` |
 | 5 | `0x98f8bc086454b8386788244eee9a43d5d0b4e63e` | `0xa65579c3b300f0d8e94e77b3915ac09f309c0a109a3aa3bb66d8beb538d733026624bf9d096e2a3d52deff78a36513d1` |
 
-These values are part of the published network genesis.
+These validators define the initial IBFT validator set.
 
-Validator operation after block `5446500` depends on delegated PoS validator-set rules.
+After PoS activation, validator-set evolution follows the delegated-PoS protocol rules.
 
 ---
 
-## 14. Genesis allocations
+## 16. Genesis allocation
 
-Initial balances are defined in:
+Initial balances are defined under:
 
 ```text
 genesis.alloc
 ```
 
-Balances are denominated in wei.
+Unit conversion:
 
 ```text
-1 native XGR unit = 10^18 wei
+1 XGR = 10^18 wei
 ```
 
-Published mainnet genesis allocations:
+Published allocations:
 
-| Address | Balance in wei | Balance in native units |
-|---|---:|---:|
+| Address | Balance in wei | Native XGR |
+| --- | ---: | ---: |
 | `0x0000000000000000000000000000000000000000` | `0` | `0` |
 | `0x00000000000000000000000000000000000000e1` | `1` | `0.000000000000000001` |
 | `0x2A021a1B25DA25e14C4046e5BAc9375Ec3bebf8c` | `2103833846420000000000000000` | `2,103,833,846.42` |
 | `0x4675EdCa3c4637E68Ed1C1776a11EB5c9828F056` | `3141592653580000000000000000` | `3,141,592,653.58` |
 | `0x7818A59b2D279Fe3444B75dcE1A443C1b124c161` | `1380649000000000000000000000` | `1,380,649,000` |
 
-The published file also contains a top-level `alloc` object with the same balances.
+The published top-level `alloc` mirrors `genesis.alloc`.
 
-For runtime genesis state, use:
-
-```text
-genesis.alloc
-```
-
-The top-level `alloc` must remain consistent with `genesis.alloc` in the published file.
+Operators must not modify the canonical allocation when joining mainnet.
 
 ---
 
-## 15. Fork configuration
+## 17. EVM fork schedule
 
-Fork activation is defined under:
+Fork activation is configured under:
 
 ```text
 params.forks
 ```
 
-A fork is active for a block when the current block number is greater than or equal to the configured activation block.
+A configured fork is active when:
 
-### 15.1 Active from genesis
+```text
+blockNumber >= forkBlock
+```
 
-The following fork features are active from block `0`:
+### Active from block `0`
 
 | Fork / feature | Block |
-|---|---:|
+| --- | ---: |
+| `homestead` | `0` |
+| `byzantium` | `0` |
+| `constantinople` | `0` |
+| `petersburg` | `0` |
+| `istanbul` | `0` |
 | `london` | `0` |
+| `londonfix` | `0` |
 | `EIP150` | `0` |
 | `EIP155` | `0` |
 | `EIP158` | `0` |
-| `byzantium` | `0` |
-| `constantinople` | `0` |
-| `homestead` | `0` |
-| `istanbul` | `0` |
-| `londonfix` | `0` |
-| `petersburg` | `0` |
 | `quorumcalcalignment` | `0` |
 | `txHashWithType` | `0` |
 
-This means XGR Chain starts with a modern EVM baseline and EIP-155 transaction replay protection from genesis.
+### Active from block `1208500`
 
-### 15.2 Active from block `1208500`
+| Fork / EIP | Block |
+| --- | ---: |
+| `EIP2930` | `1208500` |
+| `EIP2929` | `1208500` |
+| `EIP3860` | `1208500` |
+| `EIP3651` | `1208500` |
 
-The following features activate at block `1208500`:
-
-| Fork / EIP | Block | Purpose |
-|---|---:|---|
-| `EIP2930` | `1208500` | Access-list transactions |
-| `EIP2929` | `1208500` | Gas repricing for state access opcodes |
-| `EIP3860` | `1208500` | Initcode metering / limit |
-| `EIP3651` | `1208500` | Warm `COINBASE` |
-
-### 15.3 PoS-related fork alignment
-
-The published genesis does not explicitly list `feePoolSplit` in `params.forks`.
-
-The XGR2.0 node aligns `FeePoolSplit` internally to the first PoS IBFT fork when a PoS fork exists.
-
-For the published XGR2.0 mainnet genesis, this is block:
-
-```text
-5446500
-```
+All consensus nodes must resolve the same fork schedule.
 
 ---
 
-## 16. Gas and base-fee genesis fields
+## 18. Gas and fee-related genesis fields
 
-The published genesis contains the following gas and fee-related fields:
+Published values:
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | `genesis.gasLimit` | `0x3938700` |
-| `genesis.gasLimit` decimal | `60,000,000` |
+| Gas limit decimal | `60,000,000` |
 | `genesis.baseFee` | `0x0` |
 | `genesis.baseFeeEM` | `0x0` |
 | `genesis.baseFeeChangeDenom` | `0x0` |
@@ -483,159 +563,279 @@ The published genesis contains the following gas and fee-related fields:
 | `params.burnContract` | `null` |
 | `params.burnContractDestinationAddress` | `0x0000000000000000000000000000000000000000` |
 
-The genesis values define the starting configuration.
+These are starting/network configuration values.
 
-Runtime gas and fee behavior may also depend on:
+Effective runtime fee behavior also depends on:
 
-- active fork configuration
-- transaction type
-- minimum fee logic
-- transaction pool admission rules
-- fee distribution logic
-- configured registry values where supported
-- FeePoolSplit alignment with PoS activation
+- active fork state,
+- XGR-specific base-fee logic,
+- fee-pool logic,
+- PoS activation,
+- EngineRegistry configuration where supported.
 
-The effective fee behavior must be interpreted together with the active node release and the published gas policy.
+The dedicated gas/fee documentation is authoritative for fee calculations.
 
 ---
 
-## 17. EngineRegistry and bootstrap fields
+## 19. EngineRegistry configuration
 
-The published genesis contains:
+Published value:
 
-| Field | Value |
-|---|---|
-| `params.engineRegistryAddress` | `0x72cbbb5c95662510da052b98add933ff99ec820f` |
-| `params.bootstrapEngineEOA` | `0x0000000000000000000000000000000000000000` |
+```text
+0x72cbbb5c95662510da052b98add933ff99ec820f
+```
 
-These fields are part of XGR Chain configuration.
+Configuration field:
 
-The public node includes these fields in the chain parameter schema.
+```text
+params.engineRegistryAddress
+```
 
-During chain import:
+The public node loads a non-zero EngineRegistry address from chain configuration.
 
-- non-zero `params.engineRegistryAddress` is applied to the node-level EngineRegistry address
-- non-zero `params.bootstrapEngineEOA` is applied to the bootstrap Engine EOA
-- a zero bootstrap EOA leaves bootstrap authorization unset
-
-The registry address is used as a configured on-chain source for XGR-specific runtime parameters where supported by the active release stack.
-
-A zero bootstrap EOA means no non-zero bootstrap EOA is configured in the published genesis.
+This provides deterministic network configuration for XGR-specific runtime logic that references the registry.
 
 ---
 
-## 18. Bootnodes
+## 20. Bootstrap Engine EOA
 
-Published mainnet bootnodes:
+Published configuration:
 
-| # | Multiaddr |
-|---:|---|
-| 1 | `/ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck` |
+```text
+params.bootstrapEngineEOA =
+0x0000000000000000000000000000000000000000
+```
+
+A zero address means that no non-zero bootstrap Engine EOA is configured through genesis.
+
+The public node treats bootstrap authorization separately from normal account or consensus authority.
+
+---
+
+## 21. Native protocol precompiles
+
+Some XGR protocol behavior is implemented as native node precompiles.
+
+These are not necessarily represented as genesis accounts containing EVM bytecode.
+
+For example, `v3.1.1` registers the native interchain BLS12-381 verifier at:
+
+```text
+0x0000000000000000000000000000000000002040
+```
+
+This address is an implementation-defined native precompile.
+
+It is **not** configured through a normal genesis contract deployment.
+
+Therefore:
+
+```text
+eth_getCode(0x...2040)
+```
+
+does not need to return deployed contract bytecode for the precompile to exist.
+
+---
+
+## 22. Bootnodes
+
+Published mainnet bootnode:
+
+```text
+/ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck
+```
 
 Bootnodes provide initial peer discovery.
 
-They are not validator keys and do not define consensus authority.
+They do not:
 
-Operational meaning:
+- grant consensus authority,
+- grant transaction permission,
+- hold validator authority merely by being bootnodes.
 
-- new nodes can use bootnodes to discover peers
-- validators still require valid validator configuration and active validator-set membership
-- RPC nodes can use bootnodes to join and follow the network
-- changing bootnodes affects default connectivity, not transaction validity
-
----
-
-## 19. Runtime configuration boundary
-
-The genesis file defines the network.
-
-Runtime flags define how a local node process runs.
-
-Examples of runtime settings:
-
-| Runtime setting | Meaning |
-|---|---|
-| `--data-dir` | Local node database path |
-| `--chain` | Path to the chain configuration file used by the node |
-| `--jsonrpc` | Local JSON-RPC bind address |
-| `--grpc-address` | Local gRPC bind address |
-| `--libp2p` | Local P2P bind address |
-| `--nat` | Public IP advertised to peers |
-| `--dns` | DNS address advertised to peers |
-| `--max-peers` | Local peer limit |
-| `--log-level` | Local logging verbosity |
-| `--log-to` | Local log file path |
-| `--prometheus` | Local metrics bind address |
-| `--seal` | Whether this node attempts block sealing |
-
-Changing runtime flags can change local node behavior.
-
-Changing genesis or network-defining chain configuration fields changes network identity or protocol behavior.
-
-Operators must not treat runtime flags as a substitute for published genesis configuration.
+A bootnode can be replaced operationally without changing transaction or execution semantics, but the published bootnode list remains part of the canonical network configuration used for initial discovery.
 
 ---
 
-## 20. Local and test network configuration
+## 23. Runtime server configuration
 
-Local and test networks may intentionally use different values.
+Runtime server configuration controls the local node process.
 
 Examples:
 
-- different `name`
-- different `params.chainID`
-- different `genesis.alloc`
-- different `genesis.extraData`
-- different validator set
-- different bootnodes
-- different fork activation heights
-- different block time
-- different PoS activation block
-- different micro/macro epoch configuration
-- different registry address
-- different fee configuration
+```text
+--chain
+--data-dir
+--jsonrpc
+--grpc-address
+--libp2p
+--nat
+--dns
+--max-peers
+--log-level
+--log-to
+--prometheus
+--seal
+```
 
-A local or test genesis defines a separate network.
+These values control local operation.
 
-Do not use a local/test genesis for a public network node.
-
-Do not use the public mainnet genesis as an editable template unless the goal is to create a separate network.
+They do not change the genesis chain identity unless the `--chain` file itself points to different network-defining configuration.
 
 ---
 
-## 21. Operator validation checklist
+## 24. State Trie Sweeper is not genesis configuration
 
-Before starting a node on the published XGR Chain network, verify:
+The Online State Trie Sweeper is configured at node-runtime level.
 
-- the genesis file path is correct
-- the genesis file is the published file for the target network
-- `name` is `xgrchain`
-- `params.chainID` is `1643`
-- `params.engine.ibft` exists
-- exactly one consensus engine is configured in `params.engine`
-- `params.engine.ibft.blockTime` is `2000000000`
-- `params.engine.ibft.microEpochSize` is `25`
-- `params.engine.ibft.macroEpochMicroFactor` is `40`
-- `params.engine.ibft.microEpochInactivityDecayBps` is `9000`
-- `params.engine.ibft.microEpochNominalWeightUnits` is `10000`
-- `params.engine.ibft.types[0].type` is `PoA`
-- `params.engine.ibft.types[0].from` is `0`
-- `params.engine.ibft.types[0].to` is `5446499`
-- `params.engine.ibft.types[1].type` is `PoS`
-- `params.engine.ibft.types[1].from` is `5446500`
-- `params.engine.ibft.types[1].deployment` is `5446500`
-- `params.engine.ibft.types[1].minValidatorCount` is `4`
-- `params.engine.ibft.types[1].maxValidatorCount` is `25`
-- `genesis.gasLimit` is `0x3938700`
-- `genesis.alloc` contains the published allocation
-- top-level `alloc`, if present, mirrors `genesis.alloc`
-- bootnodes contain the published peer-discovery entry
-- fork activation values match the published configuration
-- node runtime flags point to this genesis/config file through `--chain`
-- validator nodes use the correct validator key material
-- non-validator nodes do not use validator signing material
+Configuration fields include:
 
-Example server reference:
+```yaml
+trie_sweeper: true
+trie_sweeper_retain_blocks: 10000
+trie_sweeper_interval: 6h
+```
+
+Equivalent CLI controls are documented in the state-storage and node-operation documentation.
+
+These settings affect:
+
+- local historical-state retention,
+- local trie database size,
+- historical-state RPC availability.
+
+They do **not** alter:
+
+- genesis,
+- chain ID,
+- canonical state roots,
+- block validity,
+- consensus,
+- staking,
+- validator membership.
+
+Two nodes may therefore participate in the same XGRChain while using different local trie-retention policies.
+
+---
+
+## 25. Interchain configuration is not mainnet genesis configuration
+
+The XGR interchain stack uses separate deployment and runtime configuration.
+
+Examples include:
+
+- Hyperlane Mailboxes,
+- XGR native router,
+- remote-chain routers,
+- Interchain Security Modules,
+- validator registries,
+- relayer accounts,
+- relayer state and checkpoints.
+
+These values are not part of the canonical `genesis/mainnet/genesis.json` described by this document.
+
+The exception is any chain-level primitive implemented directly by the node, such as the native interchain BLS precompile.
+
+The existence of such a primitive still does not make a particular bridge deployment part of genesis.
+
+---
+
+## 26. Runtime access-control schema fields
+
+The node chain-parameter schema supports optional fields including:
+
+```text
+contractDeployerAllowList
+contractDeployerBlockList
+transactionsAllowList
+transactionsBlockList
+bridgeAllowList
+bridgeBlockList
+```
+
+The canonical published mainnet genesis does not configure these fields.
+
+Therefore they must not be interpreted as active mainnet access-control policy merely because the node schema supports them.
+
+---
+
+## 27. Burn-contract configuration
+
+Published values:
+
+```text
+burnContract = null
+```
+
+and:
+
+```text
+burnContractDestinationAddress =
+0x0000000000000000000000000000000000000000
+```
+
+These values do not configure a burn-contract map through genesis.
+
+They also do not represent the complete XGRChain fee-distribution mechanism.
+
+---
+
+## 28. Local and test networks
+
+A local or test network can intentionally use different values, including:
+
+- chain name,
+- chain ID,
+- initial balances,
+- validator keys,
+- IBFT extra data,
+- bootnodes,
+- block time,
+- fork heights,
+- PoS activation block,
+- validator limits,
+- epoch settings,
+- EngineRegistry address,
+- gas parameters.
+
+Such a configuration defines a separate network.
+
+Do not modify the public mainnet genesis and then expect the resulting node to participate correctly in XGRChain mainnet.
+
+---
+
+## 29. Mainnet node validation checklist
+
+Before joining XGRChain mainnet, verify:
+
+- chain file is the canonical published mainnet configuration,
+- `name = xgrchain`,
+- `chainID = 1643`,
+- IBFT is configured,
+- `blockTime = 2000000000`,
+- `microEpochSize = 25`,
+- `macroEpochMicroFactor = 40`,
+- `microEpochInactivityDecayBps = 9000`,
+- `microEpochNominalWeightUnits = 10000`,
+- first consensus phase is PoA,
+- PoA range ends at `5446499`,
+- PoS begins at `5446500`,
+- PoS deployment is `5446500`,
+- PoS validator type is `bls`,
+- minimum validator count is `4`,
+- maximum validator count is `25`,
+- genesis gas limit is `0x3938700`,
+- initial allocations match the published file,
+- fork schedule matches the published file,
+- EngineRegistry address matches the published file,
+- bootnode list matches the intended mainnet configuration.
+
+---
+
+## 30. Example node start
+
+A minimal conceptual server command:
 
 ```bash
 /opt/xgr/bin/xgrchain server \
@@ -643,43 +843,100 @@ Example server reference:
   --data-dir /var/lib/xgr/node
 ```
 
-Node role, RPC exposure, sealing behavior, metrics and logging are runtime-operation topics and must be configured according to the intended node role.
+The appropriate additional flags depend on node role.
+
+A validator and a public RPC node should not normally use identical runtime settings.
 
 ---
 
-## 22. Summary
+## 31. Configuration change classification
 
-The published XGR Chain genesis and active XGR2.0 configuration define:
+Changes can be classified as follows:
 
-| Category | Published value / behavior |
-|---|---|
-| Network name | `xgrchain` |
+| Change | Network/consensus impact |
+| --- | --- |
+| Chain ID | Network-defining |
+| Genesis allocation | Network-defining |
+| Genesis header | Network-defining |
+| IBFT type schedule | Consensus-critical |
+| PoS activation | Consensus-critical |
+| Validator limits | Consensus-critical |
+| Epoch parameters | Consensus-critical |
+| Fork activation | Consensus-critical |
+| EngineRegistry address | Protocol/network configuration |
+| Bootnode list | Discovery configuration |
+| RPC bind address | Local only |
+| Metrics | Local only |
+| Log level | Local only |
+| Trie sweeper | Local storage only |
+| Trie retention window | Local storage only |
+| Interchain relayer configuration | External service configuration |
+| Public reverse proxy | Infrastructure only |
+
+Operators must distinguish consensus changes from operational changes before deployment.
+
+---
+
+## 32. Current mainnet configuration summary
+
+| Category | Current value |
+| --- | --- |
+| Node baseline | `xgr-node v3.1.1` |
+| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Network | `xgrchain` |
 | Chain ID | `1643` |
-| Execution model | EVM-compatible |
-| Consensus finality | IBFT |
-| Pre-cutover validator model | PoA with BLS validators |
-| XGR2.0 validator model | Delegated PoS with BLS validators |
-| PoA range | `0` to `5446499` |
-| PoS activation block | `5446500` |
-| PoS deployment block | `5446500` |
-| Min validator count | `4` |
-| Max validator count | `25` |
-| Block time | `2000000000` ns |
-| Micro epoch size | `25` blocks |
-| Macro epoch micro factor | `40` |
-| PoS macro epoch size | `1000` blocks |
-| Micro epoch inactivity decay | `9000` bps |
-| Micro epoch nominal weight | `10000` units |
+| Native asset | XGR |
+| Decimals | `18` |
+| Consensus | IBFT |
+| Consensus validator type | BLS |
+| PoA range | `0–5446499` |
+| PoS activation | `5446500` |
+| PoS deployment | `5446500` |
+| PoS validator minimum | `4` |
+| PoS validator maximum | `25` |
+| Block time target | approximately 2 seconds |
+| Micro epoch | `25` blocks |
+| Macro epoch factor | `40` |
+| Macro epoch | `1000` blocks |
+| Inactivity decay | `9000` bps |
+| Nominal uptime weight | `10000` |
 | Genesis gas limit | `60,000,000` |
-| Forks from block 0 | London, EIP-150, EIP-155, EIP-158, Byzantium, Constantinople, Homestead, Istanbul, LondonFix, Petersburg, QuorumCalcAlignment, txHashWithType |
-| Forks from block 1208500 | EIP-2930, EIP-2929, EIP-3860, EIP-3651 |
-| FeePoolSplit alignment | First PoS block, therefore `5446500` for XGR2.0 mainnet |
-| EngineRegistry address | `0x72cbbb5c95662510da052b98add933ff99ec820f` |
-| Bootstrap Engine EOA | `0x0000000000000000000000000000000000000000` |
-| Bootnode count | `1` |
-| Runtime allocation source | `genesis.alloc` |
-| Published allocation mirror | top-level `alloc` |
+| EngineRegistry | `0x72cbbb5c95662510da052b98add933ff99ec820f` |
+| Bootstrap Engine EOA | zero address |
+| Effective `feePoolSplit` activation | `5446500` |
+| Interchain BLS precompile | `0x2040` |
+| Bootnodes | `1` published mainnet entry |
+| Trie pruning | Runtime-only |
+| Interchain relayers | External-service configuration |
 
-This file defines the published network baseline and XGR2.0 delegated PoS activation boundary.
+---
 
-Any future consensus, staking, epoch, fork, fee or registry change requires a matching official release and published configuration update.
+## 33. Design principle
+
+The XGRChain configuration model separates:
+
+```text
+network identity
+```
+
+from:
+
+```text
+local node operation
+```
+
+and from:
+
+```text
+external services
+```
+
+Genesis determines the chain.
+
+Consensus configuration determines how that chain reaches finality.
+
+Runtime settings determine how one node operates.
+
+External service configuration determines how systems such as interchain infrastructure interact with the chain.
+
+These boundaries must remain explicit in production documentation and operations.
