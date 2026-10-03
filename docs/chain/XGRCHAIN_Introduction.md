@@ -46,13 +46,13 @@ XGRChain provides the execution and settlement layer for:
 
 The public node implementation is:
 
-```text id="2m0bg4"
+```text
 https://github.com/xgr-network/xgr-node
 ```
 
 Current public node baseline:
 
-```text id="r52uhl"
+```text
 v3.1.1
 ```
 
@@ -64,7 +64,7 @@ v3.1.1
 
 Normal chain operation does not require:
 
-```text id="945zrq"
+```text
 xgrEngine
 XDaLa application services
 private engine repositories
@@ -72,13 +72,15 @@ private engine repositories
 
 A standard public build can be produced from the tagged release:
 
-```bash id="34w51f"
+```bash
 git clone https://github.com/xgr-network/xgr-node.git
 cd xgr-node
 git fetch --all --tags
 git checkout v3.1.1
-go build -o xgrchain .
+make -f scripts/Makefile build
 ```
+
+The build embeds release/version metadata into the binary.
 
 For production deployments, operators may instead use the published release binary and checksum artifacts.
 
@@ -88,7 +90,7 @@ For production deployments, operators may instead use the published release bina
 
 The canonical mainnet genesis is maintained in:
 
-```text id="wxuo4r"
+```text
 Repository: xgr-network/XGR
 Branch:     main
 Path:       genesis/mainnet/genesis.json
@@ -112,7 +114,7 @@ Mainnet identity:
 
 Mainnet transactions must be signed for:
 
-```text id="6kxwfh"
+```text
 chainId = 1643
 ```
 
@@ -146,11 +148,13 @@ The node software baseline and higher-level services are versioned independently
 
 For example:
 
-```text id="zrkl21"
+```text
 xgr-node v3.1.1
 ```
 
-defines the public node baseline, while interchain router and relayer deployments are maintained separately.
+defines the public node baseline, while interchain router, validator and relayer deployments are maintained separately.
+
+Bidirectional route validation does not by itself imply that every relayer direction is continuously enabled or that a public user-facing bridge is open.
 
 ---
 
@@ -241,31 +245,45 @@ It includes:
 
 Published mainnet validator-count limits:
 
-```text id="ni5agq"
+```text
 minimum = 4
 maximum = 25
 ```
 
-Validator participation is permissionless within the protocol rules.
+Validator participation is staking-based and governed by protocol-defined eligibility, lifecycle and validator-set rules.
+
+The normal validator qualification model distinguishes:
+
+```text
+minimum validator self stake
+```
+
+from:
+
+```text
+minimum effective total support
+```
+
+Detailed thresholds and lifecycle rules are documented in the staking model.
 
 ---
 
 ## 9. Voting power
 
-During PoS operation, consensus voting power is not simply one vote per validator.
+During stake-weighted PoS operation, consensus voting power is not simply one vote per validator.
 
 At a high level:
 
-```text id="32n8u0"
+```text
 effectiveVotingPower =
-    effectiveStake
-    × uptimeWeight
-    ÷ nominalWeight
+    votingStake
+    × effectiveUptimeWeight
+    ÷ nominalUptimeWeight
 ```
 
 Consensus quorum is determined from total voting power:
 
-```text id="ctpkmj"
+```text
 quorum =
     ceil(2 × totalVotingPower / 3)
 ```
@@ -274,7 +292,7 @@ Therefore:
 
 > validator count and validator voting power are different concepts.
 
-This is important for monitoring and fault analysis.
+The PoS transition boundary contains additional deterministic cutover behavior documented in the IBFT and staking references.
 
 ---
 
@@ -292,13 +310,13 @@ Published PoS parameters:
 
 Macro epoch:
 
-```text id="b64ydj"
+```text
 25 × 40 = 1000 blocks
 ```
 
 At the nominal two-second block target:
 
-```text id="mnn3su"
+```text
 1000 blocks ≈ 33 minutes 20 seconds
 ```
 
@@ -310,7 +328,7 @@ Actual elapsed time depends on real block production.
 
 XGRChain supports standard Ethereum-style execution and tooling.
 
-Supported transaction types include:
+Supported public transaction types include:
 
 | Type | Code |
 | --- | --- |
@@ -320,7 +338,7 @@ Supported transaction types include:
 
 The node also defines the internal protocol transaction type:
 
-```text id="mvjquf"
+```text
 StateTx = 0x7f
 ```
 
@@ -332,17 +350,23 @@ Ordinary applications can use standard EVM transaction envelopes.
 
 ## 12. JSON-RPC
 
-Standard RPC namespaces include:
+Registered RPC namespaces include:
 
-```text id="0641gc"
+```text
 eth_*
 net_*
 web3_*
+txpool_*
+bridge_*
+xgr_*
+debug_*
 ```
+
+Not every registered namespace should be exposed unrestricted to public clients.
 
 Important XGR-specific PoS methods include:
 
-```text id="6doq51"
+```text
 eth_getPosValidatorsOverview
 eth_getPosValidatorDelegators
 ```
@@ -356,7 +380,7 @@ The public RPC interface can therefore serve:
 - staking dashboards,
 - validator tooling.
 
-Standard Ethereum compatibility and XGR-specific extensions are documented separately.
+Standard Ethereum compatibility, PoS extensions and operator interfaces are documented separately.
 
 ---
 
@@ -366,7 +390,7 @@ XGRChain uses Ethereum-compatible fee fields but XGR-specific fee policy.
 
 Transaction fields include:
 
-```text id="vbzc96"
+```text
 gasPrice
 maxFeePerGas
 maxPriorityFeePerGas
@@ -374,18 +398,23 @@ maxPriorityFeePerGas
 
 Current public RPC suggestion behavior includes:
 
-```text id="5dba5g"
-eth_gasPrice = current base fee
+```text
+eth_gasPrice = current header base fee
 eth_maxPriorityFeePerGas = 0
 ```
 
+The TxPool validates transaction fee sufficiency against the base fee calculated for the next block.
+
+During emergency congestion above the configured utilization threshold, the TxPool admission value can therefore exceed the current-header value returned by `eth_gasPrice`.
+
 XGRChain additionally implements:
 
-- minimum-base-fee behavior,
-- utilization-dependent fee behavior,
-- PoS fee distribution,
-- validator fee allocation,
-- protocol-specific fee handling.
+- configurable minimum-base-fee behavior,
+- utilization-dependent emergency pricing,
+- XGR-specific fee accounting,
+- donation and burn components,
+- immediate validator fees,
+- PoS FeePool distribution.
 
 Ethereum RPC compatibility does not imply Ethereum mainnet fee economics.
 
@@ -397,7 +426,7 @@ XGRChain extends standard EVM execution with XGR-specific native functionality.
 
 One `v3.1.1` protocol primitive is the native interchain BLS12-381 verifier:
 
-```text id="y37vgw"
+```text
 0x0000000000000000000000000000000000002040
 ```
 
@@ -409,7 +438,13 @@ Because it is a native precompile:
 - execution is implemented directly by the node,
 - it is available as part of the node execution environment.
 
-The precompile does not itself define a bridge route or validator policy.
+The precompile does not itself define:
+
+- a bridge route,
+- router deployment,
+- relayer availability,
+- interchain validator membership,
+- destination security policy.
 
 Those belong to the separate interchain layer.
 
@@ -417,17 +452,17 @@ Those belong to the separate interchain layer.
 
 ## 15. XGR Interchain
 
-XGR Network operates interchain infrastructure that connects XGRChain with supported external chains.
+XGR Network maintains interchain infrastructure connecting XGRChain with supported external chains.
 
-The first production route connects:
+The first implemented and mainnet-validated XGR asset route connects:
 
-```text id="z074yk"
+```text
 XGRChain ↔ Base
 ```
 
 The asset model is:
 
-```text id="6im4bm"
+```text
 XGRChain                     Base
 
 native XGR
@@ -446,7 +481,7 @@ XGR router
 
 Reverse direction:
 
-```text id="ohikmh"
+```text
 Base                         XGRChain
 
 wXGR
@@ -475,7 +510,13 @@ The interchain layer uses:
 - relayers,
 - router contracts.
 
-Detailed interchain architecture is documented separately.
+Current operational availability, route state and relayer configuration are maintained separately from XGRChain consensus documentation.
+
+Implementation and deployment documentation:
+
+```text
+https://github.com/xgr-network/xgr-hyperlane
+```
 
 ---
 
@@ -515,7 +556,7 @@ Historical state can consume substantial disk space over time.
 
 Starting with:
 
-```text id="x30pzf"
+```text
 xgr-node v2.1.0
 ```
 
@@ -523,7 +564,7 @@ the node includes State Growth Control through the Online State Trie Sweeper.
 
 This feature remains available in:
 
-```text id="0i83cm"
+```text
 v3.1.1
 ```
 
@@ -531,7 +572,7 @@ v3.1.1
 
 ## 18. State Growth Control
 
-The Online State Trie Sweeper allows operators to retain a configurable window of recent canonical state roots and reclaim unreachable historical trie data.
+The Online State Trie Sweeper allows operators to retain a configurable window of recent canonical state roots and reclaim unreachable historical trie and contract-code data.
 
 Default settings:
 
@@ -543,7 +584,7 @@ Default settings:
 
 CLI controls:
 
-```text id="bkfzxu"
+```text
 --trie-sweeper
 --trie-sweeper-retain-blocks
 --trie-sweeper-interval
@@ -578,18 +619,21 @@ However, sufficiently old state-dependent requests may no longer be available on
 
 Examples include historical:
 
-```text id="h2184a"
+```text
 eth_getBalance
+eth_getTransactionCount
 eth_getCode
 eth_getStorageAt
 eth_call
+eth_estimateGas
+debug_trace*
 ```
 
-Archive-style nodes requiring unrestricted historical-state access should keep the trie sweeper disabled or use a retention policy suitable for that workload.
+Archive-style nodes requiring unrestricted historical-state access should keep the Trie Sweeper disabled or use a retention policy suitable for that workload.
 
 Detailed behavior is documented in:
 
-```text id="qcc3y7"
+```text
 XGRCHAIN_State_Storage_and_Retention.md
 ```
 
@@ -601,15 +645,15 @@ Typical XGRChain node roles include:
 
 ### Full node
 
-- follows canonical chain,
+- follows the canonical chain,
 - validates blocks,
 - maintains state,
 - participates in P2P,
 - does not produce blocks.
 
-Recommended:
+Typical configuration:
 
-```text id="dba7kz"
+```text
 --seal=false
 ```
 
@@ -628,7 +672,7 @@ Recommended:
 
 Validator operation uses:
 
-```text id="4bsiz3"
+```text
 --seal=true
 ```
 
@@ -682,8 +726,8 @@ Defines:
 - logging,
 - metrics,
 - sealing,
-- trie sweeper,
-- local retention.
+- Trie Sweeper,
+- local state retention.
 
 ### External-service configuration
 
@@ -707,10 +751,10 @@ XGRChain security spans multiple independent layers:
 - P2P connectivity,
 - RPC exposure,
 - transaction validation,
-- txpool admission,
+- TxPool admission,
 - validator authority,
 - smart-contract authorization,
-- external service credentials.
+- external-service credentials.
 
 For example:
 
@@ -722,7 +766,7 @@ Likewise:
 
 Permission boundaries are documented in:
 
-```text id="qe7gkx"
+```text
 XGRCHAIN_Access_Control_and_Permission_Boundaries.md
 ```
 
@@ -732,7 +776,7 @@ XGRCHAIN_Access_Control_and_Permission_Boundaries.md
 
 XGRChain is the blockchain substrate.
 
-XDaLa is a higher-level execution and process framework built on top of XGR infrastructure.
+XDaLa is a higher-level execution and process framework built on XGR infrastructure.
 
 XGRChain itself provides:
 
@@ -754,9 +798,9 @@ A standard public XGRChain node does not need to run the complete XDaLa service 
 
 The Chain documentation is divided into specialized references.
 
-Key documents include:
+Current documents include:
 
-```text id="2nuogx"
+```text
 XGRCHAIN_Introduction.md
 XGRCHAIN_Chain_Spec.md
 XGRCHAIN_Consensus_IBFT.md
@@ -773,7 +817,7 @@ XGRCHAIN_Network_Upgrade_and_Hardfork_Process.md
 XRC-GAS_Gas_Price_Behavior.md
 ```
 
-Interchain architecture and operations are maintained as separate documentation.
+Interchain architecture and operations are maintained separately in `xgr-network/xgr-hyperlane`.
 
 ---
 
@@ -813,13 +857,13 @@ This document must be reviewed when any of the following changes:
 
 Current documentation baseline:
 
-```text id="np0zs2"
+```text
 xgr-node v3.1.1
 ```
 
 Canonical network configuration:
 
-```text id="aylsv8"
+```text
 xgr-network/XGR
 genesis/mainnet/genesis.json
 ```
@@ -846,7 +890,7 @@ genesis/mainnet/genesis.json
 | Trie Sweeper | Available |
 | Default state retention when enabled | `10,000` blocks |
 | Native interchain BLS precompile | `0x2040` |
-| XGRChain ↔ Base route | Bidirectionally validated |
+| XGRChain ↔ Base route | Bidirectionally mainnet-validated |
 | Public node dependency on XDaLa | None |
 
-XGRChain is a standalone EVM-compatible Layer-1 with deterministic IBFT finality, delegated PoS, configurable state retention and native protocol support for the XGR interchain stack.
+XGRChain is a standalone EVM-compatible Layer-1 with deterministic IBFT finality, delegated PoS, configurable state retention and native protocol support for the XGR Interchain stack.
