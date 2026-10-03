@@ -4,6 +4,7 @@
 **Last updated:** 2026-10-03  
 **Audience:** Node operators, validator operators, RPC operators, protocol developers, auditors  
 **Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, path `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain access-control and permission boundaries
