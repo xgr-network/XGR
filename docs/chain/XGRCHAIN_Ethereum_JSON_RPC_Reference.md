@@ -1,38 +1,46 @@
 # XGR Chain — Ethereum JSON-RPC Reference
 
 **Document ID:** XGRCHAIN-ETH-RPC  
-**Last updated:** 2026-05-03  
+**Last updated:** 2026-10-03  
 **Audience:** Wallet developers, explorer developers, dApp developers, node operators, infrastructure integrators  
-**Implementation status:** Current public baseline  
-**Source of truth:** Public `xgr-network/xgr-node` releases, active node JSON-RPC behavior, published XGR Chain configuration, and official XGR Network operator announcements
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Node implementation:** `xgr-network/xgr-node`  
+**Scope:** Standard Ethereum-compatible JSON-RPC exposed by XGRChain
 
 ---
 
 ## 1. Purpose
 
-This document describes the standard Ethereum-compatible JSON-RPC surface exposed by XGR Chain.
+This document describes the standard Ethereum-compatible JSON-RPC surface exposed by XGRChain.
 
 It covers the compatibility layer used by:
 
-- wallets
-- explorers
-- indexers
-- dApps
-- scripts
-- infrastructure tools
-- monitoring systems
+- wallets,
+- explorers,
+- indexers,
+- dApps,
+- scripts,
+- infrastructure tools,
+- monitoring systems.
 
-The scope is the standard `eth_*`, `net_*` and `web3_*` interface.
+The primary namespaces covered are:
 
-XGR-specific extension RPC methods use separate endpoint documentation and should not be mixed into this Ethereum JSON-RPC reference.
+```text
+eth_*
+net_*
+web3_*
+```
+
+XGR-specific extension methods, including PoS/operator endpoints, are documented separately and should not be treated as part of the generic Ethereum compatibility surface.
 
 ---
 
-## 2. JSON-RPC envelope
+## 2. JSON-RPC protocol
 
-All methods use JSON-RPC 2.0.
+XGRChain uses JSON-RPC 2.0.
 
-Example:
+Example request:
 
 ```json
 {
@@ -43,7 +51,7 @@ Example:
 }
 ```
 
-Normal response shape:
+Example response:
 
 ```json
 {
@@ -53,7 +61,7 @@ Normal response shape:
 }
 ```
 
-Error response shape:
+Error response:
 
 ```json
 {
@@ -66,18 +74,20 @@ Error response shape:
 }
 ```
 
+Applications must not assume every error uses the same code. Individual RPC methods may return implementation-specific validation or execution errors.
+
 ---
 
 ## 3. Encoding rules
 
-Unless noted otherwise:
+Unless stated otherwise:
 
 | Type | Encoding |
-|---|---|
+| --- | --- |
 | Quantity | Hex string with `0x` prefix |
 | Byte array | Hex string with `0x` prefix |
-| Address | 20-byte hex string with `0x` prefix |
-| Hash | 32-byte hex string with `0x` prefix |
+| Address | 20-byte hexadecimal value |
+| Hash | 32-byte hexadecimal value |
 | Missing object | `null` |
 | Boolean | JSON boolean |
 | Array | JSON array |
@@ -85,20 +95,40 @@ Unless noted otherwise:
 Examples:
 
 ```text
-0         -> "0x0"
-1643      -> "0x66b"
-100 gwei  -> "0x174876e800"
+0              -> "0x0"
+1643           -> "0x66b"
+100 gwei       -> "0x174876e800"
 ```
 
-Do not encode quantities as decimal strings in `eth_*` responses.
+Ethereum quantity values must not be returned as decimal strings unless the method explicitly specifies a decimal-string representation, as `net_version` does.
 
 ---
 
-## 4. Block selectors
+## 4. Chain identity
 
-Several methods accept a block selector.
+XGRChain mainnet uses:
 
-Supported selector forms include:
+```text
+chainId = 1643
+```
+
+Hexadecimal:
+
+```text
+0x66b
+```
+
+The chain ID is part of the transaction signing domain.
+
+Clients must verify the chain ID before signing transactions.
+
+---
+
+## 5. Block selectors
+
+Several `eth_*` methods accept a block selector.
+
+Supported forms include:
 
 ```text
 "latest"
@@ -107,108 +137,115 @@ Supported selector forms include:
 "0x<blockNumber>"
 ```
 
-Meaning:
+Depending on the method, block-hash selectors are also supported.
 
 | Selector | Meaning |
-|---|---|
+| --- | --- |
 | `latest` | Current canonical head known by the node |
-| `pending` | Current pending/latest context where supported |
-| `earliest` | Genesis block |
+| `pending` | Pending/latest context where supported |
+| `earliest` | Genesis |
 | `0x...` | Explicit block number |
 
-For methods accepting block number or block hash, the request can use a block-number object or a block-hash object according to the method parameter type.
-
-If a block/header cannot be found, the method may return `null` or an error depending on the endpoint.
+A request for an unknown block may return either `null` or an RPC error depending on the method.
 
 ---
 
-## 5. Compatibility notes
+## 6. Ethereum compatibility notes
 
-XGR Chain is EVM-compatible and supports standard wallet flows.
+XGRChain supports normal EVM wallet and tooling workflows.
 
 Supported areas include:
 
-- EIP-155 chain ID protected transactions
-- legacy transactions
-- access-list transactions where active by fork configuration
-- dynamic fee / type-2 transactions
-- contract deployment
-- contract calls
-- event logs
-- receipts
-- raw transaction submission
-- gas estimation
-- block and transaction lookup
-- WebSocket subscriptions where WebSocket RPC is enabled
+- EIP-155 chain-ID protection,
+- legacy transactions,
+- access-list transactions,
+- dynamic-fee transactions,
+- contract creation,
+- contract calls,
+- native XGR transfers,
+- event logs,
+- transaction receipts,
+- raw signed transaction submission,
+- gas estimation,
+- block and transaction lookup,
+- state queries,
+- WebSocket subscriptions when WebSocket RPC is enabled.
 
-Important behavior:
+Important `v3.1.1` behavior:
 
 1. `eth_sendTransaction` is intentionally unsupported.
-2. XGR nodes do not manage private keys through JSON-RPC.
-3. Clients must sign locally and submit with `eth_sendRawTransaction`.
-4. `eth_gasPrice` currently returns the latest header base fee.
-5. `eth_maxPriorityFeePerGas` currently returns `0`.
-6. Dynamic-fee defaults use `maxPriorityFeePerGas = 0` and `maxFeePerGas = 2 × baseFee`.
-7. XGR fee splitting is XGR-specific and should not be interpreted using Ethereum mainnet assumptions.
+2. The node does not manage user private keys through JSON-RPC.
+3. Transactions must normally be signed client-side and submitted through `eth_sendRawTransaction`.
+4. `eth_gasPrice` returns the latest block header base fee.
+5. `eth_maxPriorityFeePerGas` returns `0`.
+6. For RPC simulation, missing dynamic-fee fields are filled with:
+   - `maxPriorityFeePerGas = 0`
+   - `maxFeePerGas = 2 × baseFee`
+7. Missing legacy `gasPrice` is filled with the current base fee.
+8. XGR-specific fee distribution must not be inferred from Ethereum mainnet fee-distribution assumptions.
 
 ---
 
-## 6. Endpoint index
+## 7. Endpoint index
 
-### 6.1 `eth_*`
-
-| Method | Purpose |
-|---|---|
-| `eth_chainId` | Returns the configured chain ID as a hex quantity |
-| `eth_syncing` | Returns sync progress or `false` |
-| `eth_blockNumber` | Returns the latest known block number |
-| `eth_getBlockByNumber` | Returns block data by block number or tag |
-| `eth_getBlockByHash` | Returns block data by block hash |
-| `eth_getBlockTransactionCountByNumber` | Returns transaction count for a block number/tag |
-| `eth_getBalance` | Returns account balance at a block |
-| `eth_getTransactionCount` | Returns account nonce at a block |
-| `eth_getCode` | Returns contract bytecode at a block |
-| `eth_getStorageAt` | Returns storage slot value at a block |
-| `eth_sendRawTransaction` | Submits a signed raw transaction |
-| `eth_sendTransaction` | Unsupported; node-side wallet management is disabled |
-| `eth_getTransactionByHash` | Returns a mined or pending transaction by hash |
-| `eth_getTransactionReceipt` | Returns a mined transaction receipt |
-| `eth_call` | Executes a local read-only simulation |
-| `eth_estimateGas` | Estimates required gas for a transaction call object |
-| `eth_gasPrice` | Returns current suggested legacy gas price |
-| `eth_maxPriorityFeePerGas` | Returns current suggested priority fee |
-| `eth_feeHistory` | Returns historical fee data |
-| `eth_getLogs` | Returns logs matching a query |
-| `eth_newFilter` | Creates a log filter |
-| `eth_newBlockFilter` | Creates a block filter |
-| `eth_getFilterLogs` | Returns all logs for an existing filter |
-| `eth_getFilterChanges` | Returns changes since last filter poll |
-| `eth_uninstallFilter` | Removes a filter |
-| `eth_subscribe` | Creates a WebSocket subscription |
-| `eth_unsubscribe` | Cancels a WebSocket subscription/filter |
-
-### 6.2 `net_*`
+### 7.1 `eth_*`
 
 | Method | Purpose |
-|---|---|
-| `net_version` | Returns the configured chain ID as a decimal string |
-| `net_listening` | Returns whether the node reports itself as listening |
-| `net_peerCount` | Returns connected peer count as a hex quantity |
+| --- | --- |
+| `eth_chainId` | Return chain ID |
+| `eth_syncing` | Return synchronization state |
+| `eth_blockNumber` | Return local canonical head number |
+| `eth_getBlockByNumber` | Return block by block number/tag |
+| `eth_getBlockByHash` | Return block by hash |
+| `eth_getBlockTransactionCountByNumber` | Return transaction count for selected block |
+| `eth_getBalance` | Return account balance |
+| `eth_getTransactionCount` | Return account nonce |
+| `eth_getCode` | Return contract bytecode |
+| `eth_getStorageAt` | Return storage-slot value |
+| `eth_sendRawTransaction` | Submit signed transaction |
+| `eth_sendTransaction` | Unsupported |
+| `eth_getTransactionByHash` | Return transaction by hash |
+| `eth_getTransactionReceipt` | Return transaction receipt |
+| `eth_call` | Execute read-only local call |
+| `eth_estimateGas` | Estimate transaction gas |
+| `eth_gasPrice` | Return current legacy gas-price suggestion |
+| `eth_maxPriorityFeePerGas` | Return priority-fee suggestion |
+| `eth_feeHistory` | Return fee-history data |
+| `eth_getLogs` | Query event logs |
+| `eth_newFilter` | Create log filter |
+| `eth_newBlockFilter` | Create block filter |
+| `eth_getFilterLogs` | Return logs for filter |
+| `eth_getFilterChanges` | Return filter changes |
+| `eth_uninstallFilter` | Delete filter |
+| `eth_subscribe` | Create WebSocket subscription |
+| `eth_unsubscribe` | Cancel WebSocket subscription |
 
-### 6.3 `web3_*`
-
-| Method | Purpose |
-|---|---|
-| `web3_clientVersion` | Returns client/version string |
-| `web3_sha3` | Returns Keccak-256 hash of input data |
+XGR-specific PoS methods under the `eth_*` namespace are documented separately.
 
 ---
 
-## 7. Chain identity
+### 7.2 `net_*`
 
-## `eth_chainId`
+| Method | Purpose |
+| --- | --- |
+| `net_version` | Return chain/network ID as decimal string |
+| `net_listening` | Report listening state |
+| `net_peerCount` | Return connected peer count |
 
-Returns the active EIP-155 chain ID as a hex quantity.
+---
+
+### 7.3 `web3_*`
+
+| Method | Purpose |
+| --- | --- |
+| `web3_clientVersion` | Return node client/version string |
+| `web3_sha3` | Return Keccak-256 hash |
+
+---
+
+## 8. `eth_chainId`
+
+Returns the configured EIP-155 chain ID.
 
 ### Request
 
@@ -221,7 +258,7 @@ Returns the active EIP-155 chain ID as a hex quantity.
 }
 ```
 
-### Response
+### XGRChain mainnet response
 
 ```json
 {
@@ -231,19 +268,19 @@ Returns the active EIP-155 chain ID as a hex quantity.
 }
 ```
 
-For the published XGR Chain mainnet configuration:
+Equivalent decimal value:
 
 ```text
-0x66b = 1643
+1643
 ```
 
-Clients must use this chain ID when signing transactions.
+Wallets must use this chain ID when signing XGRChain transactions.
 
 ---
 
-## `net_version`
+## 9. `net_version`
 
-Returns the configured chain ID as a decimal string.
+Returns the configured network/chain identifier as a decimal string.
 
 ### Request
 
@@ -256,7 +293,7 @@ Returns the configured chain ID as a decimal string.
 }
 ```
 
-### Response
+### Mainnet response
 
 ```json
 {
@@ -266,28 +303,15 @@ Returns the configured chain ID as a decimal string.
 }
 ```
 
-For XGR Chain mainnet, `net_version` follows the configured chain ID.
-
 ---
 
-## 8. Sync and head state
+## 10. Synchronization and head state
 
-## `eth_syncing`
+### `eth_syncing`
 
-Returns node sync status.
+Returns node synchronization state.
 
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_syncing",
-  "params": []
-}
-```
-
-### Response when not syncing
+When synchronized:
 
 ```json
 {
@@ -297,7 +321,7 @@ Returns node sync status.
 }
 ```
 
-### Response when syncing
+While bulk synchronization is active, the response can contain:
 
 ```json
 {
@@ -312,33 +336,22 @@ Returns node sync status.
 }
 ```
 
-Field meaning:
+Fields:
 
 | Field | Meaning |
-|---|---|
-| `type` | Sync mode/type |
-| `startingBlock` | Start block of current sync progression |
-| `currentBlock` | Current block reached by sync |
-| `highestBlock` | Highest known target block |
+| --- | --- |
+| `type` | Active sync mode |
+| `startingBlock` | Starting block of the current sync |
+| `currentBlock` | Current synchronized height |
+| `highestBlock` | Highest known synchronization target |
 
 ---
 
-## `eth_blockNumber`
+### `eth_blockNumber`
 
-Returns the latest block number known by the node.
+Returns the local node's latest canonical block number.
 
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_blockNumber",
-  "params": []
-}
-```
-
-### Response
+Example:
 
 ```json
 {
@@ -348,19 +361,26 @@ Returns the latest block number known by the node.
 }
 ```
 
-This value is local to the node.
+This is local node state.
 
-A node with poor peer connectivity or sync problems can return a stale block number.
+A stale or partitioned node can therefore return a block number below the actual network head.
+
+For operational health checks, combine:
+
+```text
+eth_blockNumber
+net_peerCount
+```
+
+with external head comparison where appropriate.
 
 ---
 
-## 9. Blocks
+## 11. Block lookup
 
-## `eth_getBlockByNumber`
+### `eth_getBlockByNumber`
 
-Returns block data by block number or block tag.
-
-### Parameters
+Parameters:
 
 ```json
 [
@@ -369,59 +389,44 @@ Returns block data by block number or block tag.
 ]
 ```
 
-| Position | Type | Required | Meaning |
-|---:|---|---:|---|
-| `0` | quantity or tag | yes | Block number, `latest`, `pending` or `earliest` |
-| `1` | boolean | yes | If `true`, return full transaction objects; if `false`, return transaction hashes |
-
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_getBlockByNumber",
-  "params": ["latest", false]
-}
-```
-
-### Response
+| Position | Type | Meaning |
+| ---: | --- | --- |
+| `0` | block selector | Block number or tag |
+| `1` | boolean | Return full transaction objects if `true` |
 
 Returns a block object or `null`.
 
-Important block fields:
+Important fields include:
 
-| Field | Meaning |
-|---|---|
-| `number` | Block number |
-| `hash` | Block hash |
-| `parentHash` | Parent block hash |
-| `sha3Uncles` | Uncle hash field |
-| `miner` | Block creator / coinbase field |
-| `stateRoot` | State root |
-| `transactionsRoot` | Transaction root |
-| `receiptsRoot` | Receipts root |
-| `logsBloom` | Logs bloom |
-| `difficulty` | Difficulty field |
-| `totalDifficulty` | Total difficulty compatibility field |
-| `size` | Encoded block size |
-| `gasLimit` | Block gas limit |
-| `gasUsed` | Gas used by block |
-| `timestamp` | Block timestamp |
-| `extraData` | Filtered extra data |
-| `mixHash` | Mix hash |
-| `nonce` | Nonce field |
-| `baseFeePerGas` | Header base fee |
-| `transactions` | Transaction hashes or full transaction objects |
-| `uncles` | Uncle hashes |
+- `number`
+- `hash`
+- `parentHash`
+- `sha3Uncles`
+- `miner`
+- `stateRoot`
+- `transactionsRoot`
+- `receiptsRoot`
+- `logsBloom`
+- `difficulty`
+- `totalDifficulty`
+- `size`
+- `gasLimit`
+- `gasUsed`
+- `timestamp`
+- `extraData`
+- `mixHash`
+- `nonce`
+- `baseFeePerGas`
+- `transactions`
+- `uncles`
+
+XGRChain consensus-specific header information is represented through the normal block object where applicable, but applications should not rely on undocumented IBFT extra-data offsets.
 
 ---
 
-## `eth_getBlockByHash`
+### `eth_getBlockByHash`
 
-Returns block data by block hash.
-
-### Parameters
+Parameters:
 
 ```json
 [
@@ -430,33 +435,15 @@ Returns block data by block hash.
 ]
 ```
 
-| Position | Type | Required | Meaning |
-|---:|---|---:|---|
-| `0` | hash | yes | Block hash |
-| `1` | boolean | yes | If `true`, return full transaction objects; if `false`, return transaction hashes |
-
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_getBlockByHash",
-  "params": ["0x<blockHash>", false]
-}
-```
-
-### Response
-
 Returns a block object or `null`.
 
 ---
 
-## `eth_getBlockTransactionCountByNumber`
+### `eth_getBlockTransactionCountByNumber`
 
-Returns the number of transactions in a block selected by block number or tag.
+Returns the transaction count of a selected block.
 
-### Request
+Example request:
 
 ```json
 {
@@ -467,27 +454,27 @@ Returns the number of transactions in a block selected by block number or tag.
 }
 ```
 
-### Response
+Example response:
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "result": "0x0"
+  "result": "0x5"
 }
 ```
 
-If the block cannot be found, the method returns `null`.
+If the block cannot be found, the result is `null`.
 
 ---
 
-## 10. Account and contract state
+## 12. Account and contract state
 
-## `eth_getBalance`
+### `eth_getBalance`
 
-Returns the balance of an address at a selected block.
+Returns account balance at the selected state root.
 
-### Parameters
+Parameters:
 
 ```json
 [
@@ -496,30 +483,21 @@ Returns the balance of an address at a selected block.
 ]
 ```
 
-| Position | Type | Required | Meaning |
-|---:|---|---:|---|
-| `0` | address | yes | Account or contract address |
-| `1` | block selector | yes | Block number/tag or block hash selector |
+Result is returned as a hexadecimal quantity in wei.
 
-### Response
+If the account does not exist, the result is:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x0"
-}
+```text
+0x0
 ```
-
-If the account does not exist, the result is `0x0`.
 
 ---
 
-## `eth_getTransactionCount`
+### `eth_getTransactionCount`
 
-Returns the account nonce at a selected block.
+Returns the nonce for the account.
 
-### Parameters
+Parameters:
 
 ```json
 [
@@ -528,27 +506,21 @@ Returns the account nonce at a selected block.
 ]
 ```
 
-### Response
+For `pending`, the result can use txpool-aware nonce state.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x1"
-}
+If the account does not exist, the result is:
+
+```text
+0x0
 ```
-
-When the block selector is `pending`, the nonce can be read from the txpool-aware pending context.
-
-If the account does not exist, the result is `0x0`.
 
 ---
 
-## `eth_getCode`
+### `eth_getCode`
 
-Returns contract bytecode at an address and block.
+Returns EVM bytecode stored for an address.
 
-### Parameters
+Parameters:
 
 ```json
 [
@@ -557,33 +529,23 @@ Returns contract bytecode at an address and block.
 ]
 ```
 
-### Response for a contract
+For an EOA or empty account:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x60806040..."
-}
+```text
+0x
 ```
 
-### Response for an EOA or empty account
+Note that native protocol precompiles do not require deployed EVM bytecode.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x"
-}
-```
+For example, absence of bytecode at a precompile address does not imply that the protocol functionality is unavailable.
 
 ---
 
-## `eth_getStorageAt`
+### `eth_getStorageAt`
 
-Returns the raw value of a contract storage slot.
+Returns a raw storage slot.
 
-### Parameters
+Parameters:
 
 ```json
 [
@@ -593,33 +555,65 @@ Returns the raw value of a contract storage slot.
 ]
 ```
 
-| Position | Type | Required | Meaning |
-|---:|---|---:|---|
-| `0` | address | yes | Contract address |
-| `1` | hash / slot | yes | Storage slot index |
-| `2` | block selector | yes | Block number/tag or block hash selector |
+Missing storage returns the zero hash:
 
-### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
-}
+```text
+0x0000000000000000000000000000000000000000000000000000000000000000
 ```
-
-If the state entry is missing, the method returns the zero hash value.
 
 ---
 
-## 11. Transactions
+## 13. Historical-state availability and trie pruning
 
-## `eth_sendRawTransaction`
+Historical block availability and historical EVM-state availability are separate concepts on XGRChain.
 
-Submits a locally signed raw transaction.
+When the Online State Trie Sweeper is enabled, old trie state beyond the configured retention window may be reclaimed.
 
-### Parameters
+This can affect historical requests such as:
+
+```text
+eth_getBalance
+eth_getTransactionCount
+eth_getCode
+eth_getStorageAt
+eth_call
+eth_estimateGas
+```
+
+when they reference sufficiently old blocks.
+
+For example, a node may still successfully return:
+
+```text
+eth_getBlockByNumber
+eth_getBlockByHash
+eth_getTransactionReceipt
+eth_getLogs
+```
+
+for an older canonical block while no longer retaining the complete historical EVM state root required for an old `eth_call`.
+
+Therefore:
+
+> A normal pruned/full node must not be treated as an unrestricted archive-state RPC endpoint.
+
+Applications requiring arbitrary historical-state access should use a node operated with an appropriate archive-style retention policy.
+
+State-retention behavior is documented in:
+
+```text
+docs/chain/XGRCHAIN_State_Storage_and_Retention.md
+```
+
+---
+
+## 14. Transaction submission
+
+### `eth_sendRawTransaction`
+
+Submits a locally signed transaction.
+
+Parameters:
 
 ```json
 [
@@ -627,18 +621,7 @@ Submits a locally signed raw transaction.
 ]
 ```
 
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_sendRawTransaction",
-  "params": ["0x<signedRawTransaction>"]
-}
-```
-
-### Response
+Response:
 
 ```json
 {
@@ -648,178 +631,152 @@ Submits a locally signed raw transaction.
 }
 ```
 
-Notes:
+The node still performs txpool admission checks.
 
-- the transaction must be RLP encoded
-- the transaction must be signed locally
-- the transaction chain ID must match XGR Chain
-- the node adds the transaction to the local txpool
-- txpool admission can still fail for fee, nonce, balance, gas or validation reasons
+A submitted transaction can be rejected for reasons including:
+
+- invalid signature,
+- wrong chain ID,
+- invalid nonce,
+- insufficient balance,
+- insufficient intrinsic gas,
+- unsupported transaction type,
+- insufficient fee,
+- replacement rules,
+- txpool limits.
+
+Submission to one node does not itself mean that the transaction has been finalized.
 
 ---
 
-## `eth_sendTransaction`
+### `eth_sendTransaction`
 
 Unsupported.
 
-XGR nodes do not expose node-side wallet management through JSON-RPC.
+XGRChain does not expose node-managed user wallets through JSON-RPC.
 
-Use:
+The endpoint returns an error directing the caller to:
 
 ```text
 eth_sendRawTransaction
 ```
 
-### Request
+Applications should:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_sendTransaction",
-  "params": [
-    {
-      "from": "0x<sender>",
-      "to": "0x<recipient>",
-      "value": "0x0"
-    }
-  ]
-}
-```
-
-### Error
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": -32600,
-    "message": "request calls to eth_sendTransaction method are not supported, use eth_sendRawTransaction instead"
-  }
-}
-```
+1. construct the transaction,
+2. sign it using the user's wallet or signer,
+3. submit the signed bytes.
 
 ---
 
-## `eth_getTransactionByHash`
+## 15. Transaction lookup
 
-Returns a transaction by transaction hash.
+### `eth_getTransactionByHash`
 
 The node checks:
 
-1. sealed transaction lookup
-2. pending txpool transaction lookup
+1. canonical transaction lookup,
+2. local pending txpool state.
 
-### Parameters
+A pending transaction can therefore be returned before it has a canonical block association.
 
-```json
-[
-  "0x<transactionHash>"
-]
+Important fields include:
+
+- `hash`
+- `nonce`
+- `blockHash`
+- `blockNumber`
+- `transactionIndex`
+- `from`
+- `to`
+- `value`
+- `gas`
+- `gasPrice`
+- `maxPriorityFeePerGas`
+- `maxFeePerGas`
+- `input`
+- `accessList`
+- `chainId`
+- `type`
+- `v`
+- `r`
+- `s`
+
+For pending transactions:
+
+```text
+blockHash
+blockNumber
+transactionIndex
 ```
 
-### Response
-
-Returns a transaction object or `null`.
-
-Important transaction fields:
-
-| Field | Meaning |
-|---|---|
-| `hash` | Transaction hash |
-| `nonce` | Sender nonce |
-| `blockHash` | Block hash if mined, otherwise `null` |
-| `blockNumber` | Block number if mined, otherwise `null` |
-| `transactionIndex` | Transaction index if mined, otherwise `null` |
-| `from` | Sender address |
-| `to` | Recipient address or `null` for contract creation |
-| `value` | Native value |
-| `gas` | Gas limit |
-| `gasPrice` | Effective/legacy gas price where present |
-| `maxPriorityFeePerGas` | Dynamic-fee priority cap where present |
-| `maxFeePerGas` | Dynamic-fee fee cap where present |
-| `input` | Calldata |
-| `accessList` | Access list for typed transactions |
-| `chainId` | Chain ID for typed transactions where present |
-| `type` | Transaction type |
-| `v`, `r`, `s` | Signature fields |
+may be `null`.
 
 ---
 
-## `eth_getTransactionReceipt`
+### `eth_getTransactionReceipt`
 
-Returns the receipt for a mined transaction.
+Returns a receipt for a mined transaction.
 
-### Parameters
-
-```json
-[
-  "0x<transactionHash>"
-]
-```
-
-### Response
-
-Returns a receipt object or `null`.
-
-Important receipt fields:
+Important fields:
 
 | Field | Meaning |
-|---|---|
+| --- | --- |
 | `transactionHash` | Transaction hash |
-| `transactionIndex` | Transaction index in block |
-| `blockHash` | Block hash |
-| `blockNumber` | Block number |
-| `from` | Sender address |
-| `to` | Recipient address or `null` for contract creation |
-| `contractAddress` | Created contract address if applicable |
-| `cumulativeGasUsed` | Cumulative gas used in block up to this tx |
-| `gasUsed` | Gas used by this transaction |
+| `transactionIndex` | Position in block |
+| `blockHash` | Containing block |
+| `blockNumber` | Containing block number |
+| `from` | Sender |
+| `to` | Recipient |
+| `contractAddress` | Created contract, if applicable |
+| `cumulativeGasUsed` | Cumulative block gas through this transaction |
+| `gasUsed` | Gas used by transaction |
 | `logs` | Event logs |
-| `logsBloom` | Receipt logs bloom |
+| `logsBloom` | Receipt bloom |
 | `status` | Execution status |
 | `type` | Transaction type |
-| `root` | Root field where present |
 
-If the transaction is unknown or not yet mined, the result is `null`.
+Unknown or pending transactions return:
 
----
-
-## 12. Transaction object fields
-
-XGR Chain transaction JSON objects follow Ethereum-compatible field naming.
-
-| Field | Legacy tx | Access-list tx | Dynamic-fee tx |
-|---|---:|---:|---:|
-| `gasPrice` | yes | yes | may be present as effective price in returned mined contexts |
-| `maxPriorityFeePerGas` | no | no | yes |
-| `maxFeePerGas` | no | no | yes |
-| `accessList` | no | yes | yes |
-| `chainId` | optional/protected legacy | yes | yes |
-| `type` | yes | yes | yes |
-
-Typed transactions return `accessList` as an array, including an empty array when no entries exist.
+```text
+null
+```
 
 ---
 
-## 13. Execution and simulation
+## 16. Transaction types
 
-## `eth_call`
+XGRChain supports:
 
-Executes a call locally against selected state.
+| Transaction | Code |
+| --- | --- |
+| Legacy | `0x00` |
+| Access-list | `0x01` |
+| Dynamic fee | `0x02` |
 
-It does not submit a transaction and does not change chain state.
+The node also uses an internal:
 
-### Parameters
+```text
+StateTx = 0x7f
+```
+
+for protocol-level system execution.
+
+`StateTx` is not intended as a normal wallet-submitted transaction type.
+
+---
+
+## 17. `eth_call`
+
+`eth_call` executes an EVM call locally without modifying canonical chain state.
+
+Typical parameters:
 
 ```json
 [
   {
-    "from": "0x<optionalSender>",
+    "from": "0x<sender>",
     "to": "0x<target>",
-    "gas": "0x5208",
-    "gasPrice": "0x0",
     "value": "0x0",
     "data": "0x<calldata>"
   },
@@ -827,41 +784,31 @@ It does not submit a transaction and does not change chain state.
 ]
 ```
 
-Optional third parameter:
+An optional state-override object is supported.
 
-```json
-{
-  "0x<address>": {
-    "balance": "0x0",
-    "nonce": "0x0",
-    "code": "0x...",
-    "state": {},
-    "stateDiff": {}
-  }
-}
-```
+State overrides can modify simulation context including:
 
-The optional third parameter is a state override object.
+- balance,
+- nonce,
+- code,
+- storage,
+- storage differences.
 
-### Response
+A revert returns an RPC error together with revert data where available.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x<returnData>"
-}
-```
+### Simulation nonce behavior
 
-If the EVM reverts, the endpoint returns revert data together with an error.
+For simulation calls, `v3.1.1` aligns a default/zero transaction nonce with the referenced state when required.
+
+This avoids failures caused by differences between txpool nonce state and the selected canonical state during simulation.
 
 ---
 
-## `eth_estimateGas`
+## 18. `eth_estimateGas`
 
-Estimates the gas required for a transaction call object.
+Estimates the minimum gas required for a transaction-like call.
 
-### Parameters
+Example:
 
 ```json
 [
@@ -874,47 +821,72 @@ Estimates the gas required for a transaction call object.
 ]
 ```
 
-Optional second parameter:
+If no block number is provided:
 
-```json
-"latest"
+```text
+latest
 ```
 
-### Response
+is used.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x5208"
-}
+Important `v3.1.1` behavior:
+
+- simple EOA value transfers can use intrinsic gas directly,
+- transfers to contract recipients are executed because `receive`/fallback code may consume additional gas,
+- contract execution uses binary search to determine the gas requirement,
+- a supplied `gas` value may act as the upper bound,
+- otherwise the referenced block gas limit is used,
+- available sender balance can reduce the usable gas ceiling,
+- EVM reverts are returned as errors,
+- insufficient funds can prevent estimation.
+
+Therefore:
+
+```text
+21000
 ```
 
-Important behavior:
+must not be assumed for every empty-calldata value transfer.
 
-- if no block number is provided, `latest` is used
-- simple EOA value transfers can return intrinsic gas directly
-- transfers to contracts are executed because fallback/receive logic can consume more than intrinsic gas
-- estimation uses local execution and binary search
-- reverting calls can return an error
-- if gas is provided, it can act as the upper bound
-- if no gas is provided, the selected block gas limit is used as upper bound
+A contract recipient can execute code even when transaction calldata is empty.
 
 ---
 
-## 14. Gas and fee discovery
+## 19. Gas-price suggestion model in `v3.1.1`
 
-## `eth_gasPrice`
+The standard RPC-facing fee suggestion path is intentionally simple.
 
-Returns the current suggested gas price for legacy-style transaction pricing.
+For the current block header:
 
-Current behavior:
+```text
+baseFee = latestHeader.BaseFee
+```
+
+The RPC suggestion function derives:
+
+```text
+tip      = 0
+gasPrice = baseFee
+feeCap   = 2 × baseFee
+```
+
+with saturated arithmetic for the multiplication.
+
+This behavior is distinct from internal gas-price helper capabilities that may analyze historical transaction tips.
+
+The public RPC endpoints described here use the deterministic suggestion path above.
+
+---
+
+## 20. `eth_gasPrice`
+
+Current `v3.1.1` behavior:
 
 ```text
 eth_gasPrice = latestHeader.BaseFee
 ```
 
-### Request
+Example:
 
 ```json
 {
@@ -925,37 +897,32 @@ eth_gasPrice = latestHeader.BaseFee
 }
 ```
 
-### Example response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x174876e800"
-}
-```
-
-`0x174876e800` equals:
+A result of:
 
 ```text
-100000000000 wei = 100 gwei
+0x174876e800
 ```
 
-Actual result depends on the current head base fee.
+equals:
+
+```text
+100000000000 wei
+100 gwei
+```
+
+The actual value depends on the current XGRChain base fee.
 
 ---
 
-## `eth_maxPriorityFeePerGas`
+## 21. `eth_maxPriorityFeePerGas`
 
-Returns the node's suggested priority fee.
-
-Current behavior:
+Current `v3.1.1` RPC suggestion:
 
 ```text
-eth_maxPriorityFeePerGas = 0
+0
 ```
 
-### Request
+Example:
 
 ```json
 {
@@ -966,7 +933,7 @@ eth_maxPriorityFeePerGas = 0
 }
 ```
 
-### Response
+Response:
 
 ```json
 {
@@ -976,105 +943,114 @@ eth_maxPriorityFeePerGas = 0
 }
 ```
 
-Clients may still apply their own wallet policy, but the current node suggestion is zero.
+This is valid XGRChain behavior.
+
+Wallet integrations must not reject XGRChain merely because the node suggests a zero priority fee.
 
 ---
 
-## `eth_feeHistory`
+## 22. Simulation fee defaults
 
-Returns historical fee information.
+When RPC simulation needs fee fields and the caller has omitted them, `v3.1.1` fills them deterministically.
 
-### Parameters
+### Dynamic-fee transaction
 
-```json
-[
-  "0x5",
-  "latest",
-  [10, 50, 90]
-]
+```text
+maxPriorityFeePerGas = 0
+maxFeePerGas         = 2 × baseFee
 ```
 
-| Position | Type | Required | Meaning |
-|---:|---|---:|---|
-| `0` | quantity | yes | Number of blocks requested |
-| `1` | block selector | yes | Newest block |
-| `2` | array of floats | no | Reward percentiles |
+### Legacy transaction
 
-### Request
+```text
+gasPrice = baseFee
+```
+
+Explicit client-supplied fields are preserved where valid.
+
+These defaults primarily affect local simulation such as:
+
+```text
+eth_call
+eth_estimateGas
+```
+
+They do not sign or broadcast a transaction for the user.
+
+---
+
+## 23. `eth_feeHistory`
+
+Returns historical block fee information.
+
+Example:
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
   "method": "eth_feeHistory",
-  "params": ["0x5", "latest", [10, 50, 90]]
+  "params": [
+    "0x5",
+    "latest",
+    [10, 50, 90]
+  ]
 }
 ```
 
-### Response shape
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "oldestBlock": "0x100",
-    "baseFeePerGas": ["0x174876e800"],
-    "gasUsedRatio": [0.1],
-    "reward": [["0x0", "0x0", "0x0"]]
-  }
-}
-```
-
-Field meaning:
+Response fields:
 
 | Field | Meaning |
-|---|---|
-| `oldestBlock` | Oldest block included in the response |
-| `baseFeePerGas` | Base fee values for the returned block range |
-| `gasUsedRatio` | `gasUsed / gasLimit` for each block |
-| `reward` | Effective priority-fee percentiles if requested |
+| --- | --- |
+| `oldestBlock` | Oldest returned block |
+| `baseFeePerGas` | Base-fee sequence |
+| `gasUsedRatio` | `gasUsed / gasLimit` |
+| `reward` | Effective tip percentiles |
 
-Implementation behavior:
+`v3.1.1` behavior includes:
 
-- `blockCount < 1` returns an error
-- `blockCount > 1024` is clamped to `1024`
-- newest block above local head is clamped to current head
-- invalid reward percentiles return an error
-- empty blocks produce zero reward values
+- `blockCount` must be greater than zero,
+- maximum processed block count is `1024`,
+- a requested newest block above the local head is clamped to the current head,
+- reward percentiles must be in `[0,100]`,
+- percentiles must be non-decreasing,
+- empty blocks return zero rewards for requested percentiles.
+
+The implementation returns:
+
+```text
+blockCount + 1
+```
+
+entries in `baseFeePerGas`.
+
+The final entry is populated from the node's current header base fee.
 
 ---
 
-## 15. Transaction fee defaults in RPC simulation
+## 24. XGR-specific fee semantics
 
-When RPC simulation methods need missing fee fields, the node fills them.
+Ethereum-compatible RPC field names do not imply Ethereum mainnet economics.
 
-For dynamic-fee transactions:
+XGRChain has its own:
 
-```text
-maxPriorityFeePerGas = 0
-maxFeePerGas = 2 × baseFee
-```
+- base-fee behavior,
+- minimum-base-fee logic,
+- PoS fee distribution,
+- validator allocation,
+- protocol fee handling.
 
-For legacy transactions:
-
-```text
-gasPrice = baseFee
-```
-
-Only missing fields are filled.
-
-If a client provides explicit positive fee fields, the node keeps the provided values.
+For accounting or protocol integration, use the dedicated XGR gas and fee specification rather than assuming Ethereum's burn/tip distribution model.
 
 ---
 
-## 16. Logs and filters
+## 25. Logs
 
-## `eth_getLogs`
+### `eth_getLogs`
 
-Returns logs matching a filter query.
+Queries canonical event logs.
 
-### Parameters
+Typical request:
 
 ```json
 [
@@ -1087,199 +1063,63 @@ Returns logs matching a filter query.
 ]
 ```
 
-### Response
+Returned logs contain fields including:
 
-```json
-[
-  {
-    "address": "0x<contractAddress>",
-    "topics": ["0x<topic0>"],
-    "data": "0x...",
-    "blockNumber": "0x1234",
-    "transactionHash": "0x<transactionHash>",
-    "transactionIndex": "0x0",
-    "blockHash": "0x<blockHash>",
-    "logIndex": "0x0",
-    "removed": false
-  }
-]
-```
+- `address`
+- `topics`
+- `data`
+- `blockNumber`
+- `transactionHash`
+- `transactionIndex`
+- `blockHash`
+- `logIndex`
+- `removed`
 
-Filtering supports block ranges, address filters and topic filters according to the active filter manager behavior.
-
-Large block ranges can be limited by node configuration.
+Log queries can be constrained by the node's configured JSON-RPC block-range limit.
 
 ---
 
-## `eth_newFilter`
+## 26. Filters
 
-Creates a log filter.
+Supported filter operations include:
 
-### Parameters
-
-```json
-[
-  {
-    "fromBlock": "latest",
-    "toBlock": "latest",
-    "address": "0x<contractAddress>",
-    "topics": []
-  }
-]
+```text
+eth_newFilter
+eth_newBlockFilter
+eth_getFilterLogs
+eth_getFilterChanges
+eth_uninstallFilter
 ```
 
-### Response
+Filters are node-local runtime objects.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x1"
-}
-```
+A filter created on one RPC node should not be assumed to exist on another RPC node.
+
+This matters when RPC traffic is load-balanced across multiple backends.
+
+Infrastructure using polling filters should ensure session affinity or use an indexing architecture that does not rely on node-local filter IDs.
 
 ---
 
-## `eth_newBlockFilter`
+## 27. WebSocket subscriptions
 
-Creates a filter for new blocks.
+When WebSocket RPC is enabled, the dispatcher supports:
 
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_newBlockFilter",
-  "params": []
-}
+```text
+newHeads
+logs
+newPendingTransactions
 ```
 
-### Response
+through:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x2"
-}
+```text
+eth_subscribe
 ```
 
----
+Examples:
 
-## `eth_getFilterLogs`
-
-Returns all logs matching an existing log filter.
-
-### Parameters
-
-```json
-[
-  "0x1"
-]
-```
-
-### Response
-
-Returns an array of log objects.
-
----
-
-## `eth_getFilterChanges`
-
-Returns changes since the last poll for a filter.
-
-### Parameters
-
-```json
-[
-  "0x1"
-]
-```
-
-### Response
-
-For log filters:
-
-```json
-[
-  {
-    "address": "0x<contractAddress>",
-    "topics": [],
-    "data": "0x...",
-    "blockNumber": "0x1234",
-    "transactionHash": "0x<transactionHash>",
-    "transactionIndex": "0x0",
-    "blockHash": "0x<blockHash>",
-    "logIndex": "0x0",
-    "removed": false
-  }
-]
-```
-
-For block filters:
-
-```json
-[
-  "0x<blockHash>"
-]
-```
-
-If nothing changed:
-
-```json
-[]
-```
-
----
-
-## `eth_uninstallFilter`
-
-Removes a filter.
-
-### Parameters
-
-```json
-[
-  "0x1"
-]
-```
-
-### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": true
-}
-```
-
----
-
-## 17. WebSocket subscriptions
-
-When WebSocket JSON-RPC is enabled, XGR Chain supports Ethereum-style subscriptions.
-
-Supported subscription types:
-
-| Subscription | Meaning |
-|---|---|
-| `newHeads` | New block headers |
-| `logs` | Logs matching a log query |
-| `newPendingTransactions` | Pending transaction notifications |
-
-`eth_subscribe` is handled through the WebSocket dispatcher path.
-
-It is not a normal HTTP polling method.
-
----
-
-## `eth_subscribe`
-
-Creates a WebSocket subscription.
-
-### New heads request
+### New heads
 
 ```json
 {
@@ -1290,7 +1130,7 @@ Creates a WebSocket subscription.
 }
 ```
 
-### Logs request
+### Logs
 
 ```json
 {
@@ -1307,7 +1147,7 @@ Creates a WebSocket subscription.
 }
 ```
 
-### Pending transactions request
+### Pending transactions
 
 ```json
 {
@@ -1318,23 +1158,17 @@ Creates a WebSocket subscription.
 }
 ```
 
-### Response
+Subscriptions are connection-local.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x<subscriptionId>"
-}
-```
+A disconnected WebSocket client must create a new subscription after reconnecting.
 
 ---
 
-## `eth_unsubscribe`
+## 28. `eth_unsubscribe`
 
-Cancels a WebSocket subscription or removes the corresponding filter ID.
+Cancels an active WebSocket subscription.
 
-### Request
+Example:
 
 ```json
 {
@@ -1345,60 +1179,43 @@ Cancels a WebSocket subscription or removes the corresponding filter ID.
 }
 ```
 
-### Response
+Result:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": true
-}
+```text
+true
 ```
 
-If the subscription/filter ID is unknown, the result can be `false`.
+when the subscription/filter existed and was removed.
+
+Unknown identifiers may return:
+
+```text
+false
+```
 
 ---
 
-## 18. Network methods
+## 29. Network methods
 
-## `net_listening`
+### `net_listening`
 
-Returns whether the node reports itself as listening for network connections.
+Returns whether the node reports itself as listening.
 
-### Request
+Current behavior returns:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "net_listening",
-  "params": []
-}
+```text
+true
 ```
 
-### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": true
-}
-```
-
-Current behavior returns `true`.
-
-This does not prove that the node has healthy peer connectivity.
-
-Use `net_peerCount` and node monitoring for that.
+This does not prove that healthy peers are connected.
 
 ---
 
-## `net_peerCount`
+### `net_peerCount`
 
-Returns the current number of connected peers.
+Returns current connected peer count as a hexadecimal quantity.
 
-### Request
+Example:
 
 ```json
 {
@@ -1409,73 +1226,55 @@ Returns the current number of connected peers.
 }
 ```
 
-### Response
+Response:
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "result": "0x3"
+  "result": "0x4"
 }
 ```
 
-The result is a hex quantity.
+Use peer count together with block progression for node-health monitoring.
 
 ---
 
-## 19. Web3 methods
+## 30. `web3_clientVersion`
 
-## `web3_clientVersion`
+Returns the client build identification.
 
-Returns the node client/version string.
+Shape:
 
-### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "web3_clientVersion",
-  "params": []
-}
+```text
+<chainName>/<version>/<os>-<architecture>/<goVersion>
 ```
 
-### Response shape
+For a tagged `v3.1.1` build, output is expected to follow a form similar to:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "xgrchain/v1.1.1/linux-amd64/go1.23.11"
-}
+```text
+xgrchain/v3.1.1/linux-amd64/go<runtime-version>
 ```
 
 Exact output depends on:
 
-- configured chain name
-- build version
-- commit metadata
-- operating system
-- architecture
-- Go runtime version
+- release metadata,
+- build process,
+- operating system,
+- architecture,
+- Go runtime.
+
+Clients should not parse protocol capability solely from the version string.
 
 ---
 
-## `web3_sha3`
+## 31. `web3_sha3`
 
-Returns the Keccak-256 hash of the given input data.
+Computes Ethereum Keccak-256.
 
-This is Ethereum Keccak-256, not standardized SHA3-256.
+This is **Keccak-256**, not standardized SHA3-256.
 
-### Parameters
-
-```json
-[
-  "0x68656c6c6f"
-]
-```
-
-### Request
+Example request:
 
 ```json
 {
@@ -1486,23 +1285,17 @@ This is Ethereum Keccak-256, not standardized SHA3-256.
 }
 ```
 
-### Response
+Example result:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8"
-}
+```text
+0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8
 ```
 
 ---
 
-## 20. RPC dispatcher behavior
+## 32. Dispatcher model
 
-The JSON-RPC dispatcher maps method names by namespace.
-
-Method name format:
+JSON-RPC method names follow:
 
 ```text
 <namespace>_<method>
@@ -1518,24 +1311,23 @@ web3_clientVersion
 
 The dispatcher:
 
-1. splits the method name at the first underscore
-2. resolves the namespace
-3. resolves the exported method on the endpoint service
-4. decodes parameters
-5. executes the method
-6. returns JSON-RPC 2.0 response
+1. identifies the namespace,
+2. resolves the endpoint method,
+3. decodes parameters,
+4. invokes the method,
+5. encodes the JSON-RPC result.
 
-Unknown namespaces or methods return method-not-found errors.
+Unknown methods return a method-not-found error.
 
-Registered namespaces can include operational or XGR-specific surfaces depending on node build and configuration, but this document covers only standard Ethereum-compatible application surfaces.
+Not every namespace exposed by a particular node deployment should be treated as part of the public Ethereum compatibility contract.
 
 ---
 
-## 21. Batch requests
+## 33. Batch requests
 
-HTTP and WebSocket JSON-RPC batch requests are supported.
+JSON-RPC batching is supported.
 
-Example batch request:
+Example:
 
 ```json
 [
@@ -1554,75 +1346,127 @@ Example batch request:
 ]
 ```
 
-Batch length can be limited by node configuration.
-
-Relevant runtime control:
+Relevant runtime limit:
 
 ```text
 --json-rpc-batch-request-limit
 ```
 
-If the configured limit is exceeded, the node returns an invalid-request error.
+Default in `v3.1.1`:
+
+```text
+20
+```
+
+Operators can configure a different value.
+
+Clients should not assume arbitrarily large JSON-RPC batches will be accepted.
 
 ---
 
-## 22. Block range limits
+## 34. Block-range limits
 
-Range-heavy methods such as log queries can be limited by node configuration.
-
-Relevant runtime control:
+Range-based RPC requests can be limited using:
 
 ```text
 --json-rpc-block-range-limit
 ```
 
-This protects public RPC infrastructure from expensive unbounded queries.
+Default in `v3.1.1`:
 
-Indexers should avoid very large `eth_getLogs` ranges and should chunk requests.
+```text
+1000 blocks
+```
+
+This primarily protects expensive queries such as large `eth_getLogs` ranges.
+
+Indexers should split historical queries into bounded ranges.
+
+Public RPC infrastructure can apply additional reverse-proxy or application-level restrictions.
 
 ---
 
-## 23. Recommended client behavior
+## 35. WebSocket read limit
+
+The node defines a WebSocket message read limit.
+
+Default in `v3.1.1`:
+
+```text
+8192 bytes
+```
+
+Requests exceeding the configured WebSocket read limit may cause the connection to be closed.
+
+Large batch or payload-heavy requests should therefore normally use appropriately configured HTTP RPC infrastructure.
+
+---
+
+## 36. Public RPC and validator separation
+
+Public RPC is an application interface.
+
+Validator operation is a consensus function.
+
+Production infrastructure should normally separate:
+
+```text
+public RPC nodes
+```
+
+from:
+
+```text
+validator nodes
+```
+
+A public RPC endpoint does not need validator signing material.
+
+Validator private keys should never be exposed merely to provide standard Ethereum RPC.
+
+---
+
+## 37. Recommended client behavior
 
 Clients should:
 
-1. Call `eth_chainId` before signing.
-2. Sign transactions locally.
-3. Submit with `eth_sendRawTransaction`.
-4. Use `eth_estimateGas` before contract execution.
-5. Use `eth_gasPrice` or block `baseFeePerGas` for current pricing.
-6. Treat `eth_maxPriorityFeePerGas = 0` as valid XGR node behavior.
-7. For dynamic-fee transactions, set `maxFeePerGas >= baseFee`.
-8. Use `eth_getTransactionReceipt` to confirm inclusion.
-9. Use `eth_getLogs` or WebSocket `logs` for event indexing.
-10. Avoid relying on node-side wallet methods.
-11. Handle `null` for unknown blocks, transactions and receipts.
-12. Handle method-not-found for non-standard methods.
-13. Keep XGR extension RPC calls separate from standard Ethereum RPC code paths.
+1. verify `eth_chainId == 0x66b`,
+2. sign transactions locally,
+3. use `eth_sendRawTransaction`,
+4. estimate contract execution through `eth_estimateGas`,
+5. treat a zero priority-fee suggestion as valid,
+6. use current base fee when constructing transactions,
+7. use `eth_getTransactionReceipt` for canonical inclusion,
+8. use bounded `eth_getLogs` queries,
+9. reconnect and recreate WebSocket subscriptions after connection loss,
+10. handle `null` for unknown transactions, receipts and blocks,
+11. distinguish block-history access from historical-state access,
+12. not assume every RPC node is an archive node,
+13. keep XGR-specific extension APIs separate from generic Ethereum RPC integrations.
 
 ---
 
-## 24. Common integration mistakes
+## 38. Common integration mistakes
 
-### 24.1 Using `eth_sendTransaction`
+### 38.1 Calling `eth_sendTransaction`
 
-Wrong:
+Incorrect:
 
 ```text
 eth_sendTransaction
 ```
 
-Correct:
+Use:
 
 ```text
 eth_sendRawTransaction
 ```
 
-XGR nodes do not manage private keys through JSON-RPC.
+with client-side signing.
 
 ---
 
-### 24.2 Assuming a non-zero priority fee is required
+### 38.2 Requiring a non-zero priority fee
 
 Current node suggestion:
 
@@ -1630,75 +1474,140 @@ Current node suggestion:
 eth_maxPriorityFeePerGas = 0
 ```
 
-Wallets may use their own policy, but the node does not currently suggest a mandatory non-zero tip.
+This is intentional XGRChain behavior.
 
 ---
 
-### 24.3 Treating `maxFeePerGas` as the actual paid price
+### 38.3 Treating the fee cap as actual cost
 
-For dynamic-fee transactions, the actual effective price is:
+For a dynamic-fee transaction:
 
 ```text
-min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+effectiveGasPrice =
+    min(maxFeePerGas,
+        baseFee + maxPriorityFeePerGas)
 ```
 
-The fee cap is not necessarily the paid price.
+The fee cap is a maximum, not necessarily the actual price paid.
 
 ---
 
-### 24.4 Treating `net_listening` as peer health
+### 38.4 Assuming an old block implies old state is available
 
-`net_listening` currently returns whether the node reports itself as listening.
+A pruned node may retain:
 
-It does not prove healthy connectivity.
+```text
+block
+transaction
+receipt
+logs
+```
+
+while having reclaimed the old state trie.
+
+Historical state-dependent RPC calls can therefore fail even though the block itself is still queryable.
+
+---
+
+### 38.5 Treating `net_listening` as network health
 
 Use:
 
 ```text
 net_peerCount
 eth_blockNumber
-node monitoring
 ```
 
----
-
-### 24.5 Mixing standard RPC with XGR extension RPC
-
-Standard Ethereum-compatible RPC is for wallet, explorer and EVM compatibility.
-
-XGR extension methods are separate interfaces with separate availability, permissions and release status.
-
-Do not assume an XGR extension method exists on every public Ethereum-compatible RPC endpoint.
+and external monitoring instead.
 
 ---
 
-## 25. Quick reference
+### 38.6 Assuming every `eth_*` method is Ethereum-standard behavior
 
-| Task | Recommended method |
-|---|---|
-| Get chain ID | `eth_chainId` |
-| Get network ID | `net_version` |
-| Get latest block number | `eth_blockNumber` |
-| Get block by number | `eth_getBlockByNumber` |
-| Get block by hash | `eth_getBlockByHash` |
-| Get balance | `eth_getBalance` |
-| Get nonce | `eth_getTransactionCount` |
-| Get code | `eth_getCode` |
-| Get storage slot | `eth_getStorageAt` |
-| Submit transaction | `eth_sendRawTransaction` |
-| Lookup transaction | `eth_getTransactionByHash` |
-| Get receipt | `eth_getTransactionReceipt` |
-| Simulate call | `eth_call` |
-| Estimate gas | `eth_estimateGas` |
-| Get gas price | `eth_gasPrice` |
-| Get priority fee suggestion | `eth_maxPriorityFeePerGas` |
-| Get fee history | `eth_feeHistory` |
-| Query logs | `eth_getLogs` |
+XGR-specific methods can exist inside the `eth_*` namespace.
+
+For example, PoS monitoring extensions are documented separately.
+
+Namespace prefix alone does not make an extension part of the generic Ethereum JSON-RPC specification.
+
+---
+
+### 38.7 Assuming precompiles have EVM bytecode
+
+Protocol precompiles are implemented by the node.
+
+Therefore:
+
+```text
+eth_getCode(precompileAddress)
+```
+
+can return:
+
+```text
+0x
+```
+
+even though execution at that address is handled natively by the protocol.
+
+---
+
+## 39. Quick reference
+
+| Task | RPC |
+| --- | --- |
+| Chain ID | `eth_chainId` |
+| Network ID | `net_version` |
+| Sync state | `eth_syncing` |
+| Current block | `eth_blockNumber` |
+| Block by number | `eth_getBlockByNumber` |
+| Block by hash | `eth_getBlockByHash` |
+| Balance | `eth_getBalance` |
+| Nonce | `eth_getTransactionCount` |
+| Contract code | `eth_getCode` |
+| Storage | `eth_getStorageAt` |
+| Submit signed transaction | `eth_sendRawTransaction` |
+| Transaction lookup | `eth_getTransactionByHash` |
+| Receipt | `eth_getTransactionReceipt` |
+| Read-only execution | `eth_call` |
+| Gas estimate | `eth_estimateGas` |
+| Gas-price suggestion | `eth_gasPrice` |
+| Priority-fee suggestion | `eth_maxPriorityFeePerGas` |
+| Fee history | `eth_feeHistory` |
+| Logs | `eth_getLogs` |
 | Create log filter | `eth_newFilter` |
 | Create block filter | `eth_newBlockFilter` |
 | Poll filter | `eth_getFilterChanges` |
 | Remove filter | `eth_uninstallFilter` |
-| Subscribe over WebSocket | `eth_subscribe` |
-| Check peer count | `net_peerCount` |
-| Get client version | `web3_clientVersion` |
-| Hash bytes | `web3_sha3` |
+| WebSocket subscription | `eth_subscribe` |
+| Peer count | `net_peerCount` |
+| Client version | `web3_clientVersion` |
+| Keccak-256 | `web3_sha3` |
+
+---
+
+## 40. Mainnet integration baseline
+
+For standard application integration:
+
+```text
+Chain name: XGRChain
+Chain ID:   1643
+Chain ID:   0x66b
+Native:     XGR
+Decimals:   18
+RPC model:  Ethereum JSON-RPC
+Signing:    client-side
+```
+
+The active public node documentation baseline is:
+
+```text
+xgr-node v3.1.1
+```
+
+Applications requiring historical-state access must additionally establish the retention policy of the RPC endpoint they use.
+
+Standard Ethereum RPC compatibility describes the interface.
+
+It does not imply unrestricted archival storage, validator authority, or Ethereum mainnet fee economics.
