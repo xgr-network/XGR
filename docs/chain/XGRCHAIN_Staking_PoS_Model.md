@@ -1,313 +1,561 @@
 # XGR Chain — Staking and Delegated PoS Model
 
 **Document ID:** XGRCHAIN-STAKING-POS-MODEL  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-10-03  
 **Audience:** Validators, delegators, staking UI developers, explorer developers, auditors, node operators  
-**Release baseline:** `xgr-node` release tag `v2.0.5`  
-**Mainnet genesis source:** `xgr-network/XGR` branch `main`, path `genesis/mainnet/genesis.json`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
-**Scope:** Chain-level delegated PoS and staking model only
+**Scope:** Chain-level delegated PoS, staking, voting-power and epoch-economics model
 
 ---
 
 ## 1. Scope
 
-This document defines the XGR Chain delegated PoS staking model.
+This document defines the XGRChain delegated PoS staking model.
 
 It covers:
 
-- PoA to delegated PoS transition
-- staking contract role
-- validator self-stake
-- delegated stake
-- validator eligibility
-- validator activation and deactivation
-- delegation pool configuration
-- epoch and micro-epoch behavior
-- FeePool-based epoch rewards
-- uptime-based reward weighting
-- slashing conditions
-- public monitoring surfaces
-- explorer and staking-interface guidance
+- PoA-to-PoS transition,
+- staking contract,
+- validator self stake,
+- delegated stake,
+- validator eligibility,
+- validator selection,
+- emergency validator selection,
+- BLS validator identity,
+- activation and deactivation,
+- delegation pools,
+- epoch-effective stake,
+- consensus voting stake,
+- stake-weighted voting power,
+- micro-epoch uptime weighting,
+- FeePool epoch rewards,
+- reward eligibility,
+- commission,
+- slashing,
+- unstaking,
+- public monitoring surfaces.
 
 This document does not define:
 
-- node installation commands
-- validator run commands
-- JSON-RPC schema details
-- UI behavior
-- XDaLa behavior
-- XRC standards
+- node installation commands,
+- validator CLI procedures,
+- exact RPC response schemas,
+- Interchain validator participation,
+- XDaLa behavior,
+- XRC standards.
 
-Node operation belongs to the node-operation runbook.
+Operational procedures belong to:
 
-Exact PoS RPC schemas belong to the staking / PoS endpoint reference.
+```text id="9f6f9z"
+XGRCHAIN_Node_Operation.md
+```
+
+Exact PoS RPC schemas belong to:
+
+```text id="meiln4"
+XGRCHAIN_Staking_PoS_Endpoint_Reference.md
+```
 
 ---
 
 ## 2. Mainnet PoS activation
 
-The published mainnet genesis defines the IBFT participation schedule:
+Published mainnet consensus schedule:
 
 | Phase | Type | Validator type | From | To | Deployment |
-|---|---|---|---:|---:|---:|
+| --- | --- | --- | ---: | ---: | ---: |
 | Initial phase | `PoA` | `bls` | `0` | `5446499` | n/a |
-| Delegated PoS phase | `PoS` | `bls` | `5446500` | n/a | `5446500` |
+| Delegated PoS | `PoS` | `bls` | `5446500` | n/a | `5446500` |
 
-Delegated PoS activation block:
+PoS activation:
 
-```text
-5446500
+```text id="a1mx83"
+decimal: 5446500
+hex:     0x531b64
 ```
 
 IBFT remains the deterministic-finality consensus protocol.
 
-Delegated PoS changes how the active validator set is derived.
+Delegated PoS changes:
+
+- validator eligibility,
+- validator-set evolution,
+- stake weighting,
+- delegation,
+- uptime weighting,
+- reward distribution,
+- slashing policy.
 
 ---
 
 ## 3. Mainnet PoS parameters
 
-Published mainnet parameters:
-
 | Parameter | Value |
-|---|---:|
+| --- | ---: |
 | Chain ID | `1643` |
 | Minimum validators | `4` |
 | Maximum validators | `25` |
+| Validator self-stake minimum | `200,000 XGR` |
+| Validator total-support threshold | `2,000,000 XGR` |
+| Default delegator minimum | `10,000 XGR` |
+| Maximum delegators per validator | `200` |
 | `microEpochSize` | `25` blocks |
 | `macroEpochMicroFactor` | `40` |
-| Derived PoS epoch size | `1000` blocks |
+| Macro epoch size | `1000` blocks |
 | `microEpochInactivityDecayBps` | `9000` |
 | `microEpochNominalWeightUnits` | `10000` |
-| FeePoolSplit activation | `5446500` |
+| Effective FeePoolSplit activation | `5446500` |
+| Default slash rate | `20 bps` |
 
-The PoS epoch size is derived as:
+Macro epoch:
 
-```text
-microEpochSize * macroEpochMicroFactor
-```
-
-For mainnet:
-
-```text
-25 * 40 = 1000 blocks
+```text id="x35q7g"
+25 × 40 = 1000 blocks
 ```
 
 ---
 
 ## 4. Staking contract
 
-The delegated PoS system uses the native staking contract.
+Native staking contract:
 
-Code-level address:
-
-```text
+```text id="f4u6ds"
 0x0000000000000000000000000000000000001001
 ```
 
-Code-level constant:
+Code constant:
 
-```text
-AddrStakingContract = types.StringToAddress("1001")
+```text id="2nybgn"
+AddrStakingContract
 ```
 
 The staking contract tracks:
 
-- validator addresses
-- validator self-stake
-- validator active state
-- BLS public keys
-- validator pool configuration
-- delegator stake
-- raw delegated stake
-- active delegated stake
-- join block
-- deactivation block
-- minimum and maximum validator counts
-- validator threshold
-- epoch size
+- validator addresses,
+- validator self stake,
+- delegator stake,
+- active/inactive state,
+- BLS public keys,
+- pool configuration,
+- raw delegated stake,
+- active delegated stake,
+- join block,
+- deactivation block,
+- minimum validator count,
+- maximum validator count,
+- validator threshold,
+- macro epoch size.
 
-The staking contract is consensus-critical.
+This state is consensus relevant.
 
-Do not treat staking state as an off-chain index.
+It is not merely explorer metadata.
 
 ---
 
 ## 5. Staking constants
 
-`StakingV2.sol` defines these constants:
+`StakingV2.sol` in `v3.1.1` defines:
 
 | Constant | Value |
-|---|---:|
+| --- | ---: |
 | `VALIDATOR_THRESHOLD_TOTAL` | `2,000,000 XGR` |
 | `VALIDATOR_MIN_SELF_STAKE` | `200,000 XGR` |
 | `DELEGATOR_MIN_STAKE` | `10,000 XGR` |
 | `MAX_DELEGATORS_PER_VALIDATOR` | `200` |
-| `MIN_STAKE` | alias for `VALIDATOR_THRESHOLD_TOTAL` |
+| `MIN_STAKE` | alias for validator threshold |
 
-All XGR amounts use 18 decimals internally:
+Native denomination:
 
-```text
+```text id="tdmpgl"
 1 XGR = 10^18 wei
 ```
 
-So the raw contract values are expressed as `ether` units in Solidity.
+The two validator stake values have different meanings:
+
+```text id="pldcx9"
+200,000 XGR
+    = minimum validator self stake
+
+2,000,000 XGR
+    = normal validator effective total-support threshold
+```
+
+They must not be conflated.
 
 ---
 
-## 6. Validator lifecycle
+## 6. Validator creation
 
-A validator is created by staking to itself.
+A validator creates its staking position by self-staking:
 
-At contract level:
-
-```solidity
+```solidity id="tthx88"
 stake()
 ```
 
-internally calls:
+Internally:
 
-```solidity
-_stakeFor(msg.sender, msg.sender, msg.value)
+```text id="d5kabv"
+owner = validator = msg.sender
 ```
 
-A new validator position requires:
+A new validator position requires at least:
 
-```text
-amount >= VALIDATOR_MIN_SELF_STAKE
+```text id="qdb4z8"
+200,000 XGR
 ```
 
-For mainnet:
+When created:
 
-```text
-minimum validator self-stake = 200,000 XGR
-```
-
-When the validator position is first created:
-
-- `exists = true`
-- `active = true`
-- `joinedAtBlock = block.number`
-- `validator = own address`
-- address is appended to `_validators`
-- validator pool config is created
-- delegation is initially disabled
-- commission is initially `0`
-
-The validator must also have a registered BLS public key for BLS validator operation.
+- staking position exists,
+- position is active,
+- `joinedAtBlock` is recorded,
+- validator points to itself,
+- validator is added to the validator list,
+- pool configuration is created,
+- delegation starts disabled,
+- delegation cap starts at zero,
+- commission starts at zero.
 
 ---
 
-## 7. Validator threshold and eligibility
+## 7. Self stake versus validator eligibility
 
-Validator eligibility is not based only on self-stake.
+Creating a validator staking position does not automatically make the account an active consensus validator.
 
-Normal validator eligibility requires:
+Normal eligibility requires:
 
-1. validator is active
-2. validator self-stake is at least `VALIDATOR_MIN_SELF_STAKE`
-3. validator effective total stake is at least `VALIDATOR_THRESHOLD_TOTAL`
-4. BLS public key is valid for BLS validator mode
-5. validator is selected within the maximum validator count if there are more eligible validators than allowed
+1. self-validator staking position exists,
+2. validator is active,
+3. self stake is at least `200,000 XGR`,
+4. epoch-effective total stake is at least the validator threshold,
+5. BLS public key is valid,
+6. validator fits into the configured maximum validator set.
 
-For mainnet:
+Mainnet threshold:
 
-```text
-minimum self-stake = 200,000 XGR
-validator threshold = 2,000,000 XGR
-maximum validators = 25
+```text id="rt79ac"
+2,000,000 XGR
 ```
 
-Effective total stake includes validator self-stake and epoch-effective active delegated stake.
+Therefore a validator can legally hold:
 
-If there are more eligible validators than `maxNumValidators`, the validator store trims the selected set using weighted stake-based selection.
+```text id="16sy05"
+200,000 XGR self stake
+```
+
+while still being below the normal consensus eligibility threshold.
 
 ---
 
-## 8. Emergency validator selection
+## 8. Epoch-effective stake
 
-If the normal eligibility filter produces fewer validators than `minNumValidators`, the node enters a broader validator-selection path.
+`v3.1.1` explicitly defines an epoch-effective total-stake calculation.
 
-For mainnet:
+Implementation:
 
-```text
-minNumValidators = 4
+```text id="ym8mxz"
+ReadValidatorEffectiveTotalStakeAt(...)
 ```
 
-In this mode:
+This value is used for:
 
-- the selected validator set can be derived from a broader active/emergency candidate set
-- the no-slash mode is enabled for that selection path
-- this is a safety mechanism to preserve network liveness
+- validator eligibility,
+- normal Tier-1 selection,
+- epoch economic snapshots.
 
-This is not the normal target operating mode.
+For this calculation:
 
-A healthy mainnet should have enough normally eligible validators.
+```text id="sf74vo"
+effectiveTotalStake =
+    epoch-effective self stake
+    +
+    epoch-effective delegator stake
+```
+
+Both self stake and delegation must be effective at the target block.
 
 ---
 
-## 9. BLS public key registration
+## 9. Join maturity
 
-Validator mode uses BLS validators.
+A new staking position does not become epoch-effective immediately.
 
-The staking contract exposes:
+Conceptually:
 
-```solidity
+```text id="maaz7y"
+joined during epoch N
+        ↓
+not effective inside epoch N
+        ↓
+effective from later epoch boundary
+```
+
+The node's effective-stake logic requires:
+
+```text id="ev1tno"
+blockNumber / epochSize
+>
+joinedAtBlock / epochSize
+```
+
+for normal epoch-effective stake.
+
+This applies to:
+
+- validator self stake for eligibility/economic snapshots,
+- delegator stake.
+
+---
+
+## 10. Deactivation effectiveness
+
+A deactivated position remains epoch-effective through the epoch in which the deactivation occurred.
+
+The effective-stake logic allows participation while:
+
+```text id="2dq9od"
+blockNumber / epochSize
+<=
+deactivatedAtBlock / epochSize
+```
+
+It ceases being effective after the next applicable epoch boundary.
+
+This prevents intra-epoch state changes from retroactively changing the already-running epoch's stake basis.
+
+---
+
+## 11. Consensus voting stake
+
+`v3.1.1` distinguishes validator eligibility stake from the stake basis used for a validator already selected into the consensus set.
+
+Implementation:
+
+```text id="86k6c4"
+ReadValidatorVotingStakeAt(...)
+```
+
+Voting stake is:
+
+```text id="3hjgqy"
+raw validator self stake
++
+epoch-effective delegated stake
+```
+
+Important difference:
+
+> Once a validator has already been selected into the validator set, its self stake remains part of the canonical voting-stake basis even when join/deactivation maturity rules would exclude that self stake from the normal eligibility calculation.
+
+Delegated stake remains epoch-effective.
+
+This distinction stabilizes consensus voting power across validator-set lifecycle boundaries.
+
+---
+
+## 12. Three different stake concepts
+
+Integrators should distinguish:
+
+| Stake concept | Purpose |
+| --- | --- |
+| Live staking-contract stake | Current user/contract state |
+| Epoch-effective total stake | Eligibility and epoch economics |
+| Voting stake | Stake basis for already-selected consensus validators |
+
+They can differ at lifecycle boundaries.
+
+For example, immediately after:
+
+```text id="z4651u"
+join
+deactivation
+delegation change
+```
+
+the live contract values can differ from the stake effective for the current epoch.
+
+---
+
+## 13. BLS public key
+
+XGRChain validators use BLS consensus identities.
+
+Registration:
+
+```solidity id="kvt4p9"
 registerBLSPublicKey(bytes calldata blsPubKey)
 ```
 
 Rules:
 
-- caller must already be a validator
-- caller must be self-validator, not just delegator
-- BLS public key is stored in validator state
-- BLS public key is mirrored into validator pool config
+- caller must already have a validator staking position,
+- caller must be its own validator,
+- key is stored in validator state,
+- pool metadata mirrors the BLS key.
 
-Consensus validator selection for BLS mode excludes validators whose BLS public key cannot be decoded as valid BLS public key.
+For BLS validator selection, `v3.1.1` attempts to decode the BLS public key.
+
+Invalid BLS keys exclude the validator from BLS consensus selection.
 
 ---
 
-## 10. Delegation model
+## 14. Normal validator selection
+
+The BLS validator fetcher reads staking state and builds the normal eligible set.
+
+A validator is normally eligible when:
+
+```text id="89gamb"
+active
+AND
+selfStake >= 200,000 XGR
+AND
+effectiveTotalStake >= validatorThreshold
+AND
+valid BLS public key
+```
+
+Mainnet threshold:
+
+```text id="u93l6o"
+validatorThreshold = 2,000,000 XGR
+```
+
+---
+
+## 15. Maximum-validator selection
+
+Mainnet:
+
+```text id="u7kw3o"
+maxValidatorCount = 25
+```
+
+If the normally eligible set exceeds the maximum:
+
+1. validators are ranked by epoch-effective total stake,
+2. higher effective stake sorts first,
+3. equal stake is resolved deterministically by validator address,
+4. the set is truncated to the configured maximum.
+
+Conceptually:
+
+```text id="gv6kqt"
+eligible validators
+        ↓
+sort by effective stake descending
+        ↓
+address deterministic tie-break
+        ↓
+take first 25
+```
+
+This selection is deterministic across nodes.
+
+---
+
+## 16. Minimum-validator emergency mode
+
+Mainnet:
+
+```text id="kvqqw2"
+minValidatorCount = 4
+```
+
+If normal eligibility produces fewer than four validators:
+
+```text id="0035du"
+emergency mode = active
+```
+
+and:
+
+```text id="k1u8e5"
+noSlash = true
+```
+
+for that macro-epoch selection context.
+
+This protects liveness while avoiding slashing validators under emergency-selection rules.
+
+---
+
+## 17. Emergency BLS selection
+
+The BLS emergency path is broader than normal eligibility.
+
+The implementation builds:
+
+### Active emergency set
+
+Contains validators that are:
+
+- active,
+- equipped with a valid BLS key.
+
+This set does not require the normal `2,000,000 XGR` eligibility threshold.
+
+### Weighted emergency candidates
+
+Can include validators with:
+
+- positive canonical voting stake,
+- valid BLS key,
+
+including inactive-but-staked validators.
+
+If the active emergency set already contains at least the configured minimum, it is used and trimmed to the configured maximum if necessary.
+
+Otherwise, the broader emergency candidate list is deterministically sorted by voting stake and used as fallback.
+
+This is a liveness mechanism.
+
+It is not the intended steady-state operating model.
+
+---
+
+## 18. Delegation
 
 A delegator stakes to a validator through:
 
-```solidity
+```solidity id="4fol4q"
 delegate(address validator)
 ```
 
-Delegation requires:
+Requirements include:
 
-- target validator exists
-- target validator is a self-validator
-- delegation pool is enabled
-- amount does not exceed pool cap
-- new delegator stake is at least effective minimum delegator stake
-- validator does not exceed max delegator count
+- validator exists,
+- target is a self-validator,
+- delegation pool is enabled,
+- delegation stays within pool cap,
+- new delegation meets effective minimum,
+- maximum delegator count is not exceeded.
 
-Default minimum delegator stake:
+Default minimum:
 
-```text
+```text id="a939lq"
 10,000 XGR
 ```
 
-Maximum delegators per validator:
+Maximum delegators:
 
-```text
+```text id="wwr2q8"
 200
 ```
 
-Delegation does not make the delegator a validator.
-
-Delegation increases the validator's delegated stake and can help the validator reach the total validator threshold.
+Delegation does not grant validator identity.
 
 ---
 
-## 11. Validator pool configuration
+## 19. Delegation pool configuration
 
-A validator can configure its delegation pool through:
+Validators configure delegation using:
 
-```solidity
+```solidity id="t2tssz"
 setValidatorPoolConfig(
     bool delegationEnabled,
     uint256 maxTotalDelegatedStake,
@@ -318,601 +566,951 @@ setValidatorPoolConfig(
 
 Rules:
 
-| Field | Rule |
-|---|---|
-| `delegationEnabled` | enables or disables delegation |
-| `maxTotalDelegatedStake` | total raw delegated stake cap |
-| `minDelegatorStake` | `0` means use default `DELEGATOR_MIN_STAKE`; otherwise must be at least `10,000 XGR` |
-| `commissionBps` | must be `<= 10000` |
+| Field | Behavior |
+| --- | --- |
+| `delegationEnabled` | Allows new delegation |
+| `maxTotalDelegatedStake` | Raw delegated-stake cap |
+| `minDelegatorStake` | `0` uses protocol default |
+| `commissionBps` | Maximum `10000` |
 
-Commission basis points:
+If a custom minimum is non-zero:
 
-```text
+```text id="5becex"
+minDelegatorStake >= 10,000 XGR
+```
+
+Commission examples:
+
+```text id="ypqqck"
+100 bps  = 1%
+500 bps  = 5%
 10000 bps = 100%
-500 bps = 5%
-100 bps = 1%
-```
-
-Important:
-
-If delegation is enabled but `maxTotalDelegatedStake = 0`, no positive delegation can fit into the pool cap.
-
----
-
-## 12. Raw delegated stake vs active delegated stake
-
-The staking contract tracks two delegated stake aggregates:
-
-| Field | Meaning |
-|---|---|
-| `validatorDelegatedStakeRaw` | total delegated stake assigned to validator |
-| `validatorDelegatedStakeActive` | delegated stake currently marked active |
-
-A delegator can be active or inactive.
-
-When a delegator stakes and is active:
-
-```text
-raw delegated stake increases
-active delegated stake increases
-```
-
-When a delegator is set inactive:
-
-```text
-raw delegated stake remains
-active delegated stake decreases
-```
-
-When a delegator withdraws or fully exits:
-
-```text
-raw delegated stake decreases
-active delegated stake decreases if the position was active
 ```
 
 ---
 
-## 13. Activation timing
+## 20. Initial pool state
 
-The staking contract stores:
+When a validator is first created:
 
-```text
-joinedAtBlock
-deactivatedAtBlock
+```text id="mekvqk"
+delegationEnabled     = false
+maxTotalDelegatedStake = 0
+minDelegatorStake      = 0
+commissionBps          = 0
 ```
 
-The contract exposes:
+Therefore simply creating a validator does not automatically open it for delegation.
 
-```solidity
-joinEffectiveAtBlock(address account)
-deactivationEffectiveAtBlock(address account)
+If delegation is enabled while:
+
+```text id="uxj4lb"
+maxTotalDelegatedStake = 0
 ```
 
-Effective block formula:
-
-```text
-effectiveAt = (epochOf(changeBlock) + 1) * epochSize
-```
-
-At contract level:
-
-```text
-epochOf(blockNumber) = blockNumber / epochSize
-```
-
-with integer division.
-
-Practical meaning:
-
-- a newly joined validator/delegator does not become epoch-effective inside the same epoch
-- a deactivation remains relevant until the next epoch boundary
-- epoch-boundary behavior is deterministic and block-number-based
-
-For mainnet:
-
-```text
-epochSize = 1000 blocks
-```
+positive delegation still cannot fit under the pool cap.
 
 ---
 
-## 14. Active state and epoch-effective state
+## 21. Raw versus active delegated stake
 
-There are two different concepts:
+The staking contract maintains:
 
-| Concept | Meaning |
-|---|---|
-| Live active flag | current staking-contract `active` value |
-| Epoch-effective participation | whether the position is effective for the epoch being finalized or reported |
-
-A call to:
-
-```solidity
-setActive(false)
+```text id="cmluxe"
+validatorDelegatedStakeRaw
+validatorDelegatedStakeActive
 ```
 
-changes the validator's live active flag immediately.
+### Raw delegated stake
 
-However, consensus and reward accounting use epoch snapshots and epoch-effective rules.
+Represents delegation still assigned to the validator.
 
-This prevents last-block toggles from rewriting the accounting basis for an already-running epoch.
+### Active delegated stake
+
+Represents currently live-active delegated positions.
+
+A delegator deactivation therefore causes:
+
+```text id="1fs2ps"
+raw delegated stake      unchanged
+active delegated stake   decreases
+```
+
+A withdrawal or full exit reduces raw delegated stake as well.
 
 ---
 
-## 15. Validator deactivation
+## 22. Epoch-effective delegation
 
-A validator deactivates with:
+Neither raw nor current active delegation necessarily equals stake effective for the current consensus epoch.
 
-```solidity
-setActive(false)
+For consensus eligibility and snapshots, the node evaluates every delegator using:
+
+- join maturity,
+- deactivation epoch,
+- target block.
+
+Therefore:
+
+```text id="r6lwjq"
+delegatedRaw
+delegatedActive
+delegatedEpochEffective
 ```
 
-Rules:
-
-- validator must exist
-- validator must currently be active
-- `deactivatedAtBlock = block.number`
-- pool active flag follows validator active flag
-
-Deactivation does not automatically withdraw stake.
-
-Deactivation is a prerequisite for withdrawing or unstaking.
+are three distinct concepts.
 
 ---
 
-## 16. Delegation deactivation
+## 23. Validator activation state
 
-A delegator deactivates a delegation with:
+A validator can call:
 
-```solidity
-setDelegationActive(address validator, bool active_)
+```solidity id="fwndjv"
+setActive(bool active)
 ```
 
-Rules:
+Deactivation records:
 
-- delegator position must exist
-- delegator must be assigned to that validator
-- requested state must differ from current state
-- when activating again, amount must still satisfy effective minimum stake
+```text id="nablzu"
+deactivatedAtBlock = block.number
+```
 
-Delegator active state affects active delegated stake.
+The validator pool active flag follows validator active state.
+
+A live `active=false` does not erase the position or withdraw funds.
 
 ---
 
-## 17. Withdraw and unstake
+## 24. Delegator activation state
 
-The staking contract supports partial withdraw and full exit.
+Delegators use:
+
+```solidity id="8c0s1v"
+setDelegationActive(
+    validator,
+    active
+)
+```
+
+Reactivation requires the delegation amount to remain above the effective minimum stake.
+
+Active-state changes update the live delegated-active aggregate.
+
+Epoch-effectiveness remains subject to epoch-boundary rules.
+
+---
+
+## 25. Unstaking
+
+Validator full exit:
+
+```solidity id="cm9ik3"
+unstake()
+```
+
+Delegator full exit:
+
+```solidity id="vihtpi"
+unstakeDelegation(address validator)
+```
+
+Prerequisites:
+
+- position exists,
+- position is inactive,
+- `deactivatedAtBlock != 0`,
+- current epoch is later than the deactivation epoch.
+
+Contract condition:
+
+```text id="36dov4"
+epochOf(currentBlock)
+>
+epochOf(deactivatedAtBlock)
+```
+
+Full validator exit removes the validator from the staking-contract validator list.
+
+---
+
+## 26. Partial withdrawal
 
 Validator:
 
-```solidity
+```solidity id="ahpm82"
 withdraw(uint256 amount)
-unstake()
 ```
 
 Delegator:
 
-```solidity
-withdrawDelegation(address validator, uint256 amount)
-unstakeDelegation(address validator)
+```solidity id="5ue02o"
+withdrawDelegation(
+    address validator,
+    uint256 amount
+)
 ```
 
-Preconditions:
+Requirements:
 
-- position must exist
-- position must be inactive
-- `deactivatedAtBlock` must be non-zero
-- the current epoch must be greater than the deactivation epoch
+- position inactive,
+- deactivation epoch has passed,
+- amount is positive,
+- amount is less than full position,
+- remaining balance stays above the applicable minimum.
 
-Contract-level timing rule:
-
-```text
-epochOf(block.number) > epochOf(deactivatedAtBlock)
-```
-
-Partial withdraw rules:
-
-- amount must be greater than zero
-- amount must be smaller than current stake
-- remaining stake must stay above the applicable minimum
-
-Full exit:
-
-- removes the full position
-- removes validator from validator list if validator exits
-- removes delegator from validator delegator list if delegator exits
-- emits `Unstaked`
+To remove the complete position, use the full unstake path.
 
 ---
 
-## 18. Validator selection
+# Consensus Voting Power
 
-Validator selection reads staking contract state.
+## 27. Stake-weighted IBFT
 
-Normal selection filters validators by:
+After the PoS transition matures into a PoS-parent context, IBFT uses stake-weighted voting power.
 
-- active flag
-- self-stake minimum
-- total active stake threshold
-- valid BLS key in BLS mode
+Consensus calculates a deterministic stake snapshot for each selected validator.
 
-If the number of eligible validators exceeds the configured maximum, the set is trimmed using weighted stake-based selection.
+The stake snapshot is then modified by its current micro-epoch uptime weight.
 
-Mainnet maximum:
+Conceptually:
 
-```text
-25 validators
+```text id="pue5rg"
+effectiveVotingPower =
+    votingStakeSnapshot
+    × effectiveUptimeWeight
+    ÷ nominalUptimeWeight
 ```
-
-The active consensus validator set is derived by the node.
-
-Do not infer the consensus validator set only from the raw `_validators` list.
 
 ---
 
-## 19. Epoch snapshots
+## 28. First PoS block
 
-PoS accounting freezes snapshots per epoch.
+The PoS fork begins at:
 
-During uptime accounting, the node freezes:
+```text id="0h5c72"
+5446500
+```
 
-- epoch validator membership
-- validator stake snapshot
-- staker stake snapshots
-- effective delegator snapshots
+Its parent is:
 
-This ensures that stake changes during an epoch do not retroactively distort that epoch's reward/slash calculation.
+```text id="cp7pmj"
+5446499
+```
 
-Snapshot state is kept in the native PoS system area:
+which is still PoA.
 
-```text
+`v3.1.1` enables stake-weighted voting only when the **parent block is already PoS-active**.
+
+Therefore:
+
+```text id="aogyi7"
+block 5446500
+    PoS fork active
+    parent still PoA
+    → unit voting power
+```
+
+Then:
+
+```text id="npeb9v"
+block 5446501
+    parent is PoS
+    → stake-weighted voting power active
+```
+
+This is a deliberate deterministic cutover behavior.
+
+---
+
+## 29. Unit voting mode
+
+When stake-weighted voting is not yet active:
+
+```text id="bmyq3e"
+every validator power = 1
+```
+
+This applies to the PoA phase and the first PoS transition block described above.
+
+---
+
+## 30. Uptime-weighted voting power
+
+For stake-weighted mode, the node reads:
+
+- validator stake snapshot,
+- effective micro-epoch uptime weight,
+- nominal uptime weight.
+
+If stored nominal weight is zero, it falls back to:
+
+```text id="vcn9a8"
+microEpochNominalWeightUnits = 10000
+```
+
+Voting power is computed through:
+
+```text id="jrcy8k"
+WeightedStake(...)
+```
+
+If:
+
+- stake > 0,
+- uptime weight > 0,
+- nominal weight > 0,
+
+but integer division would produce zero, `v3.1.1` preserves a minimum power of:
+
+```text id="90fhwu"
+1
+```
+
+---
+
+## 31. Weighted quorum
+
+Total voting power is the sum of validator effective voting powers.
+
+Required quorum:
+
+```text id="bcl1ot"
+ceil(2 × totalVotingPower / 3)
+```
+
+This means consensus quorum after stake weighting cannot be determined from validator count alone.
+
+---
+
+# Epoch and Uptime Accounting
+
+## 32. Macro epochs
+
+Mainnet:
+
+```text id="rkd8wq"
+macro epoch = 1000 blocks
+```
+
+Macro epochs define deterministic boundaries for:
+
+- validator-set evolution,
+- economic snapshots,
+- reward distribution,
+- slashing evaluation.
+
+---
+
+## 33. Micro epochs
+
+Mainnet:
+
+```text id="4dgb39"
+micro epoch = 25 blocks
+```
+
+Uptime state includes:
+
+- nominal weight,
+- effective weight,
+- inactivity count,
+- processed micro-epoch data.
+
+Mainnet parameters:
+
+```text id="tpr53e"
+nominal weight = 10000
+inactivity decay = 9000 bps
+```
+
+This current uptime state contributes to stake-weighted consensus power.
+
+---
+
+## 34. Epoch validator snapshots
+
+The PoS system creates deterministic epoch validator snapshots.
+
+Native PoS system address:
+
+```text id="jk8xq1"
 0x0000000000000000000000000000000000009999
 ```
 
-This is internal chain state, not a user-facing account.
+Snapshot information includes:
+
+- epoch validator set,
+- validator stake snapshot,
+- individual staker snapshots,
+- uptime counters,
+- no-slash mode.
+
+This state supports deterministic epoch finalization.
 
 ---
 
-## 20. Micro-epoch uptime accounting
+## 35. Epoch boundary behavior
 
-Mainnet has:
+Epoch finalization runs when:
 
-```text
-microEpochSize = 25 blocks
-microEpochNominalWeightUnits = 10000
-microEpochInactivityDecayBps = 9000
-```
-
-The node records proposer-duty availability from finalized block headers.
-
-The accounting model:
-
-- genesis block is ignored
-- epoch boundary blocks are skipped
-- proposer slots are attributed per assigned proposer attempt
-- missed proposer slots are derived from failed rounds
-- successful finalized round is attributed to the actual finalized proposer
-- micro-epoch weights are kept for uptime weighting
-
-This avoids using commit-signature counting as the uptime source.
-
----
-
-## 21. Epoch finalization
-
-Epoch finalization runs at epoch boundary blocks.
-
-Condition:
-
-```text
+```text id="zm78sk"
 header.Number > 0
+AND
 header.Number % epochSize == 0
-FeePoolSplit is active
+AND
+FeePoolSplit active
 ```
 
-The boundary block finalizes the epoch ending at:
+With mainnet:
 
-```text
-header.Number - 1
+```text id="8fpan0"
+epochSize = 1000
 ```
 
-For example, with `epochSize = 1000`:
+Boundary block:
 
-```text
-block 1000 finalizes epoch 1 covering blocks 1..999
-block 2000 finalizes epoch 2 covering blocks 1001..1999
+```text id="mp4zde"
+1000
 ```
 
-Epoch boundary blocks are treated as system/finalization blocks for PoS accounting.
+finalizes accounting for:
+
+```text id="my43qj"
+blocks 1..999
+```
+
+Similarly:
+
+```text id="1nkj77"
+block 2000
+```
+
+finalizes the preceding epoch workload:
+
+```text id="if99b0"
+blocks 1001..1999
+```
+
+The boundary block itself is treated as a system/finalization block for this accounting path.
 
 ---
 
-## 22. FeePool rewards
+## 36. Proposer-duty uptime
 
-After PoS activation, validator fee accounting uses the FeePool path.
+Epoch reward/slash uptime is derived from proposer duties.
+
+For each validator:
+
+```text id="vnevdf"
+slots  = assigned proposer slots
+missed = missed proposer slots
+ok     = slots - missed
+```
+
+Uptime:
+
+```text id="lfctsr"
+uptimeBps =
+    ok × 10000 / slots
+```
+
+If:
+
+```text id="o67yis"
+slots = 0
+```
+
+the validator receives:
+
+- zero reward weight,
+- no uptime penalty.
+
+---
+
+# Rewards
+
+## 37. FeePool
 
 FeePool address:
 
-```text
+```text id="bcv23d"
 0x000000000000000000000000000000000000fEE2
 ```
 
-At epoch finalization:
+FeePool collection/distribution is consensus relevant after:
 
-1. current FeePool balance is read
-2. effective validator weights are calculated
-3. each validator receives a share proportional to effective weight
-4. each validator share is transferred from FeePool to staking contract
-5. staking balances are credited internally
-6. deterministic PoS system logs are emitted
-
-Validator reward share:
-
-```text
-validatorShare = feePoolBalance * validatorEffectiveWeight / sumEffectiveWeights
+```text id="bc961h"
+FeePoolSplit activation = 5446500
 ```
 
-If FeePool balance is zero, no payout is distributed.
-
-If sum of effective weights is zero, no payout is distributed.
+The epoch finalizer reads the current FeePool balance.
 
 ---
 
-## 23. Reward split between validator and delegators
+## 38. Validator reward weight
 
-For each validator reward share:
+The reward policy uses proposer uptime.
 
-1. self-stake share is calculated from validator self-stake
-2. delegated share is calculated from active delegated stake
-3. validator commission is taken from delegated share
-4. delegators receive delegated net amount pro rata
-5. rounding remainder is assigned to validator net
+| Successful proposer duties | Reward behavior |
+| --- | --- |
+| `>= 90%` | Full stake weight |
+| `>= 80%` and `< 90%` | Linearly reduced weight |
+| `< 80%` | Zero reward weight |
+| No proposer slots | Zero reward weight, no penalty |
 
-Formula:
+Reward eligibility is therefore:
 
-```text
-totalActiveStake = selfStake + activeDelegatedStake
-
-selfShare = validatorReward * selfStake / totalActiveStake
-
-delegatedShare = validatorReward - selfShare
-
-commission = delegatedShare * commissionBps / 10000
-
-delegatorsNet = delegatedShare - commission
-
-delegatorPart = delegatorsNet * delegatorStake / activeDelegatedStake
-
-validatorNet = selfShare + commission + delegatorRemainder
+```text id="zxh065"
+okSlots / slots >= 80%
 ```
-
-If there are no active delegations, the full reward is validator net.
 
 ---
 
-## 24. Uptime reward weighting
+## 39. Reduced reward range
 
-At epoch finalization, each validator's proposer duty is evaluated.
+Between 80% and 90% uptime:
 
-Definitions:
-
-```text
-slots = proposer slots assigned to validator
-missed = missed proposer slots
-okSlots = slots - missed
-uptimeBps = okSlots * 10000 / slots
+```text id="70bv70"
+effectiveWeight =
+    stakeSnapshot
+    × okSlots
+    × 10
+    /
+    (slots × 9)
 ```
 
-Reward weighting:
+At or above 90%:
 
-| Uptime | Reward weight |
-|---|---|
-| no slots | zero reward weight, no penalty |
-| `>= 90%` | full stake weight |
-| `>= 80%` and `< 90%` | linearly reduced stake weight |
-| `< 80%` | zero reward weight |
-| `< 50%` | zero reward weight and slashing path can apply |
-
-Linear reduced weight between 80% and 90%:
-
-```text
-effectiveWeight = stakeSnapshot * okSlots * 10 / (slots * 9)
+```text id="uchgnw"
+effectiveWeight =
+    stakeSnapshot
 ```
 
-A validator with zero successful proposer slots can also be set inactive by the epoch finalization logic.
+Below 80%:
+
+```text id="ymf4g6"
+effectiveWeight = 0
+```
 
 ---
 
-## 25. Slashing
+## 40. Reward distribution between validators
 
-Default slashing rate:
+If the FeePool has value and total reward weight is positive:
 
-```text
-20 bps = 0.2%
+```text id="v6fdf6"
+validatorReward =
+    feePoolBalance
+    × validatorEffectiveRewardWeight
+    /
+    sumEffectiveRewardWeights
 ```
 
-Slashing applies only when:
+The reward is then transferred from:
 
-- validator proposer performance is below the slashing threshold
-- slashing mode is enabled
-- stake snapshot is above the no-slash floor
-- staking contract balance is sufficient
+```text id="am30x2"
+FeePool
+```
 
-Slashing is proportional across validator and effective delegator positions.
+to:
 
-Slash destination:
+```text id="zfvrgb"
+staking contract
+```
 
-```text
+and credited to staking positions.
+
+---
+
+## 41. Delegation reward split
+
+For one validator reward:
+
+```text id="sox4ai"
+totalStake =
+    selfStake
+    +
+    effectiveDelegatedStake
+```
+
+Self-stake reward:
+
+```text id="hadun1"
+selfShare =
+    validatorReward
+    × selfStake
+    /
+    totalStake
+```
+
+Delegated share:
+
+```text id="jip9gp"
+delegatedShare =
+    validatorReward
+    -
+    selfShare
+```
+
+Validator commission:
+
+```text id="ik0qf8"
+commission =
+    delegatedShare
+    × commissionBps
+    /
+    10000
+```
+
+Delegator net reward:
+
+```text id="st292m"
+delegatorsNet =
+    delegatedShare
+    -
+    commission
+```
+
+Each eligible delegator receives a proportional amount based on its effective epoch stake.
+
+---
+
+## 42. Rounding remainder
+
+Integer division can leave a small remainder after delegator allocation.
+
+The finalizer assigns this deterministic remainder to the validator.
+
+Therefore:
+
+```text id="9tfqzf"
+validatorNet =
+    selfStakeReward
+    +
+    commission
+    +
+    delegatorRemainder
+```
+
+and verifies that:
+
+```text id="8n6845"
+validatorNet
++
+delegatorPayments
+=
+validatorReward
+```
+
+---
+
+## 43. Reward compounding
+
+Reward credits increase staking positions directly.
+
+For validator reward:
+
+```text id="7dkonf"
+validator stake increases
+```
+
+For delegator reward:
+
+```text id="9s8aa1"
+delegator stake increases
+```
+
+Delegator reward also updates validator delegated aggregates according to the delegator's current live active state.
+
+Rewards therefore compound into future staking state.
+
+---
+
+# Slashing
+
+## 44. Slashing threshold
+
+A validator enters the slashing path when:
+
+```text id="8dz3yt"
+successful proposer duties < 50%
+```
+
+Code condition:
+
+```text id="dt1xjn"
+okSlots × 2 < slots
+```
+
+This is stricter than the reward-ineligibility threshold.
+
+Therefore:
+
+```text id="a0u0dm"
+<80%
+    → no epoch reward
+
+<50%
+    → no epoch reward
+      + possible slash
+```
+
+---
+
+## 45. Slash rate
+
+Current `v3.1.1` default:
+
+```text id="ox1yb9"
+20 bps
+```
+
+Equivalent:
+
+```text id="4kf436"
+0.2%
+```
+
+Slash calculations are subject to the staking/effective-stake constraints implemented by the finalizer.
+
+---
+
+## 46. No-slash emergency mode
+
+Slashing is enabled only when the macro-epoch snapshot says:
+
+```text id="9adtvq"
+noSlashMode = false
+```
+
+Emergency validator selection stores:
+
+```text id="dh7naz"
+noSlashMode = true
+```
+
+for the affected macro-epoch context.
+
+Therefore emergency validator fallback does not expose validators to normal epoch slashing.
+
+---
+
+## 47. Slash destination
+
+Current `v3.1.1` slash destination resolves to:
+
+```text id="m0m0dz"
 0x0000000000000000000000000000000000000666
 ```
 
-The slash amount is capped by:
-
-- stake snapshot
-- effective total stake
-- staking contract balance
-
-If the emergency no-slash mode is active, slashing is skipped.
+The implementation describes slashed stake as burned at this address.
 
 ---
 
-## 26. Public monitoring RPC
+## 48. Zero successful proposer duties
 
-Public PoS monitoring methods:
+If:
 
-```text
+```text id="w9zmoy"
+okSlots = 0
+```
+
+the epoch finalizer can additionally mark the validator inactive in staking state.
+
+This is separate from the percentage slash calculation.
+
+---
+
+# Public Monitoring
+
+## 49. PoS monitoring RPC
+
+Primary methods:
+
+```text id="xpgxso"
 eth_getPosValidatorsOverview
 eth_getPosValidatorDelegators
 ```
 
-High-level overview fields include:
+The overview exposes live information such as:
 
-- block number
-- epoch size
-- micro-epoch size
-- current epoch
-- current micro-epoch
-- current epoch pending rewards
-- staking contract balance
-- minimum validator count
-- maximum validator count
-- validator threshold
-- total current stake
-- total validator self-stake
-- total delegated raw stake
-- total delegated active stake
-- total active current stake
-- validator entries
-- PoS activation status
-- PoS activation block
-
-Validator fields include:
-
-- address
-- joined block
-- join effective block
-- current stake
-- self-stake
-- delegated raw stake
-- delegated active stake
-- total active current stake
-- current consensus membership flag
-- staking active flag
-- deactivation block
-- deactivation effective block
-- unstake available block
-- can unstake now
-- reward eligibility fields
-- proposer uptime metrics
-- micro-epoch weight fields
-
-Delegator fields include:
-
-- delegator address
-- amount
-- epoch-effective amount
-- active flag
-- joined block
-- deactivated block
-- effective-at-point flag
+- validator set,
+- self stake,
+- delegation,
+- active state,
+- consensus membership,
+- effective lifecycle blocks,
+- proposer uptime,
+- micro uptime weight,
+- FeePool pending balance,
+- staking-contract balance.
 
 ---
 
-## 27. Explorer guidance
+## 50. Live state versus historical accounting
 
-Explorers should distinguish clearly between:
+The PoS RPC does not provide complete permanent historical reward/slash accounting.
 
-| Display concept | Source |
-|---|---|
-| Live validator self-stake | staking contract |
-| Live delegated raw stake | staking contract |
-| Live delegated active stake | staking contract |
-| Current consensus validator set | current consensus header / PoS overview |
-| Epoch-effective stake | PoS system snapshots |
-| FeePool pending rewards | FeePool balance |
-| Finalized reward events | PoS system receipts/logs |
-| Slashing events | PoS system receipts/logs |
+Historical finalized economic records are emitted as deterministic PoS system logs.
 
-Do not infer the active validator set only from the raw validator list.
+For historical analytics, index:
 
-Do not treat raw delegated stake as epoch-effective delegated stake.
+```text id="dl8o41"
+canonical receipts
++
+PosSysAddr system logs
+```
 
-Do not treat current live stake as historical epoch stake.
+Do not infer historical reward history from only current staking balances.
 
 ---
 
-## 28. Staking UI guidance
+## 51. Explorer guidance
 
-Staking interfaces should show these validator facts:
+Explorers should distinguish:
 
-- validator address
-- self-stake
-- delegated raw stake
-- delegated active stake
-- total active stake
-- validator threshold
-- active/inactive state
-- currently validating state
-- delegation enabled
-- pool cap
-- effective minimum delegator stake
-- commission bps
-- max delegator limit
-- join effective block
-- deactivation effective block
-- unstake availability
-- current FeePool pending rewards
+| Display item | Meaning |
+| --- | --- |
+| Self stake | Current validator position |
+| Raw delegation | Assigned delegation |
+| Active delegation | Current live-active delegation |
+| Epoch-effective delegation | Stake effective for epoch accounting |
+| Total effective support | Eligibility/economic stake |
+| Voting stake | Consensus stake basis for selected validator |
+| Effective voting power | Voting stake modified by uptime |
+| Currently validating | Current IBFT header validator set |
+| Staking active | Current staking-contract lifecycle state |
+| Pending rewards | Current FeePool balance |
+| Finalized reward | Historical system log |
 
-For delegators, UI should show:
+These values should not be collapsed into one generic:
 
-- assigned validator
-- delegated amount
-- active state
-- epoch-effective amount
-- validator commission
-- pool cap
-- minimum delegation
-- withdrawal timing after deactivation
+```text id="s9kxri"
+stake
+```
+
+field.
 
 ---
 
-## 29. Important integration rules
+## 52. Validator UI guidance
 
-1. Use live RPC for current state.
-2. Use receipts/logs for finalized historical reward and slashing accounting.
-3. Do not hardcode validator set membership.
-4. Do not treat stake changes as effective inside the same epoch.
-5. Do not assume a validator is consensus-active just because it exists in the staking contract.
-6. Do not assume delegations are effective immediately for the current epoch.
-7. Do not ignore BLS public-key validity in BLS validator mode.
-8. Do not ignore maximum validator count.
-9. Do not ignore no-slash emergency mode when interpreting slashing.
-10. Do not mix chain documentation with XDaLa or XRC application-layer behavior.
+A validator view should expose at least:
+
+- validator address,
+- self stake,
+- delegated raw stake,
+- delegated active stake,
+- epoch-effective total stake,
+- threshold,
+- staking active state,
+- currently-validating state,
+- BLS status,
+- delegation enabled,
+- pool cap,
+- minimum delegation,
+- commission,
+- join effective block,
+- deactivation effective block,
+- unstake availability,
+- uptime weight,
+- proposer reliability.
 
 ---
 
-## 30. Summary
+## 53. Delegator UI guidance
 
-| Topic | Mainnet behavior |
-|---|---|
-| PoS activation | block `5446500` |
-| Consensus finality | IBFT |
-| Validator type | BLS |
+A delegator view should expose:
+
+- validator,
+- current delegated amount,
+- active/inactive status,
+- epoch-effective amount,
+- commission,
+- pool minimum,
+- pool cap,
+- join timing,
+- deactivation timing,
+- withdrawal availability.
+
+A delegation should not be shown as contributing to the current epoch merely because the transaction has already finalized.
+
+---
+
+## 54. Key integration rules
+
+1. `200,000 XGR` is the minimum validator self stake, not the normal validator eligibility threshold.
+2. `2,000,000 XGR` is the normal total-support threshold.
+3. Use epoch-effective total stake for normal validator eligibility.
+4. Do not assume live stake is already epoch-effective.
+5. Distinguish validator eligibility stake from selected-validator voting stake.
+6. Delegated stake must satisfy epoch-effectiveness rules.
+7. BLS validity is required for BLS validator selection.
+8. `currentlyValidating` is the authoritative live consensus-set indicator exposed by PoS RPC.
+9. More than 25 normally eligible validators are deterministically ranked by effective stake.
+10. Fewer than four normally eligible validators activates emergency selection and no-slash mode.
+11. The first PoS block uses the transition/unit voting path because its parent is still PoA.
+12. Subsequent PoS voting power is stake- and uptime-weighted.
+13. Historical rewards/slashes should be indexed from canonical logs.
+14. Emergency-mode behavior must be accounted for when interpreting historical slashing.
+15. Do not mix XGRChain consensus staking with Interchain validator participation.
+
+---
+
+## 55. Mainnet summary
+
+| Topic | `v3.1.1` mainnet behavior |
+| --- | --- |
+| PoS activation | `5446500` / `0x531b64` |
+| Finality protocol | IBFT |
+| Validator cryptography | BLS |
 | Staking contract | `0x0000000000000000000000000000000000001001` |
-| FeePool address | `0x000000000000000000000000000000000000fEE2` |
+| FeePool | `0x000000000000000000000000000000000000fEE2` |
 | PoS system address | `0x0000000000000000000000000000000000009999` |
+| Slash destination | `0x0000000000000000000000000000000000000666` |
 | Minimum validators | `4` |
 | Maximum validators | `25` |
-| Validator self-stake minimum | `200,000 XGR` |
-| Validator total threshold | `2,000,000 XGR` |
-| Default delegator minimum | `10,000 XGR` |
-| Max delegators per validator | `200` |
-| Epoch size | `1000` blocks |
-| Micro-epoch size | `25` blocks |
-| Full reward threshold | `>= 90%` proposer uptime |
-| Reduced reward range | `80%` to `< 90%` proposer uptime |
-| Reward-ineligible threshold | `< 80%` proposer uptime |
-| Slashing threshold | `< 50%` proposer uptime |
-| Default slash rate | `20 bps` |
-| Public PoS RPC | `eth_getPosValidatorsOverview`, `eth_getPosValidatorDelegators` |
+| Minimum validator self stake | `200,000 XGR` |
+| Normal total-support threshold | `2,000,000 XGR` |
+| Default delegation minimum | `10,000 XGR` |
+| Max delegators | `200` |
+| Macro epoch | `1000` blocks |
+| Micro epoch | `25` blocks |
+| Nominal uptime weight | `10000` |
+| Inactivity decay | `9000` bps |
+| Full reward | `>= 90%` proposer duty success |
+| Reduced reward | `>= 80%` and `< 90%` |
+| Reward ineligible | `< 80%` |
+| Slash threshold | `< 50%` |
+| Default slash | `20 bps` / `0.2%` |
+| Emergency selection | Active if normal eligible count `< 4` |
+| Emergency slashing | Disabled |
+| First PoS block voting | Unit voting |
+| Later PoS voting | Stake + uptime weighted |
+
+---
+
+## 56. Design principle
+
+The XGRChain PoS model intentionally separates four concepts:
+
+```text id="jerb0c"
+staking position
+        ↓
+epoch-effective eligibility
+        ↓
+selected validator voting stake
+        ↓
+uptime-weighted consensus power
+```
+
+A staking transaction alone does not grant immediate consensus authority.
+
+Delegation alone does not grant validator identity.
+
+Live balances do not automatically equal current epoch-effective stake.
+
+And validator count alone does not determine PoS quorum.
+
+This separation allows XGRChain to combine delegated economic support, deterministic validator-set transitions, IBFT finality and uptime-sensitive consensus weighting without making intra-epoch staking changes retroactively alter the current consensus epoch.
