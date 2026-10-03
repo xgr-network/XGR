@@ -1,530 +1,852 @@
 # XGR Chain — Introduction
 
 **Document ID:** XGRCHAIN-INTRO  
-**Last updated:** 2026-09-06  
+**Last updated:** 2026-10-03  
 **Audience:** Developers, node operators, validators, auditors, integrators  
-**Release baseline:** `xgr-node` release tag `v2.1.0`  
-**Mainnet genesis source:** `xgr-network/XGR` branch `main`, path `genesis/mainnet/genesis.json`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
-**Operating mode covered here:** Public standalone XGR Chain node, without xgrEngine and without XDaLa
+**Scope:** Public XGRChain protocol and node overview
 
 ---
 
-## 1. What is XGR Chain?
+## 1. What is XGRChain?
 
-XGR Chain is the EVM-compatible Layer-1 blockchain of the XGR Network.
+XGRChain is the EVM-compatible Layer-1 blockchain of the XGR Network.
 
-It is an independent blockchain network with its own:
+It is an independent blockchain with its own:
 
-- genesis configuration
-- chain ID
-- validator set
-- consensus configuration
-- protocol parameters
-- native gas and fee behavior
-- runtime and upgrade path
-- delegated PoS staking model
+- genesis configuration,
+- chain ID,
+- native asset,
+- validator set,
+- consensus configuration,
+- protocol parameters,
+- gas and fee model,
+- staking system,
+- runtime implementation,
+- upgrade path.
 
-XGR Chain provides the execution and settlement layer for:
+XGRChain provides the execution and settlement layer for:
 
-- Ethereum-compatible accounts
-- Ethereum-compatible smart contracts
-- Ethereum-compatible transactions
-- standard Ethereum JSON-RPC access
-- deterministic-finality consensus through IBFT
-- delegated PoS validator participation
-- validator self-staking
-- delegated staking
-- epoch-based validator activation and deactivation
-- XGR-native gas and fee behavior
+- Ethereum-compatible accounts,
+- Ethereum-compatible smart contracts,
+- Ethereum-compatible transactions,
+- native XGR transfers,
+- standard Ethereum JSON-RPC,
+- deterministic IBFT finality,
+- delegated PoS validator participation,
+- validator self-staking,
+- delegated staking,
+- epoch-based validator lifecycle,
+- stake- and uptime-aware voting power,
+- XGR-specific protocol primitives,
+- interchain integration.
 
 The public node implementation is:
 
-```text
+```text id="2m0bg4"
 https://github.com/xgr-network/xgr-node
 ```
 
-The current public release baseline for this documentation is:
+Current public node baseline:
 
-```text
-v2.1.0
-```
-
-This public node release builds as a standalone XGR Chain node.
-
-It does not require:
-
-```text
-xgrEngine
-XDaLa
-private engine module
-engine_embedded build tag
-```
-
-Standard public build:
-
-```bash
-git clone https://github.com/xgr-network/xgr-node.git
-cd xgr-node
-git fetch --all --tags
-git checkout v2.1.0
-go build -o xgrchain .
+```text id="r52uhl"
+v3.1.1
 ```
 
 ---
 
-## 2. Mainnet genesis
+## 2. Public standalone node
 
-The canonical public mainnet genesis is maintained in the XGR repository:
+`xgr-node v3.1.1` builds and operates as a standalone public XGRChain node.
 
-```text
+Normal chain operation does not require:
+
+```text id="945zrq"
+xgrEngine
+XDaLa application services
+private engine repositories
+```
+
+A standard public build can be produced from the tagged release:
+
+```bash id="34w51f"
+git clone https://github.com/xgr-network/xgr-node.git
+cd xgr-node
+git fetch --all --tags
+git checkout v3.1.1
+go build -o xgrchain .
+```
+
+For production deployments, operators may instead use the published release binary and checksum artifacts.
+
+---
+
+## 3. Mainnet identity
+
+The canonical mainnet genesis is maintained in:
+
+```text id="wxuo4r"
 Repository: xgr-network/XGR
 Branch:     main
 Path:       genesis/mainnet/genesis.json
 ```
 
-Raw reference:
-
-```text
-https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json
-```
-
-Operators must use this published genesis for mainnet nodes.
-
-Do not generate or edit a local genesis for mainnet operation.
-
 Mainnet identity:
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | Network name | `xgrchain` |
 | Chain ID | `1643` |
 | Chain ID hex | `0x66b` |
-| Genesis gas limit | `0x3938700` |
-| Genesis gas limit decimal | `60,000,000` |
-| Consensus finality | IBFT |
-| Validator participation from block `5446500` | Delegated PoS |
+| Native asset | XGR |
 | Native decimals | `18` |
+| Execution model | EVM-compatible |
+| Consensus | IBFT |
+| Current validator model | Delegated PoS |
+| PoS activation block | `5446500` |
+| Target block time | approximately 2 seconds |
+| Genesis gas limit | `60,000,000` |
+
+Mainnet transactions must be signed for:
+
+```text id="6kxwfh"
+chainId = 1643
+```
+
+Operators joining mainnet must use the canonical published chain configuration.
 
 ---
 
-## 3. Current public baseline
+## 4. Current public baseline
 
-The public `v2.1.0` node baseline covers:
+The current public `v3.1.1` node baseline provides:
 
 | Area | Status |
-|---|---|
+| --- | --- |
 | EVM execution | Active |
-| IBFT block production and deterministic finality | Active |
-| Delegated PoS validator participation | Active |
+| IBFT deterministic finality | Active |
+| Delegated PoS | Active |
+| Stake-weighted voting power | Active |
+| Uptime-weighted PoS accounting | Active |
 | Validator self-staking | Active |
 | Delegated staking | Active |
-| Epoch-based validator activation and deactivation | Active |
-| Micro-epoch uptime accounting | Active |
+| Epoch-based validator lifecycle | Active |
 | Standard Ethereum JSON-RPC | Active |
 | Public PoS monitoring RPC | Active |
-| Genesis and configuration loading | Active |
-| Node operation | Active |
-| State Growth Control / Online State Trie Sweeper | Available, operator-controlled |
-| Configurable historical-state retention | Available, operator-controlled |
+| Genesis/config loading | Active |
+| State Growth Control / Trie Sweeper | Available |
+| Configurable historical-state retention | Available |
+| Native interchain BLS verification primitive | Active |
+| XGRChain ↔ Base interchain route | Implemented and bidirectionally validated |
 
-State Growth Control was introduced in `v2.1.0`.
+The node software baseline and higher-level services are versioned independently.
 
-It is a local node-storage feature and does not change consensus, EVM execution, canonical state roots, genesis configuration or fork activation.
+For example:
 
-Detailed state-storage and retention behavior is documented in:
-
-```text
-XGRCHAIN_State_Storage_and_Retention.md
+```text id="zrkl21"
+xgr-node v3.1.1
 ```
 
-Public PoS monitoring RPC methods:
-
-```text
-eth_getPosValidatorsOverview
-eth_getPosValidatorDelegators
-```
-
-Other endpoint schemas belong to the dedicated RPC reference.
+defines the public node baseline, while interchain router and relayer deployments are maintained separately.
 
 ---
 
-## 4. Architecture overview
+## 5. Architecture overview
 
-At a high level, XGR Chain consists of these functional layers:
+At a high level, XGRChain consists of the following functional layers:
 
 | Layer | Purpose |
-|---|---|
-| EVM execution layer | Executes Ethereum-compatible transactions and smart contracts |
-| Consensus layer | Produces and finalizes blocks through IBFT |
-| Delegated PoS layer | Provides validator staking, delegation and validator participation |
-| Networking layer | Connects nodes through peer-to-peer networking |
-| JSON-RPC layer | Provides Ethereum-compatible RPC access and public PoS monitoring RPC |
-| Configuration layer | Defines chain ID, genesis, fork activation, bootnodes and protocol parameters |
-| Gas and fee layer | Applies XGR-specific gas and fee behavior |
-| Access-control parameter layer | Provides allowlist/blocklist configuration fields where configured |
+| --- | --- |
+| EVM execution | Executes transactions and smart contracts |
+| IBFT consensus | Finalizes valid blocks deterministically |
+| Delegated PoS | Determines validator participation and voting power |
+| Networking | Connects nodes through P2P |
+| JSON-RPC | Provides Ethereum-compatible application access |
+| PoS RPC | Provides validator and delegation visibility |
+| Configuration | Defines chain ID, genesis, forks and protocol parameters |
+| Gas and fee layer | Implements XGR-specific fee behavior |
+| State storage | Stores current and historical EVM state |
+| Native protocol primitives | Provides XGR-specific execution capabilities |
+| Interchain layer | Connects XGRChain to external networks |
 
-The chain layer remains EVM-compatible.
-
-Delegated PoS changes validator participation and validator-set management.
-
-It does not require a custom transaction envelope for ordinary transfers or contract calls.
-
----
-
-## 5. Chain identity
-
-XGR Chain has its own network identity.
-
-| Field | Description |
-|---|---|
-| Network | XGR Chain |
-| Execution model | EVM-compatible |
-| Account model | Ethereum-style accounts |
-| Contract model | Ethereum-compatible smart contracts |
-| Transaction model | Ethereum-compatible transaction signing and execution |
-| Standard RPC | `eth_*`, `net_*`, `web3_*` |
-| Public PoS RPC | `eth_getPosValidatorsOverview`, `eth_getPosValidatorDelegators` |
-| Finality model | IBFT deterministic finality |
-| Validator model | Delegated PoS with IBFT finality |
-| Native decimal model | 18 decimals |
-
-Exact network-defining values are taken from the published mainnet genesis and the active public release.
+These layers have distinct security and operational boundaries.
 
 ---
 
 ## 6. Execution model
 
-XGR Chain executes transactions through an Ethereum-compatible EVM execution pipeline.
+XGRChain uses an Ethereum-compatible EVM execution pipeline.
 
-For each valid block:
+For each candidate block:
 
-1. pending transactions are selected for inclusion
-2. the proposer builds a candidate block
-3. transactions are executed against the parent state
-4. account balances, contract storage, logs and receipts are produced
-5. gas usage and fee accounting are applied
-6. the resulting state root is committed into the block header
-7. validators independently verify the block and state transition
-8. IBFT finality is reached after the required quorum commits the block
+1. transactions are selected,
+2. the proposer constructs a block,
+3. transactions execute against the parent state,
+4. balances, nonces, code and storage are updated,
+5. logs and receipts are generated,
+6. gas and fees are accounted,
+7. a new state root is calculated,
+8. validators independently reproduce and verify the result,
+9. IBFT finality is reached when sufficient consensus voting power commits the block.
 
-The proposer does not unilaterally define valid state.
+The proposer does not define canonical state unilaterally.
 
-Validators independently verify the block before finalization.
-
----
-
-## 7. Consensus and delegated PoS
-
-XGR Chain uses IBFT for block production and deterministic finality.
-
-The published mainnet genesis defines the validator-participation transition as:
-
-| Phase | Type | Validator type | From | To | Deployment |
-|---|---|---|---:|---:|---:|
-| Initial phase | `PoA` | `bls` | `0` | `5446499` | n/a |
-| Delegated PoS phase | `PoS` | `bls` | `5446500` | n/a | `5446500` |
-
-IBFT remains the finality mechanism.
-
-Delegated PoS defines how validators enter, leave and participate economically in the validator set.
-
-Delegated PoS includes:
-
-- validator self-stake
-- delegated stake
-- validator pool configuration
-- validator activation state
-- validator deactivation state
-- epoch-boundary effectiveness
-- micro-epoch uptime-related accounting
-- stake-aware validator participation
+Every honest validator independently verifies the state transition.
 
 ---
 
-## 8. Epoch and micro-epoch model
+## 7. Consensus
 
-XGR Chain uses epoch-based staking semantics.
+XGRChain uses IBFT for deterministic finality.
 
-Published mainnet values:
+The current mainnet phase schedule is:
 
-| Parameter | Value |
-|---|---:|
-| `microEpochSize` | `25` |
-| `macroEpochMicroFactor` | `40` |
-| Derived macro epoch size | `1000` blocks |
-| `microEpochInactivityDecayBps` | `9000` |
-| `microEpochNominalWeightUnits` | `10000` |
+| Phase | Type | Validator type | Block range |
+| --- | --- | --- | --- |
+| Initial | PoA | BLS | `0–5446499` |
+| Current | PoS | BLS | `5446500+` |
 
-The PoS macro epoch size is derived from:
+IBFT remains the block-finality protocol in both phases.
 
-```text
-microEpochSize * macroEpochMicroFactor
+PoS determines:
+
+- active validator membership,
+- validator staking,
+- delegation,
+- voting power,
+- validator-set evolution,
+- epoch behavior.
+
+---
+
+## 8. Delegated PoS
+
+The current validator model is delegated PoS.
+
+It includes:
+
+- validator self-stake,
+- delegator stake,
+- delegation pools,
+- validator activation,
+- validator deactivation,
+- minimum qualification rules,
+- active delegated stake,
+- epoch-boundary state changes,
+- stake-weighted consensus power,
+- uptime-derived weighting.
+
+Published mainnet validator-count limits:
+
+```text id="ni5agq"
+minimum = 4
+maximum = 25
 ```
 
-For mainnet:
+Validator participation is permissionless within the protocol rules.
 
-```text
-25 * 40 = 1000 blocks
-```
+---
+
+## 9. Voting power
+
+During PoS operation, consensus voting power is not simply one vote per validator.
 
 At a high level:
 
-- validator joins become effective through epoch rules
-- validator deactivations become effective through epoch rules
-- stake and delegation changes can affect active validator accounting through epoch rules
-- micro-epoch accounting supports uptime-related weighting
-- PoS monitoring RPC exposes epoch and micro-epoch fields
+```text id="32n8u0"
+effectiveVotingPower =
+    effectiveStake
+    × uptimeWeight
+    ÷ nominalWeight
+```
 
-Operators and integrators must use the published configuration and live RPC data, not guessed constants.
+Consensus quorum is determined from total voting power:
 
----
+```text id="ctpkmj"
+quorum =
+    ceil(2 × totalVotingPower / 3)
+```
 
-## 9. Staking and delegation model
+Therefore:
 
-XGR Chain supports delegated PoS.
+> validator count and validator voting power are different concepts.
 
-The model includes:
-
-- validator self-stake
-- validator minimum stake rules
-- validator activation and deactivation state
-- delegator stake
-- delegation pool configuration
-- delegated raw stake
-- delegated active stake
-- total active current stake
-- validator and delegator lifecycle handling
-
-Operator actions such as join, pool configuration, activation, deactivation, stake, unstake and withdraw are documented in the node-operation runbook.
-
-Public PoS RPC response schemas are documented in the staking / PoS endpoint reference.
+This is important for monitoring and fault analysis.
 
 ---
 
-## 10. EVM compatibility
+## 10. Epoch model
 
-XGR Chain supports standard EVM tooling.
+Published PoS parameters:
 
-This includes:
+| Parameter | Value |
+| --- | ---: |
+| `microEpochSize` | `25` |
+| `macroEpochMicroFactor` | `40` |
+| Macro epoch | `1000` blocks |
+| `microEpochInactivityDecayBps` | `9000` |
+| `microEpochNominalWeightUnits` | `10000` |
 
-- externally owned accounts
-- smart contract deployment
-- smart contract calls
-- Ethereum-style logs
-- Ethereum-style receipts
-- Ethereum-style transaction nonces
-- Ethereum-style gas accounting
-- Ethereum-style transaction signing
-- Ethereum JSON-RPC methods used by wallets, explorers, indexers and scripts
+Macro epoch:
 
-Supported transaction categories include:
+```text id="b64ydj"
+25 × 40 = 1000 blocks
+```
 
-- `LegacyTx`
-- `AccessListTx`
-- `DynamicFeeTx`
+At the nominal two-second block target:
 
-The node also has internal `StateTx` for system-level execution paths.
+```text id="mnn3su"
+1000 blocks ≈ 33 minutes 20 seconds
+```
 
-`StateTx` is not an ordinary wallet transaction.
-
-XGR Chain does not require wallets or integrators to adopt a non-standard transaction envelope for ordinary transfers or contract calls.
+Actual elapsed time depends on real block production.
 
 ---
 
-## 11. JSON-RPC access
+## 11. EVM compatibility
 
-XGR Chain exposes standard Ethereum-compatible JSON-RPC methods.
+XGRChain supports standard Ethereum-style execution and tooling.
 
-Standard method families include:
+Supported transaction types include:
 
-```text
+| Type | Code |
+| --- | --- |
+| Legacy | `0x00` |
+| Access-list | `0x01` |
+| Dynamic fee | `0x02` |
+
+The node also defines the internal protocol transaction type:
+
+```text id="mvjquf"
+StateTx = 0x7f
+```
+
+`StateTx` is used for internal system-level execution and is not a normal user-wallet transaction type.
+
+Ordinary applications can use standard EVM transaction envelopes.
+
+---
+
+## 12. JSON-RPC
+
+Standard RPC namespaces include:
+
+```text id="0641gc"
 eth_*
 net_*
 web3_*
 ```
 
-Public XGR PoS monitoring methods:
+Important XGR-specific PoS methods include:
 
-```text
+```text id="6doq51"
 eth_getPosValidatorsOverview
 eth_getPosValidatorDelegators
 ```
 
-PoS RPC data is intended for:
+The public RPC interface can therefore serve:
 
-- operators
-- explorers
-- staking dashboards
-- monitoring systems
-- validator tooling
-- delegation interfaces
-- auditors
+- wallets,
+- explorers,
+- dApps,
+- monitoring systems,
+- staking dashboards,
+- validator tooling.
 
-RPC consumers must treat live node data as authoritative for current chain state.
+Standard Ethereum compatibility and XGR-specific extensions are documented separately.
 
-Historical analytics should be built through indexing, not by assuming a live endpoint is a full history database.
+---
 
-### 11.1 Historical state retention
+## 13. Gas and fees
 
-Starting with `xgr-node v2.1.0`, node operators may enable State Growth Control through the Online State Trie Sweeper.
+XGRChain uses Ethereum-compatible fee fields but XGR-specific fee policy.
 
-When enabled, the node may reclaim historical trie state outside the configured retention window.
+Transaction fields include:
 
-This does not remove canonical block, transaction, receipt or log history, but historical RPC calls that require EVM state from an older block are only guaranteed while the required state remains locally retained.
+```text id="vbzc96"
+gasPrice
+maxFeePerGas
+maxPriorityFeePerGas
+```
 
-Archive-style operators should configure retention accordingly or leave the trie sweeper disabled.
+Current public RPC suggestion behavior includes:
 
-See:
+```text id="5dba5g"
+eth_gasPrice = current base fee
+eth_maxPriorityFeePerGas = 0
+```
 
-```text
+XGRChain additionally implements:
+
+- minimum-base-fee behavior,
+- utilization-dependent fee behavior,
+- PoS fee distribution,
+- validator fee allocation,
+- protocol-specific fee handling.
+
+Ethereum RPC compatibility does not imply Ethereum mainnet fee economics.
+
+---
+
+## 14. Native XGR protocol primitives
+
+XGRChain extends standard EVM execution with XGR-specific native functionality.
+
+One `v3.1.1` protocol primitive is the native interchain BLS12-381 verifier:
+
+```text id="y37vgw"
+0x0000000000000000000000000000000000002040
+```
+
+This precompile verifies native XGR interchain quorum attestations.
+
+Because it is a native precompile:
+
+- no EVM bytecode deployment is required at that address,
+- execution is implemented directly by the node,
+- it is available as part of the node execution environment.
+
+The precompile does not itself define a bridge route or validator policy.
+
+Those belong to the separate interchain layer.
+
+---
+
+## 15. XGR Interchain
+
+XGR Network operates interchain infrastructure that connects XGRChain with supported external chains.
+
+The first production route connects:
+
+```text id="z074yk"
+XGRChain ↔ Base
+```
+
+The asset model is:
+
+```text id="6im4bm"
+XGRChain                     Base
+
+native XGR
+   │
+   │ lock
+   ▼
+XGR router
+   │
+   │ cross-chain message
+   ▼
+                              mint
+                               │
+                               ▼
+                              wXGR
+```
+
+Reverse direction:
+
+```text id="ohikmh"
+Base                         XGRChain
+
+wXGR
+  │
+  │ burn
+  ▼
+Base router
+  │
+  │ cross-chain message
+  ▼
+                              unlock
+                                │
+                                ▼
+                            native XGR
+```
+
+Both directions have been validated end-to-end on mainnet.
+
+The interchain layer uses:
+
+- cross-chain messaging,
+- validator attestations,
+- BLS verification,
+- Merkle proofs,
+- destination security modules,
+- relayers,
+- router contracts.
+
+Detailed interchain architecture is documented separately.
+
+---
+
+## 16. Consensus validators vs interchain validators
+
+These are different roles.
+
+### XGRChain consensus validator
+
+Participates in:
+
+- IBFT,
+- block production,
+- block finality,
+- delegated PoS,
+- consensus voting power.
+
+### Interchain validator
+
+Participates in:
+
+- cross-chain checkpoint attestation,
+- interchain message verification,
+- interchain security policy.
+
+An interchain validator does not automatically receive XGRChain consensus authority.
+
+Likewise, a consensus validator is not automatically part of an interchain validator set.
+
+---
+
+## 17. State storage
+
+XGRChain stores EVM state in an immutable, content-addressed trie.
+
+Historical state can consume substantial disk space over time.
+
+Starting with:
+
+```text id="x30pzf"
+xgr-node v2.1.0
+```
+
+the node includes State Growth Control through the Online State Trie Sweeper.
+
+This feature remains available in:
+
+```text id="0i83cm"
+v3.1.1
+```
+
+---
+
+## 18. State Growth Control
+
+The Online State Trie Sweeper allows operators to retain a configurable window of recent canonical state roots and reclaim unreachable historical trie data.
+
+Default settings:
+
+| Setting | Default |
+| --- | ---: |
+| Sweeper | Disabled |
+| Retention | `10,000` blocks |
+| Interval | `6h` |
+
+CLI controls:
+
+```text id="bkfzxu"
+--trie-sweeper
+--trie-sweeper-retain-blocks
+--trie-sweeper-interval
+```
+
+The sweeper is a local storage feature.
+
+It does not change:
+
+- consensus,
+- canonical state roots,
+- transaction validity,
+- genesis,
+- validator selection,
+- staking.
+
+---
+
+## 19. Historical-state implications
+
+Trie pruning affects historical EVM state.
+
+It does not remove normal canonical block history such as:
+
+- block headers,
+- block bodies,
+- transactions,
+- receipts,
+- logs.
+
+However, sufficiently old state-dependent requests may no longer be available on a pruned node.
+
+Examples include historical:
+
+```text id="h2184a"
+eth_getBalance
+eth_getCode
+eth_getStorageAt
+eth_call
+```
+
+Archive-style nodes requiring unrestricted historical-state access should keep the trie sweeper disabled or use a retention policy suitable for that workload.
+
+Detailed behavior is documented in:
+
+```text id="qcc3y7"
 XGRCHAIN_State_Storage_and_Retention.md
 ```
 
 ---
 
-## 12. Gas and fee behavior
+## 20. Node roles
 
-XGR Chain has XGR-native gas and fee behavior.
+Typical XGRChain node roles include:
 
-The chain configuration and node implementation define:
+### Full node
 
-- base fee behavior
-- minimum fee behavior
-- block gas target behavior
-- fee-related fork behavior
-- configured fee destinations where applicable
-- fee-pool behavior after PoS activation
+- follows canonical chain,
+- validates blocks,
+- maintains state,
+- participates in P2P,
+- does not produce blocks.
 
-Key public constants in the node implementation include:
+Recommended:
 
-| Constant | Value |
-|---|---:|
-| `MinBaseFee` | `100000000000` |
-| `CriticalGasThresholdPct` | `80` |
-| `EmergencyBaseFeeChangeDenom` | `4` |
-
-Exact fee behavior belongs in the dedicated gas and fee documentation.
-
-This introduction only establishes that gas and fee behavior is chain-level protocol behavior.
-
----
-
-## 13. Node operation
-
-An XGR node is responsible for:
-
-- loading the published chain configuration
-- connecting to peers
-- synchronizing blocks
-- validating block headers
-- executing transactions
-- verifying state transitions
-- participating in IBFT consensus when configured as an active validator
-- exposing JSON-RPC access where enabled
-- maintaining local chain state
-
-The practical node runbook explains:
-
-- how to build `v2.1.0`
-- how to install the binary
-- how to install the mainnet genesis
-- how to start a full node
-- how to start an RPC node
-- how to configure State Growth Control and historical-state retention
-- how to join as validator
-- how to open a delegation pool
-- how to activate or deactivate a validator
-- how to stake, unstake and withdraw
-
-For normal full nodes and RPC nodes, sealing must be disabled:
-
-```text
+```text id="dba7kz"
 --seal=false
 ```
 
-Validator nodes intentionally use:
+### RPC node
 
-```text
+- performs full-node duties,
+- additionally serves application RPC,
+- should normally be separated from validator infrastructure.
+
+### Validator
+
+- maintains chain state,
+- participates in IBFT,
+- signs consensus messages,
+- requires validator signing material.
+
+Validator operation uses:
+
+```text id="4bsiz3"
 --seal=true
 ```
 
----
+### Archive-style node
 
-## 14. Configuration as source of truth
-
-The published chain configuration is part of the protocol source of truth.
-
-Documentation must not override or invent network-defining values.
-
-Network-defining values include:
-
-- chain ID
-- genesis hash
-- bootnodes
-- IBFT settings
-- PoS activation block
-- epoch parameters
-- fork activation blocks
-- block gas limit
-- fee parameters
-- configured system addresses
-- allowlist and blocklist settings where configured
-
-If documentation and published configuration conflict, the published configuration and active node implementation take precedence.
+- preserves historical state for long-term state queries,
+- typically runs without state trie pruning.
 
 ---
 
-## 15. Separation from application-layer documentation
+## 21. Networking
 
-This document describes XGR Chain as a blockchain protocol and node implementation.
+Nodes communicate through XGRChain's peer-to-peer network.
 
-It does not define:
+Networking provides:
 
-- XDaLa process semantics
-- application-specific validation rules
-- business-process orchestration
-- encrypted grant workflows
-- external API validation flows
-- UI behavior
-- explorer UI behavior
-- marketing claims
+- peer discovery,
+- transaction propagation,
+- block propagation,
+- synchronization,
+- consensus messaging.
 
-Those topics must be documented separately.
+Bootnodes assist initial peer discovery.
 
-Chain documentation should remain limited to:
-
-- protocol behavior
-- node behavior
-- consensus
-- staking
-- configuration
-- gas
-- RPC
-- operator behavior
+They do not grant validator or transaction authority.
 
 ---
 
-## 16. Document update triggers
+## 22. Configuration boundaries
 
-This document must be updated whenever one of the following changes:
+XGRChain distinguishes three major configuration domains.
 
-- public node release baseline
-- published mainnet genesis
-- chain ID
-- PoS activation settings
-- staking behavior
-- validator lifecycle behavior
-- public PoS RPC behavior
-- fork activation settings
-- gas or fee behavior
-- state-storage or historical-state-retention behavior
-- node build requirements
-- operator runbook assumptions
+### Chain configuration
 
-For the current public baseline, use:
+Defines:
 
-```text
-xgr-node v2.1.0
-xgr-network/XGR main genesis/mainnet/genesis.json
+- chain ID,
+- genesis,
+- consensus,
+- PoS activation,
+- fork schedule,
+- protocol addresses.
+
+### Node runtime configuration
+
+Defines:
+
+- data directory,
+- RPC bind addresses,
+- P2P interfaces,
+- logging,
+- metrics,
+- sealing,
+- trie sweeper,
+- local retention.
+
+### External-service configuration
+
+Defines systems such as:
+
+- interchain relayers,
+- remote-chain RPCs,
+- router deployments,
+- security modules,
+- operational monitoring services.
+
+These configuration domains must not be conflated.
+
+---
+
+## 23. Access-control boundaries
+
+XGRChain security spans multiple independent layers:
+
+- infrastructure access,
+- P2P connectivity,
+- RPC exposure,
+- transaction validation,
+- txpool admission,
+- validator authority,
+- smart-contract authorization,
+- external service credentials.
+
+For example:
+
+> a public RPC user is not a validator.
+
+Likewise:
+
+> an interchain relayer account is not a consensus validator.
+
+Permission boundaries are documented in:
+
+```text id="qe7gkx"
+XGRCHAIN_Access_Control_and_Permission_Boundaries.md
 ```
+
+---
+
+## 24. XGRChain and XDaLa
+
+XGRChain is the blockchain substrate.
+
+XDaLa is a higher-level execution and process framework built on top of XGR infrastructure.
+
+XGRChain itself provides:
+
+- execution,
+- consensus,
+- finality,
+- state,
+- RPC,
+- staking,
+- protocol primitives.
+
+XDaLa provides separate application/process capabilities.
+
+A standard public XGRChain node does not need to run the complete XDaLa service stack.
+
+---
+
+## 25. Documentation structure
+
+The Chain documentation is divided into specialized references.
+
+Key documents include:
+
+```text id="2nuogx"
+XGRCHAIN_Introduction.md
+XGRCHAIN_Chain_Spec.md
+XGRCHAIN_Consensus_IBFT.md
+XGRCHAIN_Genesis_and_Configuration.md
+XGRCHAIN_Node_Operation.md
+XGRCHAIN_Networking_P2P.md
+XGRCHAIN_Ethereum_JSON_RPC_Reference.md
+XGRCHAIN_Node_Operator_RPC_Reference.md
+XGRCHAIN_Staking_PoS_Model.md
+XGRCHAIN_Staking_PoS_Endpoint_Reference.md
+XGRCHAIN_State_Storage_and_Retention.md
+XGRCHAIN_Access_Control_and_Permission_Boundaries.md
+XGRCHAIN_Network_Upgrade_and_Hardfork_Process.md
+XRC-GAS_Gas_Price_Behavior.md
+```
+
+Interchain architecture and operations are maintained as separate documentation.
+
+---
+
+## 26. Source-of-truth hierarchy
+
+For network-defining behavior, the source-of-truth order is:
+
+1. active compatible node implementation,
+2. canonical published mainnet configuration,
+3. deployed protocol state where applicable,
+4. current technical documentation.
+
+Documentation must describe the actual implementation and network state.
+
+It must not invent protocol behavior that is not supported by the active release or deployment.
+
+---
+
+## 27. Update triggers
+
+This document must be reviewed when any of the following changes:
+
+- public node release,
+- mainnet genesis,
+- chain ID,
+- consensus behavior,
+- PoS behavior,
+- validator lifecycle,
+- voting-power logic,
+- epoch configuration,
+- Ethereum RPC behavior,
+- gas or fee behavior,
+- native protocol precompiles,
+- state-retention behavior,
+- interchain architecture,
+- node build requirements.
+
+Current documentation baseline:
+
+```text id="np0zs2"
+xgr-node v3.1.1
+```
+
+Canonical network configuration:
+
+```text id="aylsv8"
+xgr-network/XGR
+genesis/mainnet/genesis.json
+```
+
+---
+
+## 28. Summary
+
+| Topic | Current XGRChain behavior |
+| --- | --- |
+| Public node | `xgr-node v3.1.1` |
+| Chain ID | `1643` |
+| Native asset | XGR |
+| EVM compatibility | Active |
+| IBFT finality | Active |
+| Delegated PoS | Active |
+| PoS activation | block `5446500` |
+| Validator limits | `4–25` |
+| Stake-weighted consensus | Active |
+| Uptime weighting | Active |
+| Block target | approximately 2 seconds |
+| Standard Ethereum RPC | Active |
+| PoS monitoring RPC | Active |
+| Trie Sweeper | Available |
+| Default state retention when enabled | `10,000` blocks |
+| Native interchain BLS precompile | `0x2040` |
+| XGRChain ↔ Base route | Bidirectionally validated |
+| Public node dependency on XDaLa | None |
+
+XGRChain is a standalone EVM-compatible Layer-1 with deterministic IBFT finality, delegated PoS, configurable state retention and native protocol support for the XGR interchain stack.
