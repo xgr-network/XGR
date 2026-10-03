@@ -1,263 +1,457 @@
 # XRC-GAS — Gas Price & Fee Behavior
 
 **Document ID:** XRC-GAS-BEHAVIOR  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-10-03  
 **Audience:** Wallet developers, dApp developers, explorer developers, node operators, auditors  
-**Release baseline:** `xgr-node` release tag `v2.0.5`  
-**Mainnet genesis source:** `xgr-network/XGR` branch `main`, path `genesis/mainnet/genesis.json`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
-**Scope:** Public XGR Chain gas pricing, fee accounting and fee-split behavior
+**Scope:** Public XGRChain gas pricing, transaction fees, fee accounting and PoS FeePool behavior
 
 ---
 
 ## 1. Purpose
 
-This document specifies gas price and fee behavior on XGR Chain.
+This document specifies gas-price and transaction-fee behavior on XGRChain.
 
-It explains:
+It covers:
 
-- supported public transaction fee types
-- native fee units
-- base fee behavior
-- minimum base fee behavior
-- RPC fee suggestion behavior
-- dynamic-fee transaction defaults
-- transaction cost calculation
-- txpool price admission
-- XGR fee split behavior
-- FeePool behavior after PoS activation
-- fee-related receipt logs
-- wallet, dApp and explorer guidance
+- supported public transaction types,
+- gas-price units,
+- XGRChain base-fee policy,
+- dynamic minimum base fee,
+- emergency congestion pricing,
+- `eth_gasPrice`,
+- `eth_maxPriorityFeePerGas`,
+- `eth_feeHistory`,
+- simulation defaults,
+- transaction fee validation,
+- TxPool admission,
+- actual transaction cost,
+- XGR-specific fee splitting,
+- PoS FeePool behavior,
+- receipt fee-accounting logs,
+- wallet integration,
+- dApp integration,
+- explorer accounting,
+- operator configuration.
 
-XGR Chain is EVM-compatible, but its gas and fee policy is XGR-specific.
+XGRChain is EVM-compatible but its fee policy is not identical to Ethereum mainnet.
 
-Wallets, explorers and dApps must not assume that XGR fee behavior is identical to Ethereum mainnet.
+Applications must use XGRChain's actual RPC and receipt behavior rather than assuming Ethereum-mainnet economics.
 
 ---
 
-## 2. Mainnet fee baseline
+## 2. Current mainnet fee baseline
 
-The current public baseline is:
-
-```text
-xgr-node v2.0.5
-```
-
-The published mainnet genesis is:
+Current node baseline:
 
 ```text
-xgr-network/XGR
-main
-genesis/mainnet/genesis.json
+xgr-node v3.1.1
 ```
 
-Mainnet fee-relevant facts:
+Mainnet:
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | Chain ID | `1643` |
 | Chain ID hex | `0x66b` |
-| London fork | Active from block `0` |
-| LondonFix fork | Active from block `0` |
+| Native token | XGR |
+| Native decimals | `18` |
+| London | Active from block `0` |
+| LondonFix | Active from block `0` |
 | `txHashWithType` | Active from block `0` |
 | EIP-2930 | Active from block `1208500` |
 | EIP-2929 | Active from block `1208500` |
 | EIP-3860 | Active from block `1208500` |
 | EIP-3651 | Active from block `1208500` |
-| PoS activation block | `5446500` |
+| PoS activation | `5446500` |
 | FeePoolSplit effective block | `5446500` |
 | Genesis gas limit | `60,000,000` |
-| Genesis base fee | `0x0` |
-| Static fallback minimum base fee | `100000000000 wei` |
-
-`100000000000 wei` equals:
-
-```text
-100 gwei
-```
+| Genesis `baseFee` | `0` |
+| Static fallback minimum base fee | `100,000,000,000 wei` |
+| Static fallback minimum base fee | `100 gwei` |
 
 ---
 
-## 3. High-level model
-
-XGR Chain supports Ethereum-style gas fields and Ethereum-compatible transaction types while applying XGR-specific fee accounting.
-
-Key properties:
-
-| Area | Behavior |
-|---|---|
-| `LegacyTx` | Supported |
-| EIP-155 protected `LegacyTx` | Supported |
-| `AccessListTx` | Supported when EIP-2930 is active |
-| `DynamicFeeTx` | Supported under London-style rules |
-| `gasPrice` | Used by `LegacyTx` and `AccessListTx` |
-| `maxFeePerGas` | Used by `DynamicFeeTx` |
-| `maxPriorityFeePerGas` | Used by `DynamicFeeTx` |
-| `baseFeePerGas` | Present in block headers |
-| Minimum base fee | XGR-specific floor |
-| Priority fee suggestion | Current node suggestion is `0` |
-| Fee split | XGR-specific burned/donation/validator accounting |
-| FeePool split | Active from first PoS block, `5446500` on mainnet |
-| Fee split log | `XGRFeeSplit(uint256,uint256,uint256)` |
-| Fee accounting log | `XGRFeeAccounting(uint256,uint256,uint256,uint256)` when FeePoolSplit is active |
-
-Normal developer integration flow:
-
-1. read `eth_chainId`
-2. estimate gas through `eth_estimateGas`
-3. read current fee suggestion through `eth_gasPrice` or latest block `baseFeePerGas`
-4. build transaction with explicit fee fields
-5. submit signed transaction through `eth_sendRawTransaction`
-6. read receipt through `eth_getTransactionReceipt`
-7. parse XGR fee logs if fee accounting is needed
-
----
-
-## 4. Native units
+## 3. Native units
 
 Gas prices are denominated in wei per gas.
 
-Native unit model:
-
 ```text
-1 XGR = 10^18 wei
+1 XGR  = 10^18 wei
 1 gwei = 10^9 wei
 ```
 
-The static fallback minimum base fee is:
+Therefore:
 
 ```text
-100000000000 wei = 100 gwei
+100 gwei
+=
+100,000,000,000 wei
 ```
 
-This is the fallback floor when no valid on-chain registry value is available.
+and:
+
+```text
+1,000 gwei
+=
+1,000,000,000,000 wei
+```
 
 ---
 
-## 5. Supported public transaction fee types
+# Transaction types
 
-XGR Chain supports these public transaction categories:
+## 4. Supported public transaction types
 
-| Transaction type | Code-level type | Fee fields |
-|---|---|---|
-| Legacy transaction | `LegacyTx` / `0x00` | `gasPrice` |
-| EIP-155 protected legacy transaction | `LegacyTx` / `0x00` | `gasPrice` plus chain ID in signature |
-| Access-list transaction | `AccessListTx` / `0x01` | `gasPrice` plus access list |
-| Dynamic-fee transaction | `DynamicFeeTx` / `0x02` | `maxFeePerGas`, `maxPriorityFeePerGas` |
-| Contract creation | transaction with `to == nil` | Same fee rules as its transaction type |
-| Contract call | transaction with `to != nil` | Same fee rules as its transaction type |
+XGRChain supports:
 
-The node also defines internal `StateTx` / `0x7f`.
+| Transaction | Type | Fee fields |
+| --- | ---: | --- |
+| Legacy | `0x00` | `gasPrice` |
+| EIP-155 protected Legacy | `0x00` | `gasPrice` |
+| Access List | `0x01` | `gasPrice` |
+| Dynamic Fee | `0x02` | `maxFeePerGas`, `maxPriorityFeePerGas` |
 
-`StateTx` is not a normal wallet transaction.
+Contract creation and normal contract calls use the same fee model as their enclosing transaction type.
 
-The txpool rejects `StateTx` from normal transaction submission.
+The node also defines:
+
+```text
+StateTx = 0x7f
+```
+
+This is an internal system-transaction type.
+
+It is not a normal wallet transaction and is not accepted as an ordinary user transaction through the TxPool.
 
 ---
 
-## 6. Base fee field
+# Base fee policy
 
-XGR Chain stores the base fee in the block header as:
+## 5. XGRChain base fee
+
+Block headers contain:
+
+```text
+BaseFee
+```
+
+which is exposed through Ethereum-compatible RPC as:
 
 ```text
 baseFeePerGas
 ```
 
-The code-level field is:
+XGRChain uses a custom base-fee policy designed to provide:
 
-```text
-Header.BaseFee
-```
-
-Public RPC surfaces expose the header base fee through normal Ethereum-compatible block responses.
-
-The current fee suggestion logic uses the current chain head:
-
-```text
-baseFee = latestHeader.BaseFee
-```
+- predictable pricing during normal utilization,
+- a configurable minimum fee,
+- aggressive but bounded congestion response above a critical utilization level.
 
 ---
 
-## 7. Minimum base fee
+## 6. Static fallback parameters
 
-The node defines these fee-policy constants:
+`v3.1.1` defines:
 
-| Constant | Value | Meaning |
-|---|---:|---|
-| `MinBaseFee` | `100000000000` | Static fallback minimum base fee |
-| `CriticalGasThresholdPct` | `80` | Utilization threshold for normal mode |
-| `EmergencyBaseFeeChangeDenom` | `4` | Emergency increase denominator |
+| Constant | Value |
+| --- | ---: |
+| `MinBaseFee` | `100,000,000,000 wei` |
+| `CriticalGasThresholdPct` | `80` |
+| `EmergencyBaseFeeChangeDenom` | `4` |
 
-The minimum base fee resolver works as follows:
-
-1. start with static `MinBaseFee`
-2. if `EngineRegistryAddress` is not configured, use static `MinBaseFee`
-3. if EngineRegistry state is unavailable, use static `MinBaseFee`
-4. if EngineRegistry is not deployed yet, use static `MinBaseFee`
-5. otherwise read `minBaseFee` from the EngineRegistry storage slot
-6. if the registry value does not fit into `uint64`, use static `MinBaseFee`
-7. a registry value of `0` is allowed by the code path
-
-Practical integration rule:
+Equivalent:
 
 ```text
-Use live RPC values. Do not hardcode permanent gas prices in applications.
+fallback floor = 100 gwei
+critical utilization = 80%
+maximum emergency increase at 100% utilization = +25% per block
 ```
+
+The `100 gwei` value is a fallback.
+
+It is not necessarily a permanently hard-coded network floor because the EngineRegistry can provide a different `minBaseFee`.
 
 ---
 
-## 8. Base fee calculation
+## 7. Dynamic minimum base fee
 
-The next base fee is calculated from the parent header.
+The node resolves the effective minimum base fee from chain state.
 
-High-level behavior:
-
-| Parent state | Behavior |
-|---|---|
-| `parent.BaseFee == 0` | Start from configured genesis base fee if non-zero, otherwise default genesis base fee, then apply minimum-base-fee guard |
-| `parent.GasLimit == 0` | Use minimum base fee |
-| `parent.GasUsed <= 80% of parent.GasLimit` | Clamp to minimum base fee |
-| `parent.GasUsed > 80% of parent.GasLimit` | Increase above floor according to excess utilization |
-| Calculated fee below minimum | Return minimum base fee |
-
-Emergency increase formula:
+Default:
 
 ```text
-threshold = parent.GasLimit * 80 / 100
-
-headroom = parent.GasLimit - threshold
-
-excess = parent.GasUsed - threshold
-
-parentBF = max(parent.BaseFee, minBaseFee)
-
-delta = parentBF * excess / headroom / 4
-
-delta = max(delta, 1)
-
-nextBaseFee = parentBF + delta
+minBaseFee = 100 gwei
 ```
 
-The addition is saturation-safe.
+The node then checks the configured EngineRegistry.
 
-The returned base fee is never below the resolved minimum base fee.
+Conceptually:
+
+```text
+EngineRegistry address absent
+        ↓
+100 gwei fallback
+
+EngineRegistry state unavailable
+        ↓
+100 gwei fallback
+
+EngineRegistry not deployed
+        ↓
+100 gwei fallback
+
+EngineRegistry deployed
+        ↓
+read minBaseFee storage slot
+```
+
+If the registry value exceeds `uint64`:
+
+```text
+fallback to 100 gwei
+```
+
+A valid registry value of:
+
+```text
+0
+```
+
+is explicitly permitted by the current implementation.
+
+Therefore integrations should not assume the effective minimum is permanently `100 gwei`.
 
 ---
 
-## 9. RPC fee suggestions
+## 8. EngineRegistry configuration boundary
 
-### 9.1 `eth_gasPrice`
+The canonical chain configuration contains an EngineRegistry address.
 
-`eth_gasPrice` returns the node's current suggested gas price for `LegacyTx` style pricing.
+The node reads fee-policy values directly from its canonical state when the configured registry is deployed.
 
-Current behavior:
+Relevant dynamic values include:
 
 ```text
-eth_gasPrice = latestHeader.BaseFee
+minBaseFee
+donationAddress
+donationPercent
 ```
 
-Example request:
+This means fee policy can have both:
+
+```text
+node implementation defaults
+```
+
+and:
+
+```text
+canonical on-chain registry values
+```
+
+Applications should use live chain/RPC behavior rather than embedding the fallback constants as permanent network parameters.
+
+---
+
+## 9. First non-zero base fee
+
+The mainnet genesis header contains:
+
+```text
+BaseFee = 0
+```
+
+When calculating the next base fee from a parent whose base fee is zero, the implementation first selects:
+
+```text
+configured genesis base fee
+```
+
+or, if that is zero:
+
+```text
+chain.GenesisBaseFee = 1 gwei
+```
+
+The final minimum-base-fee guard is then applied.
+
+With the normal static fallback:
+
+```text
+1 gwei
+    ↓
+minimum guard
+    ↓
+100 gwei
+```
+
+Therefore the zero genesis header does not mean normal post-genesis transactions use a zero base fee.
+
+---
+
+## 10. Normal pricing mode
+
+For a non-zero parent base fee:
+
+```text
+threshold =
+    parent.GasLimit
+    × 80
+    / 100
+```
+
+If:
+
+```text
+parent.GasUsed <= threshold
+```
+
+then:
+
+```text
+nextBaseFee = minBaseFee
+```
+
+XGRChain therefore does not continuously lower and raise base fee around a 50% target as Ethereum mainnet does.
+
+Up to 80% utilization, the XGRChain policy hard-clamps pricing to the current configured minimum.
+
+---
+
+## 11. Emergency congestion mode
+
+When:
+
+```text
+parent.GasUsed > 80% of parent.GasLimit
+```
+
+the emergency ramp activates.
+
+Define:
+
+```text
+headroom =
+    parent.GasLimit - threshold
+
+excess =
+    parent.GasUsed - threshold
+```
+
+Starting point:
+
+```text
+parentBF =
+    max(
+        parent.BaseFee,
+        minBaseFee
+    )
+```
+
+Increase:
+
+```text
+delta =
+    floor(
+        parentBF
+        × excess
+        /
+        headroom
+        /
+        4
+    )
+```
+
+with:
+
+```text
+delta >= 1 wei
+```
+
+Then:
+
+```text
+nextBaseFee =
+    parentBF + delta
+```
+
+using saturation-safe arithmetic.
+
+---
+
+## 12. Emergency ramp examples
+
+At exactly:
+
+```text
+80%
+```
+
+normal mode still applies.
+
+Above 80%, the increase scales linearly through the remaining 20% utilization headroom.
+
+Ignoring integer rounding:
+
+| Parent utilization | Approx. increase |
+| ---: | ---: |
+| `80%` | `0%` |
+| `85%` | `+6.25%` |
+| `90%` | `+12.5%` |
+| `95%` | `+18.75%` |
+| `100%` | `+25%` |
+
+Once utilization falls back to:
+
+```text
+<= 80%
+```
+
+the next calculated base fee returns directly to the configured minimum.
+
+---
+
+## 13. Zero gas limit safety
+
+If:
+
+```text
+parent.GasLimit = 0
+```
+
+the base-fee calculation falls back to:
+
+```text
+minBaseFee
+```
+
+This avoids division by zero.
+
+---
+
+# RPC fee suggestions
+
+## 14. `eth_gasPrice`
+
+Current `v3.1.1` behavior:
+
+```text
+eth_gasPrice =
+    latestHeader.BaseFee
+```
+
+The RPC does not:
+
+- calculate the next-block base fee,
+- add a default priority fee,
+- apply `--price-limit`,
+- average recent transaction prices.
+
+Example:
 
 ```json
 {
@@ -268,7 +462,7 @@ Example request:
 }
 ```
 
-If the current base fee is `100 gwei`, example response:
+At a 100-gwei current base fee:
 
 ```json
 {
@@ -278,13 +472,124 @@ If the current base fee is `100 gwei`, example response:
 }
 ```
 
-`0x174876e800` equals:
+---
+
+## 15. Important `eth_gasPrice` next-block nuance
+
+The TxPool does not validate new transactions against exactly the same value returned by:
 
 ```text
-100000000000 wei = 100 gwei
+eth_gasPrice
 ```
 
-### 9.2 `eth_maxPriorityFeePerGas`
+The TxPool stores:
+
+```text
+CalculateBaseFee(currentHeader)
+```
+
+as its current admission base fee.
+
+Its code explicitly treats this as:
+
+```text
+base fee calculated for the next block
+```
+
+Therefore:
+
+```text
+eth_gasPrice
+    = current block BaseFee
+
+TxPool baseFee
+    = calculated next-block BaseFee
+```
+
+During normal utilization:
+
+```text
+<= 80%
+```
+
+these will normally converge to the current minimum.
+
+During emergency utilization:
+
+```text
+> 80%
+```
+
+the next-block base fee can be higher.
+
+---
+
+## 16. Legacy transaction congestion edge case
+
+Suppose:
+
+```text
+current block baseFee = 100 gwei
+current block utilization = 100%
+```
+
+Then approximately:
+
+```text
+next block baseFee = 125 gwei
+```
+
+But:
+
+```text
+eth_gasPrice = 100 gwei
+```
+
+A new Legacy transaction constructed with exactly:
+
+```text
+gasPrice = eth_gasPrice
+```
+
+can therefore be rejected by the local TxPool as:
+
+```text
+transaction underpriced
+```
+
+because the TxPool is already validating against the next-block base fee.
+
+This is an important XGRChain integration detail.
+
+---
+
+## 17. Legacy transaction recommendation
+
+During uncongested operation:
+
+```text
+gasPrice = eth_gasPrice
+```
+
+is normally sufficient.
+
+For congestion-aware software, prefer:
+
+```text
+DynamicFeeTx
+```
+
+or provide explicit Legacy headroom.
+
+Applications that use Legacy transactions should be prepared to:
+
+1. receive an underpriced error,
+2. refresh the current block/base fee,
+3. resubmit with a higher `gasPrice`.
+
+---
+
+## 18. `eth_maxPriorityFeePerGas`
 
 Current node behavior:
 
@@ -292,7 +597,7 @@ Current node behavior:
 eth_maxPriorityFeePerGas = 0
 ```
 
-Example request:
+Request:
 
 ```json
 {
@@ -303,7 +608,7 @@ Example request:
 }
 ```
 
-Example response:
+Response:
 
 ```json
 {
@@ -313,243 +618,440 @@ Example response:
 }
 ```
 
-A wallet may apply its own UI policy, but the node suggestion is `0`.
-
-### 9.3 Dynamic-fee suggestion values
-
-The internal suggestion function returns:
-
-```text
-baseFee = latestHeader.BaseFee
-tip = 0
-gasPrice = baseFee
-feeCap = 2 * baseFee
-```
-
-`feeCap` uses saturation-safe multiplication.
+A non-zero priority fee is not required by the current node suggestion policy.
 
 ---
 
-## 10. Transaction fee defaults in RPC simulation
+## 19. Internal fee suggestion
 
-When transaction fee fields are missing in simulation contexts such as `eth_call` or `eth_estimateGas`, the node fills them.
+Current `suggestFees()` returns:
 
-### 10.1 `DynamicFeeTx`
+```text
+baseFee = latestHeader.BaseFee
+tip     = 0
+gasPrice = baseFee
+feeCap   = 2 × baseFee
+```
 
-If `GasTipCap` is missing:
+The multiplication for:
+
+```text
+2 × baseFee
+```
+
+is saturation-safe.
+
+---
+
+## 20. Dynamic-fee recommendation
+
+A practical default for `DynamicFeeTx` is:
+
+```text
+baseFee =
+    latest block baseFeePerGas
+
+maxPriorityFeePerGas =
+    0
+
+maxFeePerGas =
+    2 × baseFee
+```
+
+Because the emergency base-fee increase is bounded to at most approximately 25% per block, the `2 × baseFee` cap gives substantially more headroom than a Legacy transaction priced at exactly the current base fee.
+
+The actual paid price is still determined by effective gas price, not by the full cap.
+
+---
+
+# Simulation defaults
+
+## 21. `eth_call` and `eth_estimateGas`
+
+When fee fields are missing during simulation, the node fills them automatically.
+
+These defaults affect simulation only.
+
+They do not automatically rewrite an already signed raw transaction submitted through:
+
+```text
+eth_sendRawTransaction
+```
+
+---
+
+## 22. Dynamic-fee simulation defaults
+
+For `DynamicFeeTx`:
+
+If missing:
 
 ```text
 GasTipCap = 0
 ```
 
-If `GasFeeCap` is missing:
+If missing:
 
 ```text
-GasFeeCap = 2 * baseFee
+GasFeeCap = 2 × latestHeader.BaseFee
 ```
 
-If both fields are already provided, the node keeps the provided values.
-
-### 10.2 `LegacyTx` and `AccessListTx`
-
-If `GasPrice` is missing or zero:
-
-```text
-GasPrice = baseFee
-```
-
-If a positive gas price is already provided, the node keeps it.
+Existing explicit values are preserved.
 
 ---
 
-## 11. Effective gas price
+## 23. Legacy / Access List simulation defaults
 
-The effective gas price is the price actually used for cost accounting.
-
-### 11.1 `LegacyTx`
-
-For `LegacyTx`:
+If:
 
 ```text
-effectiveGasPrice = gasPrice
+GasPrice == nil
 ```
 
-### 11.2 `AccessListTx`
-
-For `AccessListTx`:
+or:
 
 ```text
-effectiveGasPrice = gasPrice
+GasPrice <= 0
 ```
 
-### 11.3 `DynamicFeeTx`
-
-For `DynamicFeeTx`:
+simulation fills:
 
 ```text
-effectiveGasPrice = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+GasPrice = latestHeader.BaseFee
 ```
 
-With the current node default:
+Explicit positive values are retained.
+
+---
+
+# Effective gas price
+
+## 24. Legacy transaction
+
+```text
+effectiveGasPrice =
+    gasPrice
+```
+
+---
+
+## 25. Access-list transaction
+
+```text
+effectiveGasPrice =
+    gasPrice
+```
+
+---
+
+## 26. Dynamic-fee transaction
+
+```text
+effectiveGasPrice =
+    min(
+        maxFeePerGas,
+        baseFee + maxPriorityFeePerGas
+    )
+```
+
+With the normal node suggestion:
 
 ```text
 maxPriorityFeePerGas = 0
-maxFeePerGas = 2 * baseFee
 ```
 
-effective price normally becomes:
+this normally becomes:
 
 ```text
 effectiveGasPrice = baseFee
 ```
 
+provided:
+
+```text
+maxFeePerGas >= baseFee
+```
+
 ---
 
-## 12. Dynamic-fee validation
+# Transaction validation
 
-For `DynamicFeeTx`, the txpool and execution layer validate fee fields.
+## 27. DynamicFeeTx validation
 
-Important validation rules:
+The TxPool verifies:
 
-| Condition | Result |
-|---|---|
-| London not active | `DynamicFeeTx` not supported |
-| `txHashWithType` not active | `DynamicFeeTx` not supported |
-| `GasFeeCap` missing | underpriced |
-| `GasTipCap` missing | underpriced |
-| `GasFeeCap` bit length > 256 | rejected |
-| `GasTipCap` bit length > 256 | rejected |
-| `GasTipCap > GasFeeCap` | rejected |
-| `GasFeeCap < baseFee` | rejected / underpriced |
-| effective gas price below node `priceLimit` | rejected / underpriced |
+- London is active,
+- typed transactions are active,
+- chain ID is correct,
+- `GasFeeCap` is present,
+- `GasTipCap` is present,
+- both caps fit within 256 bits,
+- `GasTipCap <= GasFeeCap`,
+- `GasFeeCap >= next-block TxPool base fee`,
+- effective gas price satisfies local `--price-limit`.
 
-Execution-layer error text for fee cap below base fee:
+If either cap is nil:
+
+```text
+ErrUnderpriced
+```
+
+is returned.
+
+---
+
+## 28. Execution-layer fee-cap validation
+
+Execution also verifies:
+
+```text
+maxFeePerGas >= block.BaseFee
+```
+
+Failure produces:
 
 ```text
 max fee per gas less than block base fee
 ```
 
----
-
-## 13. Txpool price admission
-
-A transaction can be validly signed but still rejected by a local txpool.
-
-Txpool admission checks include:
-
-- transaction type
-- signature
-- sender recovery
-- chain ID
-- nonce
-- account balance
-- intrinsic gas
-- block gas limit
-- fork activation
-- base fee
-- effective gas price
-- node-level `priceLimit`
-- replacement pricing
-- txpool capacity
-- per-account queue limits
-
-Important fee-related rejection causes:
-
-| Condition | Result |
-|---|---|
-| `DynamicFeeTx.GasFeeCap < baseFee` | underpriced |
-| `DynamicFeeTx.GasTipCap > GasFeeCap` | rejected |
-| `LegacyTx` / `AccessListTx` gas price below base fee while London is active | underpriced |
-| effective gas price below `--price-limit` | underpriced |
-| replacement transaction does not increase effective gas price | replacement underpriced |
-
-For public dApps, a txpool rejection should be treated as a local node response.
-
-A transaction rejected by one node may need fee correction or submission to a synced, correctly configured node.
+This is a consensus execution rule, distinct from TxPool admission.
 
 ---
 
-## 14. Transaction cost
+## 29. Legacy and AccessList validation
 
-Transaction cost is based on gas used and effective gas price.
+When London rules are active:
 
 ```text
-transactionCost = gasUsed * effectiveGasPrice
+gasPrice >= TxPool next-block baseFee
 ```
 
-The sender initially reserves gas according to the transaction gas limit and fee rules.
+is required for admission.
+
+Access-list transactions additionally require EIP-2930 and typed-transaction support to be active.
+
+---
+
+## 30. Local `--price-limit`
+
+Node operators can configure:
+
+```text
+--price-limit
+```
+
+The TxPool additionally requires:
+
+```text
+effectiveGasPrice >= priceLimit
+```
+
+This is a node-local admission policy.
+
+It is not a network-wide consensus gas-price parameter.
+
+---
+
+## 31. `eth_gasPrice` does not include `--price-limit`
+
+Current `v3.1.1` `eth_gasPrice` logic does not incorporate the local TxPool:
+
+```text
+--price-limit
+```
+
+Therefore a node configured with:
+
+```text
+priceLimit > latestHeader.BaseFee
+```
+
+can return:
+
+```text
+eth_gasPrice = latestHeader.BaseFee
+```
+
+while rejecting a transaction priced at that exact value.
+
+Public RPC operators should account for this when using a non-zero local price limit.
+
+---
+
+## 32. Replacement transactions
+
+For an existing sender/nonce combination, the TxPool compares effective gas prices.
+
+A replacement is rejected if the existing transaction has:
+
+```text
+same or higher effective gas price
+```
+
+than the proposed replacement.
+
+Therefore:
+
+```text
+same nonce
++
+same price
+```
+
+does not constitute a valid fee bump.
+
+---
+
+# Transaction cost
+
+## 33. Actual transaction fee
+
+Final transaction fee:
+
+```text
+totalFeeRaw =
+    gasUsed
+    × effectiveGasPrice
+```
 
 Unused gas is refunded.
 
-Only actually used gas contributes to the final fee.
+The sender does not pay:
 
-Example:
+```text
+gasLimit × feeCap
+```
+
+unless all that gas is actually consumed at that effective price.
+
+---
+
+## 34. Simple example
 
 ```text
 gasUsed = 21,000
 effectiveGasPrice = 100 gwei
+```
 
-transactionCost = 21,000 * 100 gwei
-transactionCost = 2,100,000 gwei
-transactionCost = 0.0021 XGR
+Then:
+
+```text
+totalFeeRaw =
+    21,000 × 100 gwei
+
+= 2,100,000 gwei
+
+= 0.0021 XGR
 ```
 
 ---
 
-## 15. XGR fee split
+# XGR-specific fee accounting
 
-After transaction execution, XGR Chain computes an XGR-specific fee split.
+## 35. Fixed burn component
 
-Code-level calculation:
-
-```text
-totalFeeRaw = gasUsed * effectiveGasPrice
-
-burnedApplied = min(totalFeeRaw, 1000 gwei)
-
-remainingAfterBurn = totalFeeRaw - burnedApplied
-
-donation = remainingAfterBurn * donationPercent / 100
-
-validator = remainingAfterBurn - donation
-```
-
-The fixed burned-accounting amount is:
+For every normal paid transaction, XGRChain first calculates:
 
 ```text
-1000 gwei per transaction
+totalFeeRaw =
+    gasUsed × effectiveGasPrice
 ```
 
-It is clamped to the total fee.
-
-If the total fee is smaller than `1000 gwei`:
+Fixed burn amount:
 
 ```text
-burnedApplied = totalFeeRaw
-remainingAfterBurn = 0
-donation = 0
-validator = 0
+1,000 gwei
 ```
 
-The code credits `burnedApplied` to the configured burned address.
+Applied burn:
 
-It does not create negative fee values.
+```text
+burnedApplied =
+    min(
+        totalFeeRaw,
+        1,000 gwei
+    )
+```
+
+Remaining amount:
+
+```text
+remaining =
+    totalFeeRaw - burnedApplied
+```
+
+The implementation therefore never allows the fixed burn component to create a negative remainder.
 
 ---
 
-## 16. Default fee split addresses and percent
+## 36. Burn address
 
-Default values in the public node:
+Default:
 
-| Parameter | Value |
-|---|---|
-| Default burned address | `0x0000000000000000000000000000000000000666` |
-| Default donation address | same as default burned address |
-| Default donation percent | `15` |
-| Fee split log address | `0x000000000000000000000000000000000000fEE1` |
-| FeePool address | `0x000000000000000000000000000000000000fEE2` |
+```text
+0x0000000000000000000000000000000000000666
+```
 
-EngineRegistry can override donation address and donation percent when the registry is configured, deployed and readable.
+The executor credits the burn component to this address.
+
+The term:
+
+```text
+burn
+```
+
+in this document refers to the XGRChain protocol accounting destination.
+
+---
+
+## 37. Donation component
+
+Default donation address:
+
+```text
+0x0000000000000000000000000000000000000666
+```
+
+Default donation percentage:
+
+```text
+15%
+```
+
+After the fixed burn:
+
+```text
+donation =
+    remaining
+    × donationPercent
+    / 100
+```
+
+Validator component:
+
+```text
+validator =
+    remaining - donation
+```
+
+---
+
+## 38. Dynamic donation configuration
+
+If the configured EngineRegistry is deployed, the node reads:
+
+```text
+donationAddress
+donationPercent
+```
+
+from canonical registry storage.
+
+Valid percentage range:
+
+```text
+0..100
+```
 
 If the registry donation address is zero:
 
@@ -557,554 +1059,983 @@ If the registry donation address is zero:
 donationPercent = 0
 ```
 
-If the registry is unavailable or not deployed:
+which disables donation.
 
-```text
-default donation address and default donation percent are used
-```
+If the registry is absent, unavailable or not deployed, the node uses the defaults.
 
 ---
 
-## 17. FeePoolSplit behavior
+## 39. Complete pre-PoS fee formula
 
-`feePoolSplit` is active from the first PoS IBFT fork.
-
-For mainnet:
+Before FeePoolSplit:
 
 ```text
-first PoS block = 5446500
-feePoolSplit effective block = 5446500
-```
+totalFeeRaw =
+    gasUsed × effectiveGasPrice
 
-The node enforces alignment:
+burned =
+    min(totalFeeRaw, 1,000 gwei)
 
-- if `feePoolSplit` exists and does not equal the first PoS block, initialization fails
-- if `feePoolSplit` is absent and a PoS fork exists, the node sets it internally to the first PoS block
+remaining =
+    totalFeeRaw - burned
 
-### 17.1 Before FeePoolSplit
+donation =
+    remaining × donationPercent / 100
 
-When `FeePoolSplit` is not active, validator fee distribution is:
-
-```text
-validator -> block coinbase
-```
-
-### 17.2 With FeePoolSplit active
-
-When `FeePoolSplit` is active:
-
-```text
-validatorImmediate = validator / 2
-
-validatorPooled = validator - validatorImmediate
+validator =
+    remaining - donation
 ```
 
 Distribution:
 
 ```text
-validatorImmediate -> block coinbase
+burned
+    → burn address
 
-validatorPooled -> 0x000000000000000000000000000000000000fEE2
+donation
+    → donation address
+
+validator
+    → block coinbase
 ```
-
-The pooled portion is later handled by PoS epoch/reward logic.
 
 ---
 
-## 18. Fee split logs
+# PoS FeePoolSplit
 
-### 18.1 `XGRFeeSplit`
+## 40. Activation
 
-Every processed normal transaction appends an `XGRFeeSplit` log.
+`FeePoolSplit` must align with the first configured PoS IBFT phase.
 
-Event signature:
-
-```solidity
-XGRFeeSplit(uint256,uint256,uint256)
-```
-
-Topic:
+Mainnet:
 
 ```text
-keccak256("XGRFeeSplit(uint256,uint256,uint256)")
+first PoS block =
+    5,446,500
 ```
 
-Log address:
+Therefore:
+
+```text
+FeePoolSplit =
+    5,446,500
+```
+
+If an explicit `feePoolSplit` fork exists at a different block, node initialization fails.
+
+If PoS exists but `feePoolSplit` is absent, the node inserts an effective fork at the first PoS block internally.
+
+---
+
+## 41. FeePool address
+
+```text
+0x000000000000000000000000000000000000fEE2
+```
+
+This address collects the pooled PoS validator share.
+
+---
+
+## 42. Validator split after PoS activation
+
+With FeePoolSplit active:
+
+```text
+validatorImmediate =
+    floor(validator / 2)
+
+validatorPooled =
+    validator - validatorImmediate
+```
+
+Distribution:
+
+```text
+validatorImmediate
+    → block coinbase
+
+validatorPooled
+    → FeePool
+```
+
+Because integer division rounds down, an odd final wei goes to:
+
+```text
+validatorPooled
+```
+
+rather than the immediate coinbase component.
+
+---
+
+## 43. Why the FeePool exists
+
+The immediate component compensates the current block creator.
+
+The pooled component feeds PoS epoch reward accounting.
+
+At epoch finalization, FeePool distribution uses the PoS reward model, including:
+
+- epoch validator snapshots,
+- effective stake,
+- proposer-duty performance,
+- delegation,
+- validator commission,
+- reward eligibility.
+
+Detailed PoS reward rules are documented in:
+
+```text
+XGRCHAIN_Staking_PoS_Model.md
+```
+
+---
+
+## 44. FeePool is not a permanent sink
+
+The FeePool is not simply a burn address.
+
+Funds placed at:
+
+```text
+0x000000000000000000000000000000000000fEE2
+```
+
+are consumed by deterministic PoS epoch reward distribution.
+
+Current pending FeePool balance is exposed through:
+
+```text
+eth_getPosValidatorsOverview
+```
+
+as:
+
+```text
+currentEpochPendingRewards
+```
+
+---
+
+# Receipt fee logs
+
+## 45. Fee log address
+
+XGRChain appends protocol fee logs at:
 
 ```text
 0x000000000000000000000000000000000000fEE1
 ```
 
-Data fields:
+These logs are attached to the normal transaction receipt.
 
-| Position | Field |
-|---:|---|
-| 1 | `donationFee` |
-| 2 | `validatorFee` |
-| 3 | `burnedFee` |
+---
 
-Explorer implementations should parse this log.
+## 46. `XGRFeeSplit`
 
-They must not display the entire transaction fee as burned.
-
-### 18.2 `XGRFeeAccounting`
-
-When `FeePoolSplit` is active, the node additionally appends an `XGRFeeAccounting` log.
-
-Event signature:
+Every processed normal transaction receives:
 
 ```solidity
-XGRFeeAccounting(uint256,uint256,uint256,uint256)
+XGRFeeSplit(
+    uint256 donationFee,
+    uint256 validatorFee,
+    uint256 burnedFee
+)
 ```
 
 Topic:
 
 ```text
-keccak256("XGRFeeAccounting(uint256,uint256,uint256,uint256)")
+keccak256(
+    "XGRFeeSplit(uint256,uint256,uint256)"
+)
 ```
 
-Log address:
+Data order:
+
+| Word | Field |
+| ---: | --- |
+| `0` | `donationFee` |
+| `1` | `validatorFee` |
+| `2` | `burnedFee` |
+
+`validatorFee` here is the total validator component before its optional immediate/pooled subdivision.
+
+---
+
+## 47. `XGRFeeAccounting`
+
+When FeePoolSplit is active, an additional log is emitted:
+
+```solidity
+XGRFeeAccounting(
+    uint256 donationFee,
+    uint256 validatorImmediateFee,
+    uint256 validatorPooledFee,
+    uint256 burnedFee
+)
+```
+
+Data order:
+
+| Word | Field |
+| ---: | --- |
+| `0` | `donationFee` |
+| `1` | `validatorImmediateFee` |
+| `2` | `validatorPooledFee` |
+| `3` | `burnedFee` |
+
+For post-PoS accounting, explorers should use this event when they need to distinguish immediate and pooled validator fees.
+
+---
+
+## 48. Fee logs are protocol-generated
+
+These logs are appended by native execution logic.
+
+They are not emitted by an application smart contract.
+
+Explorer/indexer software should therefore recognize:
 
 ```text
 0x000000000000000000000000000000000000fEE1
 ```
 
-Data fields:
-
-| Position | Field |
-|---:|---|
-| 1 | `donationFee` |
-| 2 | `validatorImmediateFee` |
-| 3 | `validatorPooledFee` |
-| 4 | `burnedFee` |
-
-For post-PoS blocks, explorers should prefer `XGRFeeAccounting` when they need to distinguish immediate validator payout from pooled validator fee.
+as a protocol accounting address.
 
 ---
 
-## 19. Fee split examples
+# Fee examples
 
-### 19.1 Normal example
+## 49. Normal post-PoS example
 
 Assumptions:
 
 ```text
 gasUsed = 21,000
 effectiveGasPrice = 100 gwei
-donationPercent = 15
-fixedBurn = 1000 gwei
+
+donationPercent = 15%
+fixedBurn = 1,000 gwei
 ```
 
-Calculation:
+Total:
 
 ```text
-totalFeeRaw = 21,000 * 100 gwei
-totalFeeRaw = 2,100,000 gwei
+totalFeeRaw =
+    21,000 × 100 gwei
 
-burnedApplied = 1,000 gwei
-remainingAfterBurn = 2,099,000 gwei
-
-donation = 2,099,000 * 15 / 100
-donation = 314,850 gwei
-
-validator = 2,099,000 - 314,850
-validator = 1,784,150 gwei
+= 2,100,000 gwei
 ```
 
-Distribution before FeePoolSplit:
-
-| Component | Amount |
-|---|---:|
-| Burned address | `1,000 gwei` |
-| Donation address | `314,850 gwei` |
-| Coinbase | `1,784,150 gwei` |
-| FeePool | `0` |
-
-Distribution with FeePoolSplit active:
+Fixed burn:
 
 ```text
-validatorImmediate = 1,784,150 / 2
-validatorImmediate = 892,075 gwei
-
-validatorPooled = 1,784,150 - 892,075
-validatorPooled = 892,075 gwei
+burnedApplied =
+    1,000 gwei
 ```
 
-| Component | Amount |
-|---|---:|
-| Burned address | `1,000 gwei` |
+Remainder:
+
+```text
+remaining =
+    2,099,000 gwei
+```
+
+Donation:
+
+```text
+donation =
+    2,099,000 × 15 / 100
+
+= 314,850 gwei
+```
+
+Validator component:
+
+```text
+validator =
+    2,099,000 - 314,850
+
+= 1,784,150 gwei
+```
+
+PoS split:
+
+```text
+validatorImmediate =
+    892,075 gwei
+
+validatorPooled =
+    892,075 gwei
+```
+
+Final accounting:
+
+| Destination | Amount |
+| --- | ---: |
+| Burn address | `1,000 gwei` |
 | Donation address | `314,850 gwei` |
-| Coinbase | `892,075 gwei` |
+| Block coinbase | `892,075 gwei` |
 | FeePool | `892,075 gwei` |
 
-### 19.2 Low-fee clamp example
+Total:
 
-Assumptions:
+```text
+2,100,000 gwei
+```
+
+---
+
+## 50. Fee below fixed burn
+
+If:
 
 ```text
 totalFeeRaw = 500 gwei
-fixedBurn = 1000 gwei
 ```
 
-Calculation:
+then:
 
 ```text
 burnedApplied = 500 gwei
-remainingAfterBurn = 0
+remaining = 0
 donation = 0
 validator = 0
 ```
 
 Distribution:
 
-| Component | Amount |
-|---|---:|
-| Burned address | `500 gwei` |
-| Donation address | `0` |
+| Destination | Amount |
+| --- | ---: |
+| Burn address | `500 gwei` |
+| Donation | `0` |
 | Coinbase | `0` |
 | FeePool | `0` |
 
-The burned amount is clamped to the total fee.
-
 ---
 
-## 20. `eth_feeHistory`
+# `eth_feeHistory`
+
+## 51. Method behavior
 
 `eth_feeHistory` returns:
 
-- oldest block
-- base fee per gas array
-- gas used ratio array
-- optional reward percentile arrays
+- `oldestBlock`,
+- `baseFeePerGas`,
+- `gasUsedRatio`,
+- optional reward percentiles.
 
-Implementation behavior:
+Current implementation behavior:
 
-| Behavior | Meaning |
-|---|---|
-| `blockCount < 1` | returns `blockCount must be greater than 0` |
-| `blockCount > 1024` | clamped to `1024` |
-| newest block above current head | clamped to current head |
-| invalid percentile `< 0` or `> 100` | returns `invalid percentile` |
-| percentile list not sorted ascending | returns `invalid percentile` |
-| empty blocks | reward values are zero for requested percentiles |
-| `gasUsedRatio` | `block.Header.GasUsed / block.Header.GasLimit` |
-| reward values | derived from effective gas tip |
-
-`baseFeePerGas` contains the sampled block base fees plus one additional current-head base fee value.
+| Condition | Behavior |
+| --- | --- |
+| `blockCount < 1` | Error |
+| `blockCount > 1024` | Clamp to `1024` |
+| newest block above head | Clamp to local head |
+| percentile outside `0..100` | Error |
+| percentiles not ascending | Error |
+| empty block | Requested rewards are zero |
 
 ---
 
-## 21. Wallet guidance
+## 52. `gasUsedRatio`
 
-Wallets should support:
-
-- `LegacyTx`
-- `AccessListTx`
-- `DynamicFeeTx`
-
-Recommended defaults:
-
-| Transaction style | Recommended value |
-|---|---|
-| `LegacyTx.gasPrice` | `eth_gasPrice` |
-| `DynamicFeeTx.maxPriorityFeePerGas` | `eth_maxPriorityFeePerGas`, currently `0` |
-| `DynamicFeeTx.maxFeePerGas` | at least `baseFee`; default `2 * baseFee` is compatible |
-| Gas limit | `eth_estimateGas` plus application-specific buffer |
-
-Wallets should show expected effective fee, not only maximum fee cap.
-
-For `DynamicFeeTx`:
+For a sampled block:
 
 ```text
-displayedExpectedPrice = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+gasUsedRatio =
+    GasUsed / GasLimit
 ```
 
-The maximum fee is a cap.
+This can be used to detect whether the chain is approaching or exceeding the XGR emergency threshold:
 
-It is not necessarily the price paid.
+```text
+0.80
+```
 
 ---
 
-## 22. dApp backend guidance
+## 53. Reward percentile semantics
 
-Backends should:
-
-- avoid hardcoded gas prices
-- use `eth_estimateGas`
-- use `eth_gasPrice` for `LegacyTx`
-- use latest block `baseFeePerGas` for `DynamicFeeTx`
-- set `maxFeePerGas >= baseFee`
-- handle `max fee per gas less than block base fee`
-- handle `transaction underpriced`
-- handle nonce errors
-- parse XGR fee logs if reporting fee distribution
-- not assume Ethereum-mainnet priority-fee payout semantics
-
-Recommended default `DynamicFeeTx` strategy:
+Reward samples are based on:
 
 ```text
-baseFee = latest.baseFeePerGas
-maxPriorityFeePerGas = 0
-maxFeePerGas = 2 * baseFee
+EffectiveGasTip(baseFee)
 ```
 
-For congestion-sensitive applications, use a larger cap only if needed.
-
-The cap does not define the paid price unless the effective price reaches it.
+For the current normal XGR pricing model, priority-fee suggestions are zero, so these values may frequently be zero unless users explicitly submit transactions with a positive effective tip.
 
 ---
 
-## 23. Node operator guidance
+## 54. Final `baseFeePerGas` element
 
-Relevant runtime flags:
+The implementation allocates:
 
-| Flag | Meaning |
-|---|---|
-| `--price-limit` | Minimum effective gas price accepted into the local txpool |
-| `--block-gas-target` | Local configured target for gas limit adjustment where used |
-| `--json-rpc-block-range-limit` | Limits block-range-heavy RPC calls |
-| `--json-rpc-batch-request-limit` | Limits batch RPC requests |
+```text
+blockCount + 1
+```
 
-Operator warnings:
+base-fee entries.
 
-- setting `--price-limit` too high can reject otherwise valid user transactions from the local txpool
-- public RPC nodes should expose fee endpoints reliably
-- public RPC nodes should be synced before serving fee suggestions
-- validators should not be overloaded with public fee-estimation traffic
-- explorers should parse XGR fee logs instead of assuming Ethereum fee semantics
+The final element is set to:
+
+```text
+current local header BaseFee
+```
+
+It should not be documented as a separately calculated prediction of the next XGRChain base fee.
+
+This differs from assumptions some Ethereum tooling may make about the final `feeHistory` base-fee element.
 
 ---
 
-## 24. Explorer guidance
+# Wallet guidance
 
-Explorers should show fee accounting from actual receipt/log data.
+## 55. Preferred transaction type
 
-Recommended display:
+For new integrations, prefer:
 
-| Display field | Source |
-|---|---|
-| Total fee | `receipt.gasUsed * effectiveGasPrice` |
-| Burned/accounting fee | `XGRFeeSplit.burnedFee` |
-| Donation fee | `XGRFeeSplit.donationFee` |
-| Validator fee total | `XGRFeeSplit.validatorFee` |
-| Validator immediate fee | `XGRFeeAccounting.validatorImmediateFee` where present |
-| Validator pooled fee | `XGRFeeAccounting.validatorPooledFee` where present |
-| Fee split log | log at `0x000000000000000000000000000000000000fEE1` |
-| FeePool address | `0x000000000000000000000000000000000000fEE2` |
+```text
+DynamicFeeTx / 0x02
+```
 
-Do not display the entire fee as burned.
-
-Do not infer donation, validator or FeePool portions from Ethereum mainnet assumptions.
-
-For post-PoS mainnet blocks, FeePoolSplit is active.
+because its fee cap naturally provides headroom during the XGRChain emergency base-fee ramp.
 
 ---
 
-## 25. Common integration mistakes
-
-### 25.1 Assuming a priority fee is required
-
-Current node suggestion:
+## 56. Recommended DynamicFeeTx defaults
 
 ```text
-maxPriorityFeePerGas = 0
+baseFee =
+    latest baseFeePerGas
+
+maxPriorityFeePerGas =
+    eth_maxPriorityFeePerGas
+    = currently 0
+
+maxFeePerGas =
+    2 × baseFee
 ```
 
-A non-zero priority fee is optional.
-
-### 25.2 Showing max fee as actual fee
-
-Wrong:
+A wallet may choose a different policy, but should clearly distinguish:
 
 ```text
-actualCost = gasUsed * maxFeePerGas
+maximum fee cap
 ```
 
-Correct:
+from:
 
 ```text
-actualCost = gasUsed * effectiveGasPrice
+expected effective gas price
 ```
-
-### 25.3 Treating all fees as burned
-
-Wrong:
-
-```text
-burned = totalFee
-```
-
-Correct:
-
-```text
-burned, donation, validator = XGRFeeSplit log fields
-```
-
-### 25.4 Ignoring FeePoolSplit after PoS activation
-
-Wrong for post-PoS mainnet blocks:
-
-```text
-validatorFee always goes completely to coinbase
-```
-
-Correct for FeePoolSplit-active blocks:
-
-```text
-validatorImmediateFee -> coinbase
-validatorPooledFee    -> FeePool
-```
-
-### 25.5 Hardcoding `1 gwei` priority fee
-
-The current node suggests:
-
-```text
-0
-```
-
-Wallets may choose their own UI policy, but should not document `1 gwei` as node behavior.
 
 ---
 
-## 26. FAQ
+## 57. Legacy wallet guidance
 
-### Q: What should I use for `LegacyTx.gasPrice`?
+Using:
 
-Use:
+```text
+gasPrice = eth_gasPrice
+```
+
+is adequate in normal, uncongested operation.
+
+During emergency pricing, the current-header value can lag the TxPool's calculated next-block requirement.
+
+Legacy clients should therefore:
+
+- refresh fees before submission,
+- handle underpriced rejection,
+- add headroom under congestion,
+- or prefer `DynamicFeeTx`.
+
+---
+
+## 58. Expected versus maximum cost
+
+For DynamicFeeTx:
+
+```text
+expectedGasPrice =
+    min(
+        maxFeePerGas,
+        baseFee + maxPriorityFeePerGas
+    )
+```
+
+Expected fee:
+
+```text
+gasUsed × expectedGasPrice
+```
+
+Maximum theoretical gas reservation should not be presented to users as if it were the final fee paid.
+
+---
+
+# dApp guidance
+
+## 59. Recommended submission flow
+
+```text
+eth_chainId
+        ↓
+latest block / baseFeePerGas
+        ↓
+eth_estimateGas
+        ↓
+construct explicit fee fields
+        ↓
+sign transaction
+        ↓
+eth_sendRawTransaction
+        ↓
+eth_getTransactionReceipt
+```
+
+For accounting applications:
+
+```text
+receipt
+    ↓
+parse XGRFeeSplit
+    ↓
+parse XGRFeeAccounting if present
+```
+
+---
+
+## 60. Handle fee errors explicitly
+
+Applications should handle:
+
+```text
+transaction underpriced
+max fee per gas less than block base fee
+max priority fee per gas higher than max fee per gas
+replacement transaction underpriced
+```
+
+A stale fee quote should not automatically be interpreted as:
+
+- node failure,
+- wallet failure,
+- consensus failure.
+
+---
+
+## 61. Do not hard-code `100 gwei`
+
+The static fallback is currently:
+
+```text
+100 gwei
+```
+
+but EngineRegistry can provide a different `minBaseFee`.
+
+Applications should query live chain information.
+
+---
+
+## 62. Do not hard-code `15%` donation
+
+Likewise:
+
+```text
+15%
+```
+
+is the implementation fallback.
+
+When EngineRegistry is active, canonical chain state can provide another valid percentage.
+
+For historical accounting, use the transaction's actual protocol-generated fee logs.
+
+---
+
+# Explorer guidance
+
+## 63. Recommended accounting sources
+
+| Display | Source |
+| --- | --- |
+| Gas used | Receipt |
+| Effective gas price | Transaction/block RPC representation |
+| Total fee | `gasUsed × effectiveGasPrice` |
+| Burn component | `XGRFeeSplit` |
+| Donation component | `XGRFeeSplit` |
+| Total validator component | `XGRFeeSplit` |
+| Immediate validator component | `XGRFeeAccounting` |
+| Pooled validator component | `XGRFeeAccounting` |
+| FeePool balance | PoS monitoring RPC |
+
+---
+
+## 64. Do not use Ethereum burn assumptions
+
+XGRChain does not simply apply:
+
+```text
+baseFee × gasUsed
+    → burn
+```
+
+as an Ethereum-mainnet-style accounting rule.
+
+Instead:
+
+```text
+total transaction fee
+        ↓
+fixed XGR burn component
+        ↓
+donation component
+        ↓
+validator component
+        ↓
+PoS immediate / pooled split
+```
+
+Explorers must use XGRChain protocol semantics.
+
+---
+
+## 65. Failed transactions
+
+A normal transaction that is included in a block but whose EVM execution fails still consumes gas.
+
+Its fee accounting follows the actual:
+
+```text
+gasUsed
+×
+effectiveGasPrice
+```
+
+for that included transaction.
+
+The receipt status and fee accounting are separate concepts.
+
+---
+
+# Node operator guidance
+
+## 66. `--price-limit`
+
+This controls local TxPool admission.
+
+Increasing it can cause the node to reject transactions that other nodes may accept.
+
+It does not modify:
+
+- chain-wide BaseFee,
+- EngineRegistry minBaseFee,
+- block validity.
+
+---
+
+## 67. Public RPC operator warning
+
+Because:
 
 ```text
 eth_gasPrice
 ```
 
-Current behavior:
+does not incorporate:
 
 ```text
-eth_gasPrice = latestHeader.BaseFee
+--price-limit
 ```
 
-### Q: What should I use for `maxPriorityFeePerGas`?
+public RPC operators should avoid configuring a high price limit without understanding the client impact.
 
-Use:
+Otherwise the same endpoint can:
 
 ```text
-eth_maxPriorityFeePerGas
+suggest one gas price
 ```
 
-Current node behavior:
+and:
+
+```text
+reject that price locally
+```
+
+---
+
+## 68. Sync status
+
+Fee suggestions should not be treated as authoritative when a node is stale.
+
+A public RPC should verify:
+
+```text
+eth_syncing
+```
+
+and normal head progression.
+
+---
+
+# Common mistakes
+
+## 69. Assuming Ethereum's 50% target model
+
+Wrong:
+
+```text
+XGR base fee continuously adjusts around 50% utilization
+```
+
+Correct:
+
+```text
+<=80%:
+    clamp to configured minimum
+
+>80%:
+    emergency ramp
+```
+
+---
+
+## 70. Assuming `100 gwei` can never change
+
+Wrong.
+
+It is the current implementation fallback.
+
+EngineRegistry can supply another value.
+
+---
+
+## 71. Treating `eth_gasPrice` as a guaranteed TxPool minimum
+
+Wrong during emergency congestion.
+
+`eth_gasPrice` returns current-header BaseFee.
+
+TxPool admission uses calculated next-block BaseFee.
+
+---
+
+## 72. Assuming a priority fee is required
+
+Current recommendation:
 
 ```text
 0
 ```
 
-### Q: What should I use for `maxFeePerGas`?
+A user may choose a non-zero value, but it is not required by the current node fee suggestion.
 
-A compatible default is:
+---
 
-```text
-2 * baseFee
-```
+## 73. Treating `maxFeePerGas` as actual paid price
 
-This is also the current node default when a dynamic-fee transaction is missing `GasFeeCap`.
-
-### Q: Does setting a high `maxFeePerGas` mean I pay that amount?
-
-No.
-
-For `DynamicFeeTx`, the paid price is:
+Wrong:
 
 ```text
-min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+fee =
+    gasUsed × maxFeePerGas
 ```
 
-### Q: Does XGR pay priority fee separately to validators?
-
-No.
-
-If a non-zero priority fee increases the effective gas price, the resulting total fee still goes through the XGR fee split.
-
-### Q: What is the fixed burned-accounting amount?
+Correct:
 
 ```text
-1000 gwei per transaction
+fee =
+    gasUsed × effectiveGasPrice
 ```
 
-It is clamped to the total fee if the total fee is smaller.
+---
 
-### Q: Where can explorers read fee split values?
+## 74. Treating the entire fee as burned
 
-From the `XGRFeeSplit(uint256,uint256,uint256)` log at:
+Wrong.
+
+Use:
+
+```text
+XGRFeeSplit
+```
+
+and, after PoS activation:
+
+```text
+XGRFeeAccounting
+```
+
+---
+
+## 75. Treating FeePool as a burn address
+
+Wrong.
+
+FeePool funds participate in PoS epoch reward distribution.
+
+---
+
+## 76. Ignoring local `--price-limit`
+
+A transaction can satisfy chain fee rules but still be rejected by one particular node's TxPool because of its local operator price limit.
+
+---
+
+# Quick reference
+
+## 77. Fee suggestions
+
+```text
+eth_gasPrice
+    = latestHeader.BaseFee
+
+eth_maxPriorityFeePerGas
+    = 0
+
+simulation DynamicFee fee cap
+    = 2 × latestHeader.BaseFee
+```
+
+---
+
+## 78. Base-fee policy
+
+```text
+effective min fee
+    = EngineRegistry minBaseFee
+      if valid and deployed
+      else 100 gwei
+```
+
+Normal:
+
+```text
+GasUsed <= 80% GasLimit
+    → next BaseFee = minBaseFee
+```
+
+Emergency:
+
+```text
+GasUsed > 80%
+    → BaseFee increases proportionally
+
+100% utilization
+    → maximum approximately +25% per block
+```
+
+---
+
+## 79. Transaction cost
+
+```text
+Legacy / AccessList:
+effectiveGasPrice = gasPrice
+
+DynamicFee:
+effectiveGasPrice =
+    min(
+        maxFeePerGas,
+        baseFee + maxPriorityFeePerGas
+    )
+
+totalFeeRaw =
+    gasUsed × effectiveGasPrice
+```
+
+---
+
+## 80. XGR fee split
+
+```text
+burned =
+    min(
+        totalFeeRaw,
+        1,000 gwei
+    )
+
+remaining =
+    totalFeeRaw - burned
+
+donation =
+    remaining × donationPercent / 100
+
+validator =
+    remaining - donation
+```
+
+---
+
+## 81. PoS FeePool split
+
+From mainnet block:
+
+```text
+5,446,500
+```
+
+the validator component is divided as:
+
+```text
+validatorImmediate =
+    floor(validator / 2)
+
+validatorPooled =
+    validator - validatorImmediate
+```
+
+Then:
+
+```text
+validatorImmediate
+    → block coinbase
+
+validatorPooled
+    → FeePool
+```
+
+FeePool:
+
+```text
+0x000000000000000000000000000000000000fEE2
+```
+
+Fee-accounting log address:
 
 ```text
 0x000000000000000000000000000000000000fEE1
 ```
 
-For FeePool-specific accounting, use `XGRFeeAccounting(uint256,uint256,uint256,uint256)` where present.
-
-### Q: Is FeePoolSplit active on mainnet?
-
-Yes for blocks from the first PoS block onward:
-
-```text
-5446500
-```
-
 ---
 
-## 27. Quick reference
+## 82. Integration principle
 
-### RPC
-
-| Method | Current behavior |
-|---|---|
-| `eth_gasPrice` | Returns current header `BaseFee` |
-| `eth_maxPriorityFeePerGas` | Returns `0` |
-| `eth_feeHistory` | Returns historical base fee, gas used ratio and optional reward percentiles |
-| `eth_estimateGas` | Estimates gas required for execution |
-| `eth_sendRawTransaction` | Submits signed raw transaction |
-
-### Effective gas price
+XGRChain deliberately separates:
 
 ```text
-LegacyTx / AccessListTx:
-effectiveGasPrice = gasPrice
-
-DynamicFeeTx:
-effectiveGasPrice = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
+minimum network pricing
+        ↓
+congestion response
+        ↓
+transaction fee cap
+        ↓
+actual effective gas price
+        ↓
+protocol fee accounting
+        ↓
+PoS reward distribution
 ```
 
-### Current dynamic-fee defaults
+For correct integration:
 
-```text
-maxPriorityFeePerGas = 0
-maxFeePerGas = 2 * baseFee
-```
-
-### XGR fee split
-
-```text
-totalFeeRaw = gasUsed * effectiveGasPrice
-
-burnedApplied = min(totalFeeRaw, 1000 gwei)
-
-remainingAfterBurn = totalFeeRaw - burnedApplied
-
-donation = remainingAfterBurn * donationPercent / 100
-
-validator = remainingAfterBurn - donation
-```
-
-### FeePoolSplit-active payout
-
-```text
-burnedApplied      -> burned address
-donation           -> donation address
-validator / 2      -> coinbase / block creator
-validator - half   -> FeePool address
-```
-
-Mainnet FeePool address:
-
-```text
-0x000000000000000000000000000000000000fEE2
-```
+- use live fee data,
+- prefer DynamicFeeTx for congestion tolerance,
+- distinguish current-header BaseFee from next-block TxPool admission pricing,
+- distinguish maximum caps from actual cost,
+- use receipt logs for historical fee distribution,
+- do not assume Ethereum-mainnet burn semantics.
