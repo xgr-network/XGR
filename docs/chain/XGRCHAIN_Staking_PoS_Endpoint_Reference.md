@@ -1,147 +1,187 @@
 # XGR Chain — Staking / PoS JSON-RPC Endpoint Reference
 
 **Document ID:** XGRCHAIN-STAKING-POS-RPC  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-10-03  
 **Audience:** RPC integrators, explorer developers, dashboard developers, validator operators, backend developers, auditors  
-**Implementation status:** XGR2.0 mainnet baseline  
-**Source of truth:** `xgr-network/xgr-node` branch `XGR2.0`, file `jsonrpc/eth_pos_overview.go`; published XGR mainnet genesis `xgr-network/XGR:genesis/mainnet/genesis.json`
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Implementation source:** `xgr-network/xgr-node`, `jsonrpc/eth_pos_overview.go`  
+**Mainnet genesis source:** `xgr-network/XGR`, `genesis/mainnet/genesis.json`  
+**Scope:** Public XGR-specific PoS monitoring JSON-RPC
 
 ---
 
 ## 1. Scope
 
-This document describes the public XGR-specific staking / PoS JSON-RPC methods implemented on the `Eth` JSON-RPC endpoint in `jsonrpc/eth_pos_overview.go`.
+This document describes the XGR-specific staking and PoS JSON-RPC methods implemented on the `Eth` endpoint in `xgr-node v3.1.1`.
 
-The public PoS methods documented here are:
+The two supported PoS data methods are:
 
-```text
+```text id="s8hrjd"
 eth_getPosValidatorsOverview
 eth_getPosValidatorDelegators
 ```
 
-These methods are exposed through the Ethereum-style `eth_*` namespace, but they are **not standard Ethereum JSON-RPC methods**.
+The node also currently registers the deprecated legacy compatibility method:
 
-This document is intentionally strict:
+```text id="kut4ve"
+eth_getBeaconTimeStatus
+```
 
-- only public staking / PoS methods relevant for XGR2.0 are documented
-- only parameters present in the active method signatures are documented
-- only JSON fields produced by the current code path are documented as returned
-- fields that exist in Go structs but are not populated by the current code path are explicitly marked as not currently returned
-- internal, deprecated or legacy compatibility methods are not part of this public reference
-- no UI behavior is defined here
-- no XDaLa or XRC behavior is defined here
+These methods use the Ethereum-style:
+
+```text id="2m4ioz"
+eth_*
+```
+
+namespace but are not standard Ethereum JSON-RPC methods.
+
+This reference intentionally distinguishes between:
+
+- fields actually populated by the current code,
+- fields defined in response structs but omitted because they are not populated,
+- exact versus approximate/historical monitoring information,
+- current staking state versus historical epoch analytics.
 
 ---
 
 ## 2. Mainnet PoS context
 
-The published XGR mainnet genesis defines the IBFT type schedule as:
+The published XGRChain mainnet consensus schedule is:
 
 | Phase | Type | Validator type | From | To | Deployment |
-|---|---|---|---:|---:|---:|
-| Pre-XGR2.0 | `PoA` | `bls` | `0` | `5446499` | n/a |
-| XGR2.0 and later | `PoS` | `bls` | `5446500` | n/a | `5446500` |
+| --- | --- | --- | ---: | ---: | ---: |
+| Initial phase | `PoA` | `bls` | `0` | `5446499` | n/a |
+| Current phase | `PoS` | `bls` | `5446500` | n/a | `5446500` |
 
-Mainnet PoS activation:
+PoS activation:
 
-```text
+```text id="5q78m4"
+decimal: 5446500
+hex:     0x531b64
+```
+
+PoS deployment:
+
+```text id="b1dwfm"
 5446500
 ```
 
-Mainnet PoS deployment:
-
-```text
-5446500
-```
-
-Mainnet validator limits from genesis:
+Validator limits:
 
 | Field | Value |
-|---|---:|
+| --- | ---: |
 | `minValidatorCount` | `4` |
 | `maxValidatorCount` | `25` |
 
-Mainnet epoch configuration from genesis:
+Epoch configuration:
 
 | Field | Value |
-|---|---:|
+| --- | ---: |
 | `microEpochSize` | `25` |
 | `macroEpochMicroFactor` | `40` |
-| Derived PoS epoch size | `1000` blocks |
+| Derived macro epoch | `1000` blocks |
 | `microEpochInactivityDecayBps` | `9000` |
 | `microEpochNominalWeightUnits` | `10000` |
 
-The RPC code resolves the active PoS epoch size as:
+The PoS RPC derives macro epoch size as:
 
-```text
-microEpochSize * macroEpochMicroFactor
+```text id="gmamx3"
+microEpochSize × macroEpochMicroFactor
 ```
 
 For mainnet:
 
-```text
-25 * 40 = 1000
+```text id="k9jaik"
+25 × 40 = 1000 blocks
 ```
 
 ---
 
-## 3. Public method summary
+## 3. Method summary
 
 | JSON-RPC method | Go method | Status | Purpose |
-|---|---|---|---|
-| `eth_getPosValidatorsOverview` | `(*Eth).GetPosValidatorsOverview(reportEpoch *string)` | Active | Returns validator, stake, delegation, epoch and monitoring overview |
-| `eth_getPosValidatorDelegators` | `(*Eth).GetPosValidatorDelegators(validator types.Address, reportEpoch *string)` | Active | Returns delegation and pool details for one validator |
+| --- | --- | --- | --- |
+| `eth_getPosValidatorsOverview` | `GetPosValidatorsOverview` | Active | Validator, stake, epoch and PoS monitoring overview |
+| `eth_getPosValidatorDelegators` | `GetPosValidatorDelegators` | Active | Delegation and pool information for one validator |
+| `eth_getBeaconTimeStatus` | `GetBeaconTimeStatus` | Deprecated | Legacy compatibility status only |
 
-No other PoS-related RPC method is part of this public endpoint reference.
+No other method should be documented as part of the supported `v3.1.1` PoS monitoring API without implementation verification.
 
 ---
 
 ## 4. Encoding rules
 
-Numeric values returned via `argUint64` or `argBig` are Ethereum-style JSON-RPC quantities.
+Numeric values represented by `argUint64` and `argBig` use Ethereum JSON-RPC quantity encoding.
+
+Examples:
+
+```text id="j0itn7"
+0        -> "0x0"
+25       -> "0x19"
+1000     -> "0x3e8"
+5446500  -> "0x531b64"
+```
 
 Rules:
 
-- hexadecimal string
-- `0x` prefix
-- no decimal formatting
-- no leading zero padding except `0x0`
-- stake and reward values are in wei
-- basis point values are integer quantities
-- address values are Ethereum-style `0x` addresses
-- booleans are JSON booleans
-- arrays are JSON arrays
-- omitted fields are not present in the JSON response
+- hexadecimal,
+- `0x` prefix,
+- no unnecessary leading zeros,
+- stake amounts are in wei,
+- reward amounts are in wei,
+- basis-point values are integer quantities,
+- addresses use normal Ethereum address encoding,
+- booleans are JSON booleans,
+- omitted `omitempty` pointer fields are not returned.
 
 Native denomination:
 
-```text
+```text id="j047qm"
 1 XGR = 10^18 wei
 ```
 
 ---
 
-## 5. `eth_getPosValidatorsOverview`
+# `eth_getPosValidatorsOverview`
 
-### 5.1 Go signature
+## 5. Method signature
 
-```go
-func (e *Eth) GetPosValidatorsOverview(reportEpoch *string) (interface{}, error)
+Implementation:
+
+```go id="of0hm2"
+func (e *Eth) GetPosValidatorsOverview(
+    reportEpoch *string,
+) (interface{}, error)
 ```
 
-### 5.2 Parameters
+JSON-RPC:
 
-The method accepts zero or one parameter.
+```text id="mq15p0"
+eth_getPosValidatorsOverview
+```
 
-| Parameter index | Type | Required | Allowed values |
-|---:|---|---|---|
-| `0` | string | no | `current`, `lastFinalized` |
+---
 
-If no parameter is provided, the method reports the current epoch context.
+## 6. Parameters
 
-Valid calls:
+The endpoint accepts zero or one parameter.
 
-```json
+| Index | Type | Required | Allowed values |
+| ---: | --- | --- | --- |
+| `0` | string | No | `current`, `lastFinalized` |
+
+Default:
+
+```text id="rbsuht"
+current
+```
+
+when no parameter is supplied.
+
+### Current epoch
+
+```json id="cexa7a"
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -150,7 +190,9 @@ Valid calls:
 }
 ```
 
-```json
+Equivalent explicit call:
+
+```json id="aao98b"
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -159,7 +201,9 @@ Valid calls:
 }
 ```
 
-```json
+### Last finalized epoch
+
+```json id="z3lkll"
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -168,424 +212,944 @@ Valid calls:
 }
 ```
 
-Invalid `reportEpoch` values return:
+Invalid values return:
 
-```text
+```text id="kn133u"
 invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
 ```
 
-### 5.3 PoS activation check
+---
 
-The method resolves the PoS activation block from `params.engine.ibft.types[]`.
+## 7. PoS activation guard
 
-It scans for entries with:
+The endpoint resolves the first configured:
 
-```text
+```text id="ggaztm"
 type = "PoS"
 ```
 
-and uses the minimum `from` value.
+IBFT phase and selects its lowest `from` block.
 
-If the chain head is before that block, the method returns:
+For mainnet:
 
-```text
-PoS is not active yet (activates at block <N>)
+```text id="slzhgy"
+posFromBlock = 5446500
 ```
 
-On XGR mainnet, the expected `posFromBlock` is:
+If the current head is below that block:
 
-```text
-5446500
+```text id="ndxb6y"
+PoS is not active yet (activates at block 5446500)
 ```
 
-### 5.4 Top-level response fields
+is returned.
 
-The response object is `posOverviewResponse`.
-
-The current code returns these top-level fields:
-
-| JSON field | Type | Always present | Meaning |
-|---|---|---:|---|
-| `blockNumber` | quantity | yes | Current head block number |
-| `epochSize` | quantity | yes | Resolved epoch size; in PoS mode `microEpochSize * macroEpochMicroFactor` |
-| `microEpochSize` | quantity | yes | Current micro-epoch size after runtime adjustment |
-| `currentMicroEpoch` | quantity | yes | Current micro-epoch index |
-| `currentMicroEpochStartBlock` | quantity | yes | Start block of current micro-epoch |
-| `currentMicroEpochEndBlock` | quantity | yes | End block of current micro-epoch |
-| `currentEpoch` | quantity | yes | Current epoch number |
-| `lastFinalizedEpoch` | quantity | yes | Last finalized epoch number |
-| `reportedEpoch` | quantity | yes | Epoch selected by `reportEpoch` |
-| `reportedEpochStartBlock` | quantity | yes | Start block of reported epoch |
-| `reportedEpochEndBlock` | quantity | yes | End block of reported epoch context |
-| `currentEpochPendingRewards` | quantity | yes | Live FeePool balance at current head |
-| `stakingContractBalance` | quantity | yes | Live staking contract balance at current head |
-| `minimumNumValidators` | quantity | yes | Staking contract minimum validator count |
-| `maximumNumValidators` | quantity | yes | Staking contract maximum validator count |
-| `validatorThreshold` | quantity | yes | Staking contract validator threshold |
-| `totalCurrentStake` | quantity | yes | Sum of current validator self-stake over returned validators |
-| `totalValidatorSelfStake` | quantity | yes | Sum of validator self-stake |
-| `totalDelegatedRawStake` | quantity | yes | Sum of raw delegated stake |
-| `totalDelegatedActiveStake` | quantity | yes | Sum of active delegated stake |
-| `totalActiveCurrentStake` | quantity | yes | Sum of validator self-stake plus active delegated stake |
-| `rewardIneligibleCount` | quantity | yes | Count computed by endpoint for reported epoch context |
-| `slashedCount` | quantity | yes | Current code computes this from `slashed=false`; normally `0x0` |
-| `rewardIneligibleStatusExact` | boolean | yes | Current code returns `true` |
-| `slashStatusExact` | boolean | yes | Current code returns `false` |
-| `lastRoundStakeExact` | boolean | yes | Current code returns `false` |
-| `lastRoundDistributedStake` | quantity | yes | Current code returns zero-value `big.Int` |
-| `monitoringNotes` | string array | yes | Human-readable endpoint caveats from the node |
-| `validators` | array | yes | Validator entries |
-| `posActive` | boolean | yes | `true` when no PoS schedule exists or `head >= posFromBlock` |
-| `posFromBlock` | quantity | only if PoS schedule exists | First PoS activation block |
-
-### 5.5 Top-level values fixed by current code
-
-The current code sets:
-
-```text
-rewardIneligibleStatusExact = true
-slashStatusExact = false
-lastRoundStakeExact = false
-lastRoundDistributedStake = 0
-```
-
-The current code also sets `slashed=false` for every validator entry in the overview response.
-
-Therefore:
-
-```text
-slashedCount
-```
-
-is expected to be zero in the current implementation path.
+Current mainnet is already beyond this activation boundary.
 
 ---
 
-## 6. Validator entries in `eth_getPosValidatorsOverview`
+## 8. Epoch semantics
 
-Each item in `validators` is `posValidatorOverview`.
+The endpoint calculates the epoch as:
 
-### 6.1 Returned validator fields
+```text id="mvq2hu"
+if block == 0:
+    epoch = 0
 
-| JSON field | Type | Present when | Meaning |
-|---|---|---|---|
-| `address` | address | always | Validator address |
-| `currentStake` | quantity | always | Current validator self-stake |
-| `currentlyValidating` | boolean | always | Whether validator is in the current consensus header validator set |
-| `stakingActive` | boolean | always | Active flag from staking contract validator info if available; otherwise default false |
-| `canUnstakeNow` | boolean | always | Whether unstake is currently available after deactivation |
-| `wasValidatorLastEpoch` | boolean | always | Whether validator was visible in last finalized epoch context |
-| `proposalUptimeLast3EpochsObserved` | quantity | always | Observed proposer duties in 3-epoch window |
-| `proposalUptimeLast10EpochsObserved` | quantity | always | Observed proposer duties in 10-epoch window |
-| `rewardIneligible` | boolean | always | Computed for validators present in reported epoch set; false otherwise |
-| `slashed` | boolean | always | Current code sets this to false |
-| `selfStake` | quantity | currently populated | Same stake amount as validator self-stake |
-| `delegatedRawStake` | quantity | currently populated | Raw delegated stake for validator |
-| `delegatedActiveStake` | quantity | currently populated | Active delegated stake for validator |
-| `totalActiveCurrentStake` | quantity | currently populated | Self stake plus active delegated stake |
-| `joinedAtBlock` | quantity | if joined block query returns > 0 | Block where validator joined |
-| `joinEffectiveAtBlock` | quantity | if `joinedAtBlock` is present | Next epoch boundary after join block |
-| `deactivatedAtBlock` | quantity | if validator has non-zero deactivation block | Block where deactivation was recorded |
-| `deactivateEffectiveAtBlock` | quantity | if deactivation block is present | Next epoch boundary after deactivation block |
-| `unstakeAvailableAtBlock` | quantity | if deactivation block is present | Next epoch boundary after deactivation block |
-| `microNominalWeight` | quantity | if nominal/effective/inactivity value exists | Current nominal micro-epoch weight |
-| `microEffectiveWeight` | quantity | if nominal/effective/inactivity value exists | Current effective micro-epoch weight |
-| `microInactivity` | quantity | if nominal/effective/inactivity value exists | Current inactivity counter |
-| `proposalUptimeLast3EpochsBps` | quantity | if observed slots exist | Rolling proposer-duty uptime over last 3 epochs in bps |
-| `proposalUptimeLast10EpochsBps` | quantity | if observed slots exist | Rolling proposer-duty uptime over last 10 epochs in bps |
-| `proposalUptimeLast3EpochsPercent` | quantity | if 3-epoch bps is present | Integer percent derived from bps / 100 |
-| `proposalUptimeLast10EpochsPercent` | quantity | if 10-epoch bps is present | Integer percent derived from bps / 100 |
+else if block % epochSize == 0:
+    epoch = block / epochSize
 
-### 6.2 Struct fields not currently populated in overview code path
+else:
+    epoch = block / epochSize + 1
+```
 
-The Go struct contains these JSON fields, but the current overview implementation does not assign them before returning the response.
+For PoS mainnet:
 
-Because they are tagged with `omitempty`, they are not currently returned by the overview endpoint:
+```text id="k5wtoa"
+epochSize = 1000
+```
 
-```text
+Current epoch start:
+
+```text id="jmsk3d"
+(epoch - 1) × epochSize + 1
+```
+
+Current epoch end while still in progress:
+
+```text id="ci61hq"
+current head block
+```
+
+---
+
+## 9. Top-level response
+
+Current `v3.1.1` response type:
+
+```text id="4jf2qp"
+posOverviewResponse
+```
+
+Fields:
+
+| JSON field | Type | Meaning |
+| --- | --- | --- |
+| `blockNumber` | quantity | Current local canonical head |
+| `epochSize` | quantity | Current macro epoch size |
+| `microEpochSize` | quantity | Effective micro-epoch size |
+| `currentMicroEpoch` | quantity | Current micro-epoch index |
+| `currentMicroEpochStartBlock` | quantity | Current micro-epoch first block |
+| `currentMicroEpochEndBlock` | quantity | Current micro-epoch nominal final block |
+| `currentEpoch` | quantity | Current macro epoch |
+| `lastFinalizedEpoch` | quantity | Last finalized macro epoch context |
+| `reportedEpoch` | quantity | Epoch selected by `reportEpoch` |
+| `reportedEpochStartBlock` | quantity | Reported epoch start |
+| `reportedEpochEndBlock` | quantity | Reported epoch end/context |
+| `currentEpochPendingRewards` | quantity | Current FeePool balance |
+| `stakingContractBalance` | quantity | Current staking-contract balance |
+| `minimumNumValidators` | quantity | Contract minimum validator count |
+| `maximumNumValidators` | quantity | Contract maximum validator count |
+| `validatorThreshold` | quantity | Staking-contract validator threshold |
+| `totalCurrentStake` | quantity | Sum of current validator self stake |
+| `totalValidatorSelfStake` | quantity | Sum of validator self stake |
+| `totalDelegatedRawStake` | quantity | Sum of raw delegated stake |
+| `totalDelegatedActiveStake` | quantity | Sum of active delegated stake |
+| `totalActiveCurrentStake` | quantity | Self stake plus active delegated stake |
+| `rewardIneligibleCount` | quantity | Validators currently computed reward-ineligible for reported context |
+| `slashedCount` | quantity | Slash count exposed by current implementation |
+| `rewardIneligibleStatusExact` | boolean | Exactness marker |
+| `slashStatusExact` | boolean | Exactness marker |
+| `lastRoundStakeExact` | boolean | Exactness marker |
+| `lastRoundDistributedStake` | quantity | Current implementation placeholder value |
+| `monitoringNotes` | string[] | Implementation caveats |
+| `validators` | array | Validator details |
+| `posActive` | boolean | Whether PoS is active |
+| `posFromBlock` | quantity | First configured PoS block |
+
+---
+
+## 10. Fixed exactness values in `v3.1.1`
+
+Current implementation sets:
+
+```text id="njh47d"
+rewardIneligibleStatusExact = true
+slashStatusExact            = false
+lastRoundStakeExact         = false
+lastRoundDistributedStake   = 0
+```
+
+The current overview loop also sets:
+
+```text id="o8pw48"
+slashed = false
+```
+
+for every returned validator.
+
+Therefore:
+
+> `slashed` and `slashedCount` must not be interpreted as exact historical slash information.
+
+The endpoint explicitly tells clients:
+
+```text id="bjmqd7"
+slashStatusExact = false
+```
+
+---
+
+## 11. Current epoch pending rewards
+
+`currentEpochPendingRewards` is read from the live:
+
+```text id="8u8kzo"
+FeePool
+```
+
+account balance at the current state root.
+
+It represents the live pool pending distribution at the next applicable epoch processing point.
+
+It is not finalized historical reward accounting for an earlier epoch.
+
+---
+
+## 12. Staking-contract balance
+
+`stakingContractBalance` is the live native-token balance of the staking contract.
+
+It can help operators identify inconsistencies between:
+
+- recorded stake,
+- reward accounting,
+- actual contract balance.
+
+It should not be interpreted as one validator's stake balance.
+
+---
+
+# Validator entries
+
+## 13. Validator response fields
+
+Each `validators[]` item can contain:
+
+| Field | Meaning |
+| --- | --- |
+| `address` | Validator address |
+| `joinedAtBlock` | Recorded validator join block |
+| `joinEffectiveAtBlock` | Derived next macro-epoch activation boundary |
+| `currentStake` | Current self stake |
+| `selfStake` | Current self stake |
+| `delegatedRawStake` | Raw delegated stake |
+| `delegatedActiveStake` | Currently active delegated stake |
+| `totalActiveCurrentStake` | Self + active delegated stake |
+| `currentlyValidating` | Membership in current consensus-header validator set |
+| `stakingActive` | Current staking-contract active flag |
+| `deactivatedAtBlock` | Recorded deactivation block |
+| `deactivateEffectiveAtBlock` | Derived macro-epoch deactivation boundary |
+| `unstakeAvailableAtBlock` | Derived unstake boundary |
+| `canUnstakeNow` | Whether current contract/epoch conditions allow unstaking |
+| `wasValidatorLastEpoch` | Validator presence in last-finalized context |
+| `rewardIneligible` | Current endpoint-computed eligibility result |
+| `slashed` | Non-exact current compatibility field |
+| `microNominalWeight` | Current nominal micro-epoch weight |
+| `microEffectiveWeight` | Current effective micro-epoch weight |
+| `microInactivity` | Current inactivity counter |
+| `proposalUptimeLast3EpochsBps` | Rolling proposer uptime in basis points |
+| `proposalUptimeLast10EpochsBps` | Rolling proposer uptime in basis points |
+| `proposalUptimeLast3EpochsPercent` | Integer percentage |
+| `proposalUptimeLast10EpochsPercent` | Integer percentage |
+| `proposalUptimeLast3EpochsObserved` | Observed proposer duties |
+| `proposalUptimeLast10EpochsObserved` | Observed proposer duties |
+
+Fields marked `omitempty` appear only when populated.
+
+---
+
+## 14. `currentlyValidating`
+
+This is one of the most important fields in the endpoint.
+
+The current code derives it strictly from:
+
+```text id="d2qjv8"
+current consensus header validator snapshot
+```
+
+Conceptually:
+
+```text id="bjf6pa"
+currentlyValidating =
+    validator address exists
+    in current IBFT header validator set
+```
+
+There is deliberately no stake-based heuristic fallback.
+
+Therefore:
+
+```text id="p7wmfh"
+stakingActive = true
+```
+
+does not necessarily mean:
+
+```text id="z77fr3"
+currentlyValidating = true
+```
+
+---
+
+## 15. `stakingActive`
+
+`stakingActive` comes from current staking-contract validator information.
+
+It describes staking lifecycle state.
+
+It does not alone prove current IBFT voting authority.
+
+Use:
+
+```text id="yhwsf0"
+currentlyValidating
+```
+
+for current consensus-set membership.
+
+---
+
+## 16. Join activation
+
+When `joinedAtBlock` is available, the endpoint derives:
+
+```text id="273vjn"
+joinEpoch =
+    joinedAtBlock / epochSize
+
+joinEffectiveAtBlock =
+    (joinEpoch + 1) × epochSize
+```
+
+This exposes the deterministic macro-epoch boundary used for validator lifecycle visibility.
+
+---
+
+## 17. Deactivation and unstaking
+
+When a non-zero `deactivatedAtBlock` exists:
+
+```text id="j22jhe"
+deactEpoch =
+    deactivatedAtBlock / epochSize
+```
+
+The endpoint derives:
+
+```text id="m1al1u"
+deactivateEffectiveAtBlock =
+    (deactEpoch + 1) × epochSize
+```
+
+and:
+
+```text id="0q4ev5"
+unstakeAvailableAtBlock =
+    (deactEpoch + 1) × epochSize
+```
+
+`canUnstakeNow` additionally requires the validator to be inactive and the current contract epoch to have advanced beyond the deactivation epoch.
+
+---
+
+## 18. `wasValidatorLastEpoch`
+
+The endpoint first attempts to obtain validator membership from epoch-keyed PoS state.
+
+If that state is unavailable, it falls back to the consensus-header validator snapshot at the last-finalized epoch boundary.
+
+This behavior is explicitly called out in `monitoringNotes`.
+
+---
+
+## 19. Reward eligibility
+
+`rewardIneligible` is computed only when the validator was part of the reported epoch validator set.
+
+The endpoint reads:
+
+```text id="sn6fcd"
+proposer slots
+missed proposer slots
+```
+
+and calculates:
+
+```text id="7iy71h"
+okSlots = slots - missed
+```
+
+The validator is considered reward-ineligible when:
+
+```text id="e7t33o"
+okSlots × 10 < slots × 8
+```
+
+Equivalent threshold:
+
+```text id="nnydrc"
+successful proposer duties < 80%
+```
+
+If no proposer slots are recorded:
+
+```text id="v90gup"
+rewardIneligible = false
+```
+
+---
+
+## 20. Rolling proposer uptime
+
+The endpoint exposes rolling proposer-duty reliability over:
+
+```text id="6ht5dh"
+3 epochs
+10 epochs
+```
+
+These metrics are not lifetime validator uptime.
+
+They are based on observed proposer duties.
+
+Fields include:
+
+```text id="67n7jq"
+proposalUptimeLast3EpochsBps
+proposalUptimeLast10EpochsBps
+proposalUptimeLast3EpochsPercent
+proposalUptimeLast10EpochsPercent
+proposalUptimeLast3EpochsObserved
+proposalUptimeLast10EpochsObserved
+```
+
+If no proposer duties were observed:
+
+```text id="cxee6g"
+Observed = 0
+```
+
+and the corresponding uptime fields are omitted rather than fabricating:
+
+```text id="c7ng0n"
+100%
+```
+
+---
+
+## 21. Micro-epoch weight fields
+
+The endpoint reads current PoS-system-state values for:
+
+```text id="pln9n5"
+microNominalWeight
+microEffectiveWeight
+microInactivity
+```
+
+These fields expose current micro-epoch uptime accounting used by the weighted PoS path.
+
+They are returned when at least one corresponding stored value is non-zero.
+
+---
+
+## 22. Effective micro-epoch size
+
+The chain configuration defines:
+
+```text id="5jvpqu"
+microEpochSize = 25
+```
+
+The endpoint applies a runtime safety check:
+
+```text id="j4dpgq"
+if microEpochSize < currentValidatorCount:
+    effective microEpochSize = 0
+```
+
+For current mainnet configuration:
+
+```text id="1d582n"
+max validators = 25
+microEpochSize = 25
+```
+
+so the configured maximum does not exceed the micro-epoch size.
+
+---
+
+## 23. Reward fields defined but not populated
+
+The validator response struct still defines:
+
+```text id="ibezc4"
 reportedEpochReward
 reportedEpochRewardValidatorNet
 reportedEpochRewardCommission
 reportedEpochRewardDelegatorsNet
 ```
 
-Do not document these as active returned overview fields unless the code starts assigning them.
+Current `v3.1.1` overview code does not assign these fields.
+
+Tests explicitly expect:
+
+```text id="ls630d"
+ReportedEpochReward == nil
+```
+
+Because they use:
+
+```text id="6zn9zq"
+omitempty
+```
+
+they are not returned in normal JSON output.
+
+Clients must not depend on them.
 
 ---
 
-## 7. `currentlyValidating` semantics
+## 24. Historical rewards and slashing
 
-`currentlyValidating` is derived strictly from the current consensus header validator snapshot.
+Current implementation comments and monitoring notes explicitly state that historical:
 
-The implementation reads validators from the current consensus header and then sets:
-
-```text
-currentlyValidating = address in current consensus header validator set
+```text id="1m4u5e"
+rewards
+slashes
+stake-after values
 ```
 
-It is not inferred from stake alone.
+are emitted as PoS system logs and must be indexed from receipts for historical analytics.
 
-It is not inferred from `stakingActive` alone.
+The PoS RPC is primarily a:
 
-This distinction is important:
+```text id="9yyn2w"
+live/current-state monitoring API
+```
 
-| Field | Meaning |
-|---|---|
-| `stakingActive` | Staking contract active flag |
-| `currentlyValidating` | Current consensus validator-set visibility |
+not a complete historical accounting API.
 
-A validator can be active in staking state and still not be currently validating.
+Finalized epoch working state can be deleted after epoch finalization.
+
+For historical analytics:
+
+```text id="b2crkg"
+index canonical receipts / PosSysAddr logs
+```
+
+rather than expecting all history from the live endpoint.
 
 ---
 
-## 8. `rewardIneligible` semantics
+# `eth_getPosValidatorDelegators`
 
-The endpoint computes `rewardIneligible` only for validators present in the reported epoch validator set.
+## 25. Method signature
 
-For those validators, the logic reads proposer slot and missed proposer slot counters from PoS system storage and applies:
+Implementation:
 
-```text
-okSlots = slots - missed
-rewardIneligible = okSlots * 10 < slots * 8
+```go id="idmjyc"
+func (e *Eth) GetPosValidatorDelegators(
+    validator types.Address,
+    reportEpoch *string,
+) (interface{}, error)
 ```
 
-If the validator is not in the reported epoch set, `rewardIneligible` remains false.
+JSON-RPC:
 
----
-
-## 9. `slashed` semantics in current code
-
-The current overview implementation sets:
-
-```text
-slashed = false
-```
-
-for every validator entry.
-
-It does not currently call `isValidatorSlashedInEpoch` in the active overview loop.
-
-Therefore:
-
-```text
-slashStatusExact = false
-slashedCount = 0
-```
-
-under the current implementation path.
-
-Do not present `slashed` as exact historical slash data from this endpoint.
-
----
-
-## 10. Micro-epoch fields
-
-The response includes current micro-epoch fields:
-
-```text
-microEpochSize
-currentMicroEpoch
-currentMicroEpochStartBlock
-currentMicroEpochEndBlock
-```
-
-The current implementation reads micro-epoch configuration from chain params and then applies one runtime guard:
-
-```text
-if microEpochSize > 0 && validatorCount > 0 && microEpochSize < validatorCount:
-    microEpochSize = 0
-```
-
-If `microEpochSize` becomes zero, current micro-epoch start/end fields remain zero.
-
-For XGR mainnet with `microEpochSize = 25` and max validators `25`, this guard is expected not to disable micro-epochs under normal validator counts.
-
----
-
-## 11. `eth_getPosValidatorDelegators`
-
-### 11.1 Go signature
-
-```go
-func (e *Eth) GetPosValidatorDelegators(validator types.Address, reportEpoch *string) (interface{}, error)
-```
-
-### 11.2 Parameters
-
-The method accepts one required parameter and one optional parameter.
-
-| Parameter index | Type | Required | Allowed values |
-|---:|---|---|---|
-| `0` | address | yes | Validator address |
-| `1` | string | no | `current`, `lastFinalized` |
-
-Valid calls:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_getPosValidatorDelegators",
-  "params": ["0x0000000000000000000000000000000000000000"]
-}
-```
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_getPosValidatorDelegators",
-  "params": ["0x0000000000000000000000000000000000000000", "current"]
-}
-```
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_getPosValidatorDelegators",
-  "params": ["0x0000000000000000000000000000000000000000", "lastFinalized"]
-}
-```
-
-Invalid `reportEpoch` values return:
-
-```text
-invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
-```
-
-### 11.3 Response fields
-
-The response object is `posValidatorDelegatorsResponse`.
-
-| JSON field | Type | Always present | Meaning |
-|---|---|---:|---|
-| `validator` | address | yes | Validator address from request |
-| `selfStake` | quantity | yes | Live validator self-stake |
-| `delegatedRaw` | quantity | yes | Live raw delegated stake |
-| `delegatedActive` | quantity | yes | Live active delegated stake |
-| `delegatedActiveCurrent` | quantity | yes | `totalActiveCurrentStake - selfStake`, clamped at zero |
-| `totalActiveCurrentStake` | quantity | yes | Self stake plus active delegated stake |
-| `selfStakeLive` | quantity | yes | Copy of live self-stake |
-| `delegatedLiveRaw` | quantity | yes | Copy of live raw delegated stake |
-| `delegatedLiveActive` | quantity | yes | Copy of live active delegated stake |
-| `totalLiveStake` | quantity | yes | Copy of total active current stake |
-| `selfStakeEpochEffective` | quantity | yes | Epoch-effective self-stake from PoS system storage |
-| `delegatedEpochEffective` | quantity | yes | Sum of effective delegator stake entries |
-| `totalEpochEffectiveStake` | quantity | yes | Epoch-effective total stake from PoS system storage |
-| `delegationEnabled` | boolean | yes | Pool configuration flag |
-| `maxTotalDelegatedStake` | quantity | yes | Pool maximum total delegated stake |
-| `minDelegatorStake` | quantity | yes | Pool minimum delegator stake |
-| `effectiveMinDelegatorStake` | quantity | yes | Effective minimum delegator stake |
-| `commissionBps` | quantity | yes | Validator commission in basis points |
-| `delegators` | array | yes | Delegator entries |
-
-If pool configuration is missing, the code creates a fallback pool object with:
-
-```text
-maxTotalDelegatedStake = 0
-```
-
-Other missing pool fields then remain their zero values.
-
-### 11.4 Delegator entry fields
-
-Each item in `delegators` is `posDelegatorEntry`.
-
-| JSON field | Type | Always present | Meaning |
-|---|---|---:|---|
-| `delegator` | address | yes | Delegator address |
-| `amount` | quantity | yes | Delegator live staker amount |
-| `epochEffectiveAmount` | quantity | yes | Epoch-effective stake snapshot for reported epoch |
-| `active` | boolean | yes | Delegator active flag from staker info |
-| `joinedAtBlock` | quantity | yes | Joined-at block from staker info; zero if missing |
-| `deactivatedAtBlock` | quantity | yes | Deactivated-at block from staker info; zero if missing |
-| `effectiveAtPoint` | boolean | yes | Whether epoch-effective amount is greater than zero |
-
-The method skips the validator address itself when iterating validator stakers:
-
-```text
-if owner == validator:
-    continue
-```
-
-Delegator entries are sorted by delegator address string.
-
-### 11.5 Struct field not currently populated in delegator entry code path
-
-The Go struct contains:
-
-```text
-reportedEpochReward
-```
-
-But the current implementation does not assign it when appending `posDelegatorEntry`.
-
-Because it has `omitempty`, it is not currently returned by `eth_getPosValidatorDelegators`.
-
-Do not document `reportedEpochReward` as an active delegator-entry response field unless the code starts assigning it.
-
----
-
-## 12. Error behavior
-
-### 12.1 Common errors
-
-| Condition | Error |
-|---|---|
-| Current head is nil | `header has a nil value` |
-| Invalid `reportEpoch` | `invalid reportEpoch "<value>" (expected "current" or "lastFinalized")` |
-| PoS overview called before configured PoS activation | `PoS is not active yet (activates at block <N>)` |
-| Missing chain params in epoch resolver | `missing chain params` |
-| Missing IBFT engine config in epoch resolver | `missing ibft engine config` |
-| Invalid IBFT engine config type | `invalid ibft engine config type <T>` |
-| PoS epoch config missing micro/macro values | `unable to resolve PoS epoch size: missing valid microEpochSize/macroEpochMicroFactor` |
-| PoS macro epoch multiplication overflow | `macro epoch size overflow: microEpochSize=<N> macroEpochMicroFactor=<N>` |
-| Missing non-PoS epoch configuration | `unable to resolve IBFT epoch size: missing valid epoch configuration` |
-
-### 12.2 Method availability
-
-Clients must still handle:
-
-```text
-method not found
-```
-
-because not every public or third-party RPC node is required to expose XGR-specific methods.
-
----
-
-## 13. Client integration rules
-
-Clients must follow these rules:
-
-1. Treat all numeric response fields as JSON-RPC quantities.
-2. Do not parse stake values as decimals.
-3. Do not assume `stakingActive` means currently validating.
-4. Use `currentlyValidating` for current consensus-set visibility.
-5. Use `posActive` and `posFromBlock` for PoS activation visibility.
-6. Do not hard-code the old PoA `epochSize`.
-7. For XGR2.0 mainnet, expect PoS epoch size `1000`.
-8. Do not present `slashed` from the overview endpoint as exact slash history.
-9. Do not present `reportedEpochReward*` overview fields as active unless the code starts populating them.
-10. Do not present delegator `reportedEpochReward` as active unless the code starts populating it.
-11. Use logs/indexing for public historical analytics.
-12. Treat this document as invalidated whenever `jsonrpc/eth_pos_overview.go` changes.
-
----
-
-## 14. Code-backed field checklist
-
-### 14.1 Public methods
-
-```text
-eth_getPosValidatorsOverview
+```text id="wshlt1"
 eth_getPosValidatorDelegators
 ```
 
-### 14.2 Overview response fields currently returned
+---
 
-```text
+## 26. Parameters
+
+| Index | Type | Required | Values |
+| ---: | --- | --- | --- |
+| `0` | address | Yes | Validator address |
+| `1` | string | No | `current`, `lastFinalized` |
+
+Example:
+
+```json id="xp2run"
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getPosValidatorDelegators",
+  "params": [
+    "0x<validator-address>"
+  ]
+}
+```
+
+Last-finalized context:
+
+```json id="y2ka02"
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getPosValidatorDelegators",
+  "params": [
+    "0x<validator-address>",
+    "lastFinalized"
+  ]
+}
+```
+
+Invalid epoch selector:
+
+```text id="azzgo2"
+invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
+```
+
+---
+
+## 27. Delegator response
+
+Top-level response fields:
+
+| Field | Meaning |
+| --- | --- |
+| `validator` | Requested validator |
+| `selfStake` | Current validator self stake |
+| `delegatedRaw` | Current raw delegated stake |
+| `delegatedActive` | Current active delegated stake |
+| `delegatedActiveCurrent` | Active delegated stake derived from current total |
+| `totalActiveCurrentStake` | Current self + active delegated stake |
+| `selfStakeLive` | Live self stake |
+| `delegatedLiveRaw` | Live raw delegation |
+| `delegatedLiveActive` | Live active delegation |
+| `totalLiveStake` | Current total active stake |
+| `selfStakeEpochEffective` | Epoch-effective validator stake snapshot |
+| `delegatedEpochEffective` | Sum of epoch-effective delegator stake |
+| `totalEpochEffectiveStake` | Epoch-effective total stake snapshot |
+| `delegationEnabled` | Delegation-pool state |
+| `maxTotalDelegatedStake` | Pool maximum |
+| `minDelegatorStake` | Configured minimum |
+| `effectiveMinDelegatorStake` | Effective minimum |
+| `commissionBps` | Validator commission |
+| `delegators` | Delegator list |
+
+---
+
+## 28. Current vs epoch-effective stake
+
+The delegator endpoint deliberately exposes both live and epoch-effective values.
+
+### Live state
+
+```text id="yjlkew"
+selfStakeLive
+delegatedLiveRaw
+delegatedLiveActive
+totalLiveStake
+```
+
+represents current staking-contract state.
+
+### Epoch-effective state
+
+```text id="sx1ioh"
+selfStakeEpochEffective
+delegatedEpochEffective
+totalEpochEffectiveStake
+```
+
+represents PoS snapshot values for the selected epoch context.
+
+These can legitimately differ.
+
+---
+
+## 29. Delegator entry fields
+
+Each `delegators[]` entry includes:
+
+| Field | Meaning |
+| --- | --- |
+| `delegator` | Delegator address |
+| `amount` | Current live amount |
+| `epochEffectiveAmount` | Epoch-effective stake snapshot |
+| `active` | Current staking active flag |
+| `joinedAtBlock` | Recorded join block |
+| `deactivatedAtBlock` | Recorded deactivation block |
+| `effectiveAtPoint` | Whether epoch-effective amount is greater than zero |
+
+The validator's own address is explicitly skipped when constructing the delegator array.
+
+Entries are sorted by delegator address.
+
+---
+
+## 30. `effectiveAtPoint`
+
+Current implementation sets:
+
+```text id="hts5hs"
+effectiveAtPoint =
+    epochEffectiveAmount > 0
+```
+
+This provides a direct signal for whether the delegator contributes to the selected epoch-effective stake snapshot.
+
+---
+
+## 31. Delegator reward field
+
+The delegator struct defines:
+
+```text id="10xk0j"
+reportedEpochReward
+```
+
+but current `v3.1.1` code does not assign it.
+
+The corresponding test expects the value to remain nil.
+
+Because it is tagged:
+
+```text id="6fj37o"
+omitempty
+```
+
+it is not returned in current JSON output.
+
+Clients must not rely on this field.
+
+---
+
+## 32. Pool configuration fallback
+
+If validator pool configuration cannot be obtained, the endpoint creates a zero-value fallback view.
+
+At minimum:
+
+```text id="ssitqr"
+maxTotalDelegatedStake = 0
+```
+
+is initialized.
+
+Other unavailable pool values remain zero/default values.
+
+Clients should not interpret zero-value fallback fields as proof that an explicitly configured limit is zero without considering endpoint health and validator configuration.
+
+---
+
+# Deprecated Compatibility Endpoint
+
+## 33. `eth_getBeaconTimeStatus`
+
+The `Eth` endpoint still exports:
+
+```text id="9eg73w"
+eth_getBeaconTimeStatus
+```
+
+but `v3.1.1` explicitly marks it as:
+
+```text id="awts3x"
+Deprecated legacy endpoint
+```
+
+The old beacon recovery path has been removed.
+
+Current response:
+
+```json id="3zrgmr"
+{
+  "enabled": false,
+  "active": false,
+  "healthy": false,
+  "deprecated": true,
+  "reason": "deprecated"
+}
+```
+
+This endpoint must not be used for current XGRChain PoS health monitoring.
+
+Use:
+
+```text id="vfo7md"
+eth_getPosValidatorsOverview
+```
+
+instead.
+
+---
+
+## 34. Why the legacy endpoint still exists
+
+The dispatcher registers exported `Eth` methods automatically.
+
+Therefore a deprecated compatibility method may remain callable even though its underlying mechanism has been retired.
+
+This demonstrates an important API rule:
+
+> RPC method availability does not necessarily mean the represented subsystem is active.
+
+Clients should respect the explicit:
+
+```text id="pzog2p"
+deprecated = true
+```
+
+status.
+
+---
+
+# Error behavior
+
+## 35. Common errors
+
+| Condition | Result |
+| --- | --- |
+| Head unavailable | `header has a nil value` |
+| Invalid epoch selector | `invalid reportEpoch ...` |
+| Overview called before PoS activation | `PoS is not active yet ...` |
+| Missing chain params | `missing chain params` |
+| Missing IBFT configuration | `missing ibft engine config` |
+| Invalid IBFT configuration | `invalid ibft engine config type ...` |
+| Missing PoS epoch parameters | `unable to resolve PoS epoch size...` |
+| Epoch multiplication overflow | `macro epoch size overflow...` |
+| Endpoint unavailable on another implementation | `method not found` |
+
+---
+
+## 36. Overview versus delegator PoS guard
+
+`eth_getPosValidatorsOverview` explicitly checks whether PoS has reached its configured activation block.
+
+`eth_getPosValidatorDelegators` does not contain the same explicit:
+
+```text id="6y30a0"
+head >= posFromBlock
+```
+
+guard.
+
+It does, however, depend on valid PoS epoch configuration and staking state.
+
+Clients should not use this difference as a protocol signal.
+
+For current mainnet operation PoS is already active.
+
+---
+
+# Integration guidance
+
+## 37. Explorer / dashboard rules
+
+Dashboards should use:
+
+```text id="7mtyyh"
+currentlyValidating
+```
+
+for current consensus validator-set membership.
+
+Use:
+
+```text id="0wmy85"
+stakingActive
+```
+
+for current staking lifecycle state.
+
+Do not combine them into one field.
+
+A useful UI can therefore distinguish:
+
+```text id="9rb08u"
+Staking active:       yes/no
+Currently validating: yes/no
+```
+
+---
+
+## 38. Stake presentation
+
+All stake fields are returned in wei.
+
+Example:
+
+```text id="hfpy0j"
+2000000000000000000000000 wei
+```
+
+equals:
+
+```text id="gfqcw6"
+2,000,000 XGR
+```
+
+Convert only in the presentation layer.
+
+Do not change the RPC representation.
+
+---
+
+## 39. Validator eligibility
+
+The PoS monitoring endpoint should not be reduced to a single threshold comparison.
+
+Relevant state can include:
+
+- self stake,
+- delegated active stake,
+- total active current stake,
+- staking active state,
+- consensus-set membership,
+- epoch-effective state,
+- uptime weight.
+
+For operator decisions, inspect the full validator entry rather than only `currentStake`.
+
+---
+
+## 40. Historical analytics
+
+For historical:
+
+- validator rewards,
+- delegator rewards,
+- slashing,
+- stake-after events,
+- finalized epoch accounting,
+
+use an event/receipt index.
+
+Do not infer historical results from only the current live-state RPC.
+
+---
+
+## 41. Trie pruning considerations
+
+The two current PoS methods operate primarily against the current head state and current PoS system state.
+
+Therefore normal use does not require an archive node.
+
+However, a separate historical analytics pipeline that reconstructs old state or traces old events must account for the node's historical-state retention policy.
+
+Canonical logs and receipts are distinct from retained historical EVM trie state.
+
+---
+
+## 42. Monitoring fields with caveats
+
+The endpoint itself supplies `monitoringNotes`.
+
+Important current caveats include:
+
+- `currentlyValidating` comes strictly from current consensus header state,
+- historical rewards/slashes must be indexed from receipts,
+- uptime metrics are rolling proposer-duty metrics,
+- zero observed proposer duties do not imply 100% uptime,
+- current FeePool balance is pending rather than finalized historical reward distribution,
+- micro fields expose current uptime weighting state.
+
+Integrators should not discard these semantics when mapping the response into a simplified data model.
+
+---
+
+## 43. Mainnet expected configuration values
+
+For XGRChain mainnet, clients can expect the following protocol configuration:
+
+| Field | Value |
+| --- | --- |
+| PoS active | Yes |
+| `posFromBlock` | `0x531b64` |
+| PoS activation decimal | `5446500` |
+| `epochSize` | `0x3e8` |
+| Epoch size decimal | `1000` |
+| `microEpochSize` | normally `0x19` |
+| Micro epoch decimal | `25` |
+| Minimum validators | `0x4` |
+| Maximum validators | `0x19` |
+
+The actual response remains authoritative for live values.
+
+---
+
+## 44. Code-backed active field checklist
+
+### Overview top-level
+
+```text id="7bk7ou"
 blockNumber
 epochSize
 microEpochSize
@@ -619,11 +1183,11 @@ posActive
 posFromBlock
 ```
 
-`posFromBlock` is returned only if a PoS schedule is found.
+---
 
-### 14.3 Validator fields currently returned when populated
+## 45. Validator active field checklist
 
-```text
+```text id="ag2frz"
 address
 joinedAtBlock
 joinEffectiveAtBlock
@@ -652,9 +1216,28 @@ proposalUptimeLast3EpochsObserved
 proposalUptimeLast10EpochsObserved
 ```
 
-### 14.4 Delegator response fields currently returned
+Not all optional fields are present for every validator.
 
-```text
+---
+
+## 46. Validator fields currently not populated
+
+Defined but not populated by the overview path:
+
+```text id="jfnhvi"
+reportedEpochReward
+reportedEpochRewardValidatorNet
+reportedEpochRewardCommission
+reportedEpochRewardDelegatorsNet
+```
+
+Do not model these as required API fields.
+
+---
+
+## 47. Delegator top-level checklist
+
+```text id="wqlqww"
 validator
 selfStake
 delegatedRaw
@@ -676,9 +1259,11 @@ commissionBps
 delegators
 ```
 
-### 14.5 Delegator entry fields currently returned
+---
 
-```text
+## 48. Delegator-entry checklist
+
+```text id="1x9q9i"
 delegator
 amount
 epochEffectiveAmount
@@ -688,24 +1273,60 @@ deactivatedAtBlock
 effectiveAtPoint
 ```
 
+Currently not populated:
+
+```text id="0p5ccy"
+reportedEpochReward
+```
+
 ---
 
-## 15. Summary
+## 49. Client integration rules
 
-| Topic | Current XGR2.0 public PoS RPC behavior |
-|---|---|
-| Overview method | `eth_getPosValidatorsOverview` |
-| Delegator method | `eth_getPosValidatorDelegators` |
-| Overview optional parameter | `current` or `lastFinalized` |
-| Delegator required parameter | validator address |
-| Delegator optional parameter | `current` or `lastFinalized` |
-| Overview PoS activation guard | yes |
-| Delegator PoS activation guard | no explicit `posFromBlock` guard in the method body |
-| Overview slash exactness | `false` |
-| Overview slashed flag | current code sets false |
-| Overview last-round stake exactness | `false` |
-| Overview reward-ineligible exactness | `true` |
-| Mainnet PoS activation block | `5446500` |
-| Mainnet PoS epoch size | `1000` blocks |
+Clients should:
 
-This reference must be updated whenever `jsonrpc/eth_pos_overview.go` changes.
+1. Treat numeric fields as hexadecimal JSON-RPC quantities.
+2. Convert wei to XGR only in presentation/business layers.
+3. Use `currentlyValidating` for current consensus-set membership.
+4. Keep `stakingActive` separate from consensus membership.
+5. Respect `posFromBlock`.
+6. Use `0x531b64` for mainnet block `5446500`.
+7. Expect macro epoch size `1000`.
+8. Treat `slashStatusExact = false` literally.
+9. Do not fabricate omitted reward fields.
+10. Interpret proposer uptime as rolling duty reliability, not lifetime uptime.
+11. Use receipt/log indexing for historical reward and slash analytics.
+12. Treat `eth_getBeaconTimeStatus` as deprecated.
+13. Revalidate this reference whenever `jsonrpc/eth_pos_overview.go` changes.
+
+---
+
+## 50. Summary
+
+| Topic | `v3.1.1` behavior |
+| --- | --- |
+| PoS overview | `eth_getPosValidatorsOverview` |
+| Delegator detail | `eth_getPosValidatorDelegators` |
+| Deprecated legacy status | `eth_getBeaconTimeStatus` |
+| Epoch selectors | `current`, `lastFinalized` |
+| Mainnet PoS block | `5446500` |
+| Mainnet PoS block hex | `0x531b64` |
+| Macro epoch | `1000` blocks |
+| Micro epoch | `25` blocks |
+| Minimum validators | `4` |
+| Maximum validators | `25` |
+| Current consensus membership source | Header validator snapshot |
+| Live staking state | Staking contract |
+| Reward-ineligible status exact | Yes |
+| Slash status exact | No |
+| Historical rewards from overview | Not exposed |
+| Historical slash accounting | Index receipts/system logs |
+| Current FeePool balance | Exposed |
+| Delegation-pool configuration | Exposed |
+| Epoch-effective delegation | Exposed |
+| Rolling proposer uptime | Exposed |
+| Deprecated beacon recovery | Disabled |
+
+The PoS RPC is designed primarily as a deterministic live validator and staking monitoring interface.
+
+It is not a complete historical accounting API.
