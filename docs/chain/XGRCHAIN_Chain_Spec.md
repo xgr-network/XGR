@@ -4,6 +4,7 @@
 **Last updated:** 2026-10-03  
 **Audience:** Protocol integrators, node operators, auditors, infrastructure engineers  
 **Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, path `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Chain-level protocol and network specification only
@@ -76,9 +77,7 @@ Detailed interchain architecture and operations are documented separately.
 
 Transactions must be signed for:
 
-```text
-chainId = 1643
-```
+    chainId = 1643
 
 A transaction signed for a different chain ID is not valid for XGRChain mainnet.
 
@@ -88,27 +87,21 @@ A transaction signed for a different chain ID is not valid for XGRChain mainnet.
 
 The public node implementation is:
 
-```text
-https://github.com/xgr-network/xgr-node
-```
+    https://github.com/xgr-network/xgr-node
 
 Current public release baseline:
 
-```text
-v3.1.1
-```
+    v3.1.1
 
 Release commit:
 
-```text
-1a4844b311fb856cb8c2303a40fa8aa69b560544
-```
+    1a4844b311fb856cb8c2303a40fa8aa69b560544
 
 The public release baseline provides:
 
 - EVM execution,
 - IBFT consensus networking,
-- permissionless staking-based validator participation,
+- staking-based validator participation governed by protocol rules,
 - stake-weighted quorum and voting-power behavior,
 - validator self-staking,
 - delegated staking,
@@ -138,17 +131,13 @@ XDaLa and XRC application semantics are outside this chain-level specification e
 
 The published mainnet genesis is maintained in:
 
-```text
-Repository: xgr-network/XGR
-Branch:     main
-Path:       genesis/mainnet/genesis.json
-```
+    Repository: xgr-network/XGR
+    Branch:     main
+    Path:       genesis/mainnet/genesis.json
 
 Raw reference path:
 
-```text
-https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json
-```
+    https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json
 
 The published configuration defines:
 
@@ -174,20 +163,16 @@ A node with different network-defining configuration is not running the same cha
 
 The public node chain schema contains:
 
-```json
-{
-  "name": "xgrchain",
-  "genesis": {},
-  "params": {},
-  "bootnodes": []
-}
-```
+    {
+      "name": "xgrchain",
+      "genesis": {},
+      "params": {},
+      "bootnodes": []
+    }
 
 Runtime genesis allocation is defined in:
 
-```text
-genesis.alloc
-```
+    genesis.alloc
 
 The published mainnet genesis also contains a top-level `alloc` object that mirrors `genesis.alloc`.
 
@@ -206,15 +191,11 @@ The published mainnet genesis defines the IBFT type schedule as:
 
 Delegated PoS activation block:
 
-```text
-5446500
-```
+    5446500
 
 Delegated PoS deployment block:
 
-```text
-5446500
-```
+    5446500
 
 The published PoS fork also defines:
 
@@ -277,9 +258,7 @@ Execution-level account categories:
 
 Balances are denominated in wei:
 
-```text
-1 XGR = 10^18 wei
-```
+    1 XGR = 10^18 wei
 
 ---
 
@@ -316,9 +295,7 @@ XGRChain uses EIP-155 chain-ID replay protection.
 
 Mainnet signing domain:
 
-```text
-chainId = 1643
-```
+    chainId = 1643
 
 For typed transactions, the transaction chain ID must match the configured chain ID.
 
@@ -342,9 +319,7 @@ XGRChain supports Ethereum-style fee fields according to transaction type and ac
 
 For dynamic-fee transactions, the effective gas price follows the EIP-1559-style relation:
 
-```text
-effectiveGasPrice = min(maxFeePerGas, maxPriorityFeePerGas + baseFee)
-```
+    effectiveGasPrice = min(maxFeePerGas, maxPriorityFeePerGas + baseFee)
 
 XGRChain has additional XGR-specific base-fee, minimum-fee and fee-distribution behavior.
 
@@ -384,9 +359,7 @@ One protocol-relevant precompile is:
 
 The node registers this address as:
 
-```text
-InterchainBLSVerificationPrecompile = 0x2040
-```
+    InterchainBLSVerificationPrecompile = 0x2040
 
 The precompile is part of the execution implementation and therefore does not require deployed EVM bytecode at the address.
 
@@ -451,15 +424,11 @@ XGRChain uses block-number-based fork activation.
 
 Forks are defined under:
 
-```text
-params.forks
-```
+    params.forks
 
 A fork is active when:
 
-```text
-blockNumber >= configuredForkBlock
-```
+    blockNumber >= configuredForkBlock
 
 All nodes participating in the same network must use the same effective fork schedule.
 
@@ -509,10 +478,8 @@ The node aligns `feePoolSplit` with the first PoS IBFT fork.
 
 For XGRChain mainnet:
 
-```text
-first PoS block = 5446500
-feePoolSplit effective block = 5446500
-```
+    first PoS block = 5446500
+    feePoolSplit effective block = 5446500
 
 If `feePoolSplit` is explicitly configured to a different block from the first PoS fork, node initialization fails.
 
@@ -528,9 +495,7 @@ XGRChain uses IBFT as its deterministic-finality consensus protocol.
 
 Consensus engine path:
 
-```text
-params.engine.ibft
-```
+    params.engine.ibft
 
 IBFT provides:
 
@@ -542,15 +507,11 @@ IBFT provides:
 
 Published block time:
 
-```text
-params.engine.ibft.blockTime = 2000000000 ns
-```
+    params.engine.ibft.blockTime = 2000000000 ns
 
 This is approximately:
 
-```text
-2 seconds
-```
+    2 seconds
 
 IBFT remains the finality mechanism after delegated PoS activation.
 
@@ -580,10 +541,8 @@ At chain-spec level, delegated PoS includes:
 
 Published validator-count bounds for the PoS phase:
 
-```text
-minimum validators = 4
-maximum validators = 25
-```
+    minimum validators = 4
+    maximum validators = 25
 
 The active validator set is consensus-critical.
 
@@ -630,15 +589,11 @@ Mainnet PoS epoch configuration:
 
 PoS macro-epoch size is derived from:
 
-```text
-microEpochSize * macroEpochMicroFactor
-```
+    microEpochSize * macroEpochMicroFactor
 
 For mainnet:
 
-```text
-25 * 40 = 1000 blocks
-```
+    25 * 40 = 1000 blocks
 
 Micro-epoch accounting is used by the PoS implementation for validator activity and weighting behavior.
 
@@ -684,9 +639,7 @@ Genesis defines:
 
 Initial balances are defined in:
 
-```text
-genesis.alloc
-```
+    genesis.alloc
 
 Balances are denominated in wei.
 
@@ -716,9 +669,7 @@ Published genesis allocation entries:
 
 Published mainnet bootnode:
 
-```text
-/ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck
-```
+    /ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck
 
 Bootnodes provide initial peer discovery.
 
@@ -880,11 +831,9 @@ XGRChain exposes RPC surfaces depending on node configuration and active release
 
 Typical namespaces:
 
-```text
-eth_*
-net_*
-web3_*
-```
+    eth_*
+    net_*
+    web3_*
 
 This is the normal EVM compatibility surface used by:
 
@@ -898,10 +847,8 @@ This is the normal EVM compatibility surface used by:
 
 Current public PoS methods include:
 
-```text
-eth_getPosValidatorsOverview
-eth_getPosValidatorDelegators
-```
+    eth_getPosValidatorsOverview
+    eth_getPosValidatorDelegators
 
 These methods expose validator, stake, delegation, epoch and pool information.
 
@@ -1062,7 +1009,7 @@ This document therefore distinguishes between protocol capability and deployed h
 | Consensus finality | IBFT |
 | Validator type | BLS |
 | Validator model before block `5446500` | Initial IBFT PoA validator set |
-| Validator model from block `5446500` | Permissionless delegated PoS |
+| Validator model from block `5446500` | Delegated PoS |
 | PoS minimum validator count | `4` |
 | PoS maximum validator count | `25` |
 | Target block time | approximately 2 seconds |
