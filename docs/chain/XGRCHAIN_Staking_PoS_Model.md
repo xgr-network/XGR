@@ -49,15 +49,11 @@ This document does not define:
 
 Operational procedures belong to:
 
-```text id="9f6f9z"
-XGRCHAIN_Node_Operation.md
-```
+    XGRCHAIN_Node_Operation.md
 
 Exact PoS RPC schemas belong to:
 
-```text id="meiln4"
-XGRCHAIN_Staking_PoS_Endpoint_Reference.md
-```
+    XGRCHAIN_Staking_PoS_Endpoint_Reference.md
 
 ---
 
@@ -72,10 +68,8 @@ Published mainnet consensus schedule:
 
 PoS activation:
 
-```text id="a1mx83"
-decimal: 5446500
-hex:     0x531b64
-```
+    decimal: 5446500
+    hex:     0x531b64
 
 IBFT remains the deterministic-finality consensus protocol.
 
@@ -112,9 +106,7 @@ Delegated PoS changes:
 
 Macro epoch:
 
-```text id="x35q7g"
-25 × 40 = 1000 blocks
-```
+    25 × 40 = 1000 blocks
 
 ---
 
@@ -122,15 +114,11 @@ Macro epoch:
 
 Native staking contract:
 
-```text id="f4u6ds"
-0x0000000000000000000000000000000000001001
-```
+    0x0000000000000000000000000000000000001001
 
 Code constant:
 
-```text id="2nybgn"
-AddrStakingContract
-```
+    AddrStakingContract
 
 The staking contract tracks:
 
@@ -169,19 +157,15 @@ It is not merely explorer metadata.
 
 Native denomination:
 
-```text id="tdmpgl"
-1 XGR = 10^18 wei
-```
+    1 XGR = 10^18 wei
 
 The two validator stake values have different meanings:
 
-```text id="pldcx9"
-200,000 XGR
-    = minimum validator self stake
+    200,000 XGR
+        = minimum validator self stake
 
-2,000,000 XGR
-    = normal validator effective total-support threshold
-```
+    2,000,000 XGR
+        = normal validator effective total-support threshold
 
 They must not be conflated.
 
@@ -191,21 +175,15 @@ They must not be conflated.
 
 A validator creates its staking position by self-staking:
 
-```solidity id="tthx88"
-stake()
-```
+    stake()
 
 Internally:
 
-```text id="d5kabv"
-owner = validator = msg.sender
-```
+    owner = validator = msg.sender
 
 A new validator position requires at least:
 
-```text id="qdb4z8"
-200,000 XGR
-```
+    200,000 XGR
 
 When created:
 
@@ -236,15 +214,11 @@ Normal eligibility requires:
 
 Mainnet threshold:
 
-```text id="rt79ac"
-2,000,000 XGR
-```
+    2,000,000 XGR
 
 Therefore a validator can legally hold:
 
-```text id="16sy05"
-200,000 XGR self stake
-```
+    200,000 XGR self stake
 
 while still being below the normal consensus eligibility threshold.
 
@@ -256,9 +230,7 @@ while still being below the normal consensus eligibility threshold.
 
 Implementation:
 
-```text id="ym8mxz"
-ReadValidatorEffectiveTotalStakeAt(...)
-```
+    ReadValidatorEffectiveTotalStakeAt(...)
 
 This value is used for:
 
@@ -268,12 +240,10 @@ This value is used for:
 
 For this calculation:
 
-```text id="sf74vo"
-effectiveTotalStake =
-    epoch-effective self stake
-    +
-    epoch-effective delegator stake
-```
+    effectiveTotalStake =
+        epoch-effective self stake
+        +
+        epoch-effective delegator stake
 
 Both self stake and delegation must be effective at the target block.
 
@@ -285,21 +255,17 @@ A new staking position does not become epoch-effective immediately.
 
 Conceptually:
 
-```text id="maaz7y"
-joined during epoch N
-        ↓
-not effective inside epoch N
-        ↓
-effective from later epoch boundary
-```
+    joined during epoch N
+            ↓
+    not effective inside epoch N
+            ↓
+    effective from later epoch boundary
 
 The node's effective-stake logic requires:
 
-```text id="ev1tno"
-blockNumber / epochSize
->
-joinedAtBlock / epochSize
-```
+    blockNumber / epochSize
+    >
+    joinedAtBlock / epochSize
 
 for normal epoch-effective stake.
 
@@ -316,11 +282,9 @@ A deactivated position remains epoch-effective through the epoch in which the de
 
 The effective-stake logic allows participation while:
 
-```text id="2dq9od"
-blockNumber / epochSize
-<=
-deactivatedAtBlock / epochSize
-```
+    blockNumber / epochSize
+    <=
+    deactivatedAtBlock / epochSize
 
 It ceases being effective after the next applicable epoch boundary.
 
@@ -334,17 +298,13 @@ This prevents intra-epoch state changes from retroactively changing the already-
 
 Implementation:
 
-```text id="86k6c4"
-ReadValidatorVotingStakeAt(...)
-```
+    ReadValidatorVotingStakeAt(...)
 
 Voting stake is:
 
-```text id="3hjgqy"
-raw validator self stake
-+
-epoch-effective delegated stake
-```
+    raw validator self stake
+    +
+    epoch-effective delegated stake
 
 Important difference:
 
@@ -370,11 +330,9 @@ They can differ at lifecycle boundaries.
 
 For example, immediately after:
 
-```text id="z4651u"
-join
-deactivation
-delegation change
-```
+    join
+    deactivation
+    delegation change
 
 the live contract values can differ from the stake effective for the current epoch.
 
@@ -386,9 +344,7 @@ XGRChain validators use BLS consensus identities.
 
 Registration:
 
-```solidity id="kvt4p9"
-registerBLSPublicKey(bytes calldata blsPubKey)
-```
+    registerBLSPublicKey(bytes calldata blsPubKey)
 
 Rules:
 
@@ -409,21 +365,17 @@ The BLS validator fetcher reads staking state and builds the normal eligible set
 
 A validator is normally eligible when:
 
-```text id="89gamb"
-active
-AND
-selfStake >= 200,000 XGR
-AND
-effectiveTotalStake >= validatorThreshold
-AND
-valid BLS public key
-```
+    active
+    AND
+    selfStake >= 200,000 XGR
+    AND
+    effectiveTotalStake >= validatorThreshold
+    AND
+    valid BLS public key
 
 Mainnet threshold:
 
-```text id="u93l6o"
-validatorThreshold = 2,000,000 XGR
-```
+    validatorThreshold = 2,000,000 XGR
 
 ---
 
@@ -431,9 +383,7 @@ validatorThreshold = 2,000,000 XGR
 
 Mainnet:
 
-```text id="u7kw3o"
-maxValidatorCount = 25
-```
+    maxValidatorCount = 25
 
 If the normally eligible set exceeds the maximum:
 
@@ -444,15 +394,13 @@ If the normally eligible set exceeds the maximum:
 
 Conceptually:
 
-```text id="gv6kqt"
-eligible validators
-        ↓
-sort by effective stake descending
-        ↓
-address deterministic tie-break
-        ↓
-take first 25
-```
+    eligible validators
+            ↓
+    sort by effective stake descending
+            ↓
+    address deterministic tie-break
+            ↓
+    take first 25
 
 This selection is deterministic across nodes.
 
@@ -462,21 +410,15 @@ This selection is deterministic across nodes.
 
 Mainnet:
 
-```text id="kvqqw2"
-minValidatorCount = 4
-```
+    minValidatorCount = 4
 
 If normal eligibility produces fewer than four validators:
 
-```text id="0035du"
-emergency mode = active
-```
+    emergency mode = active
 
 and:
 
-```text id="k1u8e5"
-noSlash = true
-```
+    noSlash = true
 
 for that macro-epoch selection context.
 
@@ -522,9 +464,7 @@ It is not the intended steady-state operating model.
 
 A delegator stakes to a validator through:
 
-```solidity id="4fol4q"
-delegate(address validator)
-```
+    delegate(address validator)
 
 Requirements include:
 
@@ -537,15 +477,11 @@ Requirements include:
 
 Default minimum:
 
-```text id="a939lq"
-10,000 XGR
-```
+    10,000 XGR
 
 Maximum delegators:
 
-```text id="wwr2q8"
-200
-```
+    200
 
 Delegation does not grant validator identity.
 
@@ -555,14 +491,12 @@ Delegation does not grant validator identity.
 
 Validators configure delegation using:
 
-```solidity id="t2tssz"
-setValidatorPoolConfig(
-    bool delegationEnabled,
-    uint256 maxTotalDelegatedStake,
-    uint256 minDelegatorStake,
-    uint16 commissionBps
-)
-```
+    setValidatorPoolConfig(
+        bool delegationEnabled,
+        uint256 maxTotalDelegatedStake,
+        uint256 minDelegatorStake,
+        uint16 commissionBps
+    )
 
 Rules:
 
@@ -575,17 +509,13 @@ Rules:
 
 If a custom minimum is non-zero:
 
-```text id="5becex"
-minDelegatorStake >= 10,000 XGR
-```
+    minDelegatorStake >= 10,000 XGR
 
 Commission examples:
 
-```text id="ypqqck"
-100 bps  = 1%
-500 bps  = 5%
-10000 bps = 100%
-```
+    100 bps   = 1%
+    500 bps   = 5%
+    10000 bps = 100%
 
 ---
 
@@ -593,20 +523,16 @@ Commission examples:
 
 When a validator is first created:
 
-```text id="mekvqk"
-delegationEnabled     = false
-maxTotalDelegatedStake = 0
-minDelegatorStake      = 0
-commissionBps          = 0
-```
+    delegationEnabled      = false
+    maxTotalDelegatedStake = 0
+    minDelegatorStake      = 0
+    commissionBps          = 0
 
 Therefore simply creating a validator does not automatically open it for delegation.
 
 If delegation is enabled while:
 
-```text id="uxj4lb"
-maxTotalDelegatedStake = 0
-```
+    maxTotalDelegatedStake = 0
 
 positive delegation still cannot fit under the pool cap.
 
@@ -616,10 +542,8 @@ positive delegation still cannot fit under the pool cap.
 
 The staking contract maintains:
 
-```text id="cmluxe"
-validatorDelegatedStakeRaw
-validatorDelegatedStakeActive
-```
+    validatorDelegatedStakeRaw
+    validatorDelegatedStakeActive
 
 ### Raw delegated stake
 
@@ -631,10 +555,8 @@ Represents currently live-active delegated positions.
 
 A delegator deactivation therefore causes:
 
-```text id="1fs2ps"
-raw delegated stake      unchanged
-active delegated stake   decreases
-```
+    raw delegated stake      unchanged
+    active delegated stake   decreases
 
 A withdrawal or full exit reduces raw delegated stake as well.
 
@@ -652,11 +574,9 @@ For consensus eligibility and snapshots, the node evaluates every delegator usin
 
 Therefore:
 
-```text id="r6lwjq"
-delegatedRaw
-delegatedActive
-delegatedEpochEffective
-```
+    delegatedRaw
+    delegatedActive
+    delegatedEpochEffective
 
 are three distinct concepts.
 
@@ -666,15 +586,11 @@ are three distinct concepts.
 
 A validator can call:
 
-```solidity id="fwndjv"
-setActive(bool active)
-```
+    setActive(bool active)
 
 Deactivation records:
 
-```text id="nablzu"
-deactivatedAtBlock = block.number
-```
+    deactivatedAtBlock = block.number
 
 The validator pool active flag follows validator active state.
 
@@ -686,12 +602,10 @@ A live `active=false` does not erase the position or withdraw funds.
 
 Delegators use:
 
-```solidity id="8c0s1v"
-setDelegationActive(
-    validator,
-    active
-)
-```
+    setDelegationActive(
+        validator,
+        active
+    )
 
 Reactivation requires the delegation amount to remain above the effective minimum stake.
 
@@ -705,15 +619,11 @@ Epoch-effectiveness remains subject to epoch-boundary rules.
 
 Validator full exit:
 
-```solidity id="cm9ik3"
-unstake()
-```
+    unstake()
 
 Delegator full exit:
 
-```solidity id="vihtpi"
-unstakeDelegation(address validator)
-```
+    unstakeDelegation(address validator)
 
 Prerequisites:
 
@@ -724,11 +634,9 @@ Prerequisites:
 
 Contract condition:
 
-```text id="36dov4"
-epochOf(currentBlock)
->
-epochOf(deactivatedAtBlock)
-```
+    epochOf(currentBlock)
+    >
+    epochOf(deactivatedAtBlock)
 
 Full validator exit removes the validator from the staking-contract validator list.
 
@@ -738,18 +646,14 @@ Full validator exit removes the validator from the staking-contract validator li
 
 Validator:
 
-```solidity id="ahpm82"
-withdraw(uint256 amount)
-```
+    withdraw(uint256 amount)
 
 Delegator:
 
-```solidity id="5ue02o"
-withdrawDelegation(
-    address validator,
-    uint256 amount
-)
-```
+    withdrawDelegation(
+        address validator,
+        uint256 amount
+    )
 
 Requirements:
 
@@ -775,12 +679,10 @@ The stake snapshot is then modified by its current micro-epoch uptime weight.
 
 Conceptually:
 
-```text id="pue5rg"
-effectiveVotingPower =
-    votingStakeSnapshot
-    × effectiveUptimeWeight
-    ÷ nominalUptimeWeight
-```
+    effectiveVotingPower =
+        votingStakeSnapshot
+        × effectiveUptimeWeight
+        ÷ nominalUptimeWeight
 
 ---
 
@@ -788,15 +690,11 @@ effectiveVotingPower =
 
 The PoS fork begins at:
 
-```text id="0h5c72"
-5446500
-```
+    5446500
 
 Its parent is:
 
-```text id="cp7pmj"
-5446499
-```
+    5446499
 
 which is still PoA.
 
@@ -804,20 +702,16 @@ which is still PoA.
 
 Therefore:
 
-```text id="aogyi7"
-block 5446500
-    PoS fork active
-    parent still PoA
-    → unit voting power
-```
+    block 5446500
+        PoS fork active
+        parent still PoA
+        → unit voting power
 
 Then:
 
-```text id="npeb9v"
-block 5446501
-    parent is PoS
-    → stake-weighted voting power active
-```
+    block 5446501
+        parent is PoS
+        → stake-weighted voting power active
 
 This is a deliberate deterministic cutover behavior.
 
@@ -827,9 +721,7 @@ This is a deliberate deterministic cutover behavior.
 
 When stake-weighted voting is not yet active:
 
-```text id="bmyq3e"
-every validator power = 1
-```
+    every validator power = 1
 
 This applies to the PoA phase and the first PoS transition block described above.
 
@@ -845,15 +737,11 @@ For stake-weighted mode, the node reads:
 
 If stored nominal weight is zero, it falls back to:
 
-```text id="vcn9a8"
-microEpochNominalWeightUnits = 10000
-```
+    microEpochNominalWeightUnits = 10000
 
 Voting power is computed through:
 
-```text id="jrcy8k"
-WeightedStake(...)
-```
+    WeightedStake(...)
 
 If:
 
@@ -863,9 +751,7 @@ If:
 
 but integer division would produce zero, `v3.1.1` preserves a minimum power of:
 
-```text id="90fhwu"
-1
-```
+    1
 
 ---
 
@@ -875,9 +761,7 @@ Total voting power is the sum of validator effective voting powers.
 
 Required quorum:
 
-```text id="bcl1ot"
-ceil(2 × totalVotingPower / 3)
-```
+    ceil(2 × totalVotingPower / 3)
 
 This means consensus quorum after stake weighting cannot be determined from validator count alone.
 
@@ -889,9 +773,7 @@ This means consensus quorum after stake weighting cannot be determined from vali
 
 Mainnet:
 
-```text id="rkd8wq"
-macro epoch = 1000 blocks
-```
+    macro epoch = 1000 blocks
 
 Macro epochs define deterministic boundaries for:
 
@@ -906,9 +788,7 @@ Macro epochs define deterministic boundaries for:
 
 Mainnet:
 
-```text id="4dgb39"
-micro epoch = 25 blocks
-```
+    micro epoch = 25 blocks
 
 Uptime state includes:
 
@@ -919,10 +799,8 @@ Uptime state includes:
 
 Mainnet parameters:
 
-```text id="tpr53e"
-nominal weight = 10000
-inactivity decay = 9000 bps
-```
+    nominal weight = 10000
+    inactivity decay = 9000 bps
 
 This current uptime state contributes to stake-weighted consensus power.
 
@@ -934,9 +812,7 @@ The PoS system creates deterministic epoch validator snapshots.
 
 Native PoS system address:
 
-```text id="jk8xq1"
-0x0000000000000000000000000000000000009999
-```
+    0x0000000000000000000000000000000000009999
 
 Snapshot information includes:
 
@@ -954,43 +830,31 @@ This state supports deterministic epoch finalization.
 
 Epoch finalization runs when:
 
-```text id="zm78sk"
-header.Number > 0
-AND
-header.Number % epochSize == 0
-AND
-FeePoolSplit active
-```
+    header.Number > 0
+    AND
+    header.Number % epochSize == 0
+    AND
+    FeePoolSplit active
 
 With mainnet:
 
-```text id="8fpan0"
-epochSize = 1000
-```
+    epochSize = 1000
 
 Boundary block:
 
-```text id="mp4zde"
-1000
-```
+    1000
 
 finalizes accounting for:
 
-```text id="my43qj"
-blocks 1..999
-```
+    blocks 1..999
 
 Similarly:
 
-```text id="1nkj77"
-block 2000
-```
+    block 2000
 
 finalizes the preceding epoch workload:
 
-```text id="if99b0"
-blocks 1001..1999
-```
+    blocks 1001..1999
 
 The boundary block itself is treated as a system/finalization block for this accounting path.
 
@@ -1002,24 +866,18 @@ Epoch reward/slash uptime is derived from proposer duties.
 
 For each validator:
 
-```text id="vnevdf"
-slots  = assigned proposer slots
-missed = missed proposer slots
-ok     = slots - missed
-```
+    slots  = assigned proposer slots
+    missed = missed proposer slots
+    ok     = slots - missed
 
 Uptime:
 
-```text id="lfctsr"
-uptimeBps =
-    ok × 10000 / slots
-```
+    uptimeBps =
+        ok × 10000 / slots
 
 If:
 
-```text id="o67yis"
-slots = 0
-```
+    slots = 0
 
 the validator receives:
 
@@ -1034,15 +892,11 @@ the validator receives:
 
 FeePool address:
 
-```text id="bcv23d"
-0x000000000000000000000000000000000000fEE2
-```
+    0x000000000000000000000000000000000000fEE2
 
 FeePool collection/distribution is consensus relevant after:
 
-```text id="bc961h"
-FeePoolSplit activation = 5446500
-```
+    FeePoolSplit activation = 5446500
 
 The epoch finalizer reads the current FeePool balance.
 
@@ -1061,9 +915,7 @@ The reward policy uses proposer uptime.
 
 Reward eligibility is therefore:
 
-```text id="zxh065"
-okSlots / slots >= 80%
-```
+    okSlots / slots >= 80%
 
 ---
 
@@ -1071,27 +923,21 @@ okSlots / slots >= 80%
 
 Between 80% and 90% uptime:
 
-```text id="70bv70"
-effectiveWeight =
-    stakeSnapshot
-    × okSlots
-    × 10
-    /
-    (slots × 9)
-```
+    effectiveWeight =
+        stakeSnapshot
+        × okSlots
+        × 10
+        /
+        (slots × 9)
 
 At or above 90%:
 
-```text id="uchgnw"
-effectiveWeight =
-    stakeSnapshot
-```
+    effectiveWeight =
+        stakeSnapshot
 
 Below 80%:
 
-```text id="ymf4g6"
-effectiveWeight = 0
-```
+    effectiveWeight = 0
 
 ---
 
@@ -1099,25 +945,19 @@ effectiveWeight = 0
 
 If the FeePool has value and total reward weight is positive:
 
-```text id="v6fdf6"
-validatorReward =
-    feePoolBalance
-    × validatorEffectiveRewardWeight
-    /
-    sumEffectiveRewardWeights
-```
+    validatorReward =
+        feePoolBalance
+        × validatorEffectiveRewardWeight
+        /
+        sumEffectiveRewardWeights
 
 The reward is then transferred from:
 
-```text id="am30x2"
-FeePool
-```
+    FeePool
 
 to:
 
-```text id="zfvrgb"
-staking contract
-```
+    staking contract
 
 and credited to staking positions.
 
@@ -1127,50 +967,40 @@ and credited to staking positions.
 
 For one validator reward:
 
-```text id="sox4ai"
-totalStake =
-    selfStake
-    +
-    effectiveDelegatedStake
-```
+    totalStake =
+        selfStake
+        +
+        effectiveDelegatedStake
 
 Self-stake reward:
 
-```text id="hadun1"
-selfShare =
-    validatorReward
-    × selfStake
-    /
-    totalStake
-```
+    selfShare =
+        validatorReward
+        × selfStake
+        /
+        totalStake
 
 Delegated share:
 
-```text id="jip9gp"
-delegatedShare =
-    validatorReward
-    -
-    selfShare
-```
+    delegatedShare =
+        validatorReward
+        -
+        selfShare
 
 Validator commission:
 
-```text id="ik0qf8"
-commission =
-    delegatedShare
-    × commissionBps
-    /
-    10000
-```
+    commission =
+        delegatedShare
+        × commissionBps
+        /
+        10000
 
 Delegator net reward:
 
-```text id="st292m"
-delegatorsNet =
-    delegatedShare
-    -
-    commission
-```
+    delegatorsNet =
+        delegatedShare
+        -
+        commission
 
 Each eligible delegator receives a proportional amount based on its effective epoch stake.
 
@@ -1184,24 +1014,20 @@ The finalizer assigns this deterministic remainder to the validator.
 
 Therefore:
 
-```text id="9tfqzf"
-validatorNet =
-    selfStakeReward
-    +
-    commission
-    +
-    delegatorRemainder
-```
+    validatorNet =
+        selfStakeReward
+        +
+        commission
+        +
+        delegatorRemainder
 
 and verifies that:
 
-```text id="8n6845"
-validatorNet
-+
-delegatorPayments
-=
-validatorReward
-```
+    validatorNet
+    +
+    delegatorPayments
+    =
+    validatorReward
 
 ---
 
@@ -1211,15 +1037,11 @@ Reward credits increase staking positions directly.
 
 For validator reward:
 
-```text id="7dkonf"
-validator stake increases
-```
+    validator stake increases
 
 For delegator reward:
 
-```text id="9s8aa1"
-delegator stake increases
-```
+    delegator stake increases
 
 Delegator reward also updates validator delegated aggregates according to the delegator's current live active state.
 
@@ -1233,28 +1055,22 @@ Rewards therefore compound into future staking state.
 
 A validator enters the slashing path when:
 
-```text id="8dz3yt"
-successful proposer duties < 50%
-```
+    successful proposer duties < 50%
 
 Code condition:
 
-```text id="dt1xjn"
-okSlots × 2 < slots
-```
+    okSlots × 2 < slots
 
 This is stricter than the reward-ineligibility threshold.
 
 Therefore:
 
-```text id="a0u0dm"
-<80%
-    → no epoch reward
+    <80%
+        → no epoch reward
 
-<50%
-    → no epoch reward
-      + possible slash
-```
+    <50%
+        → no epoch reward
+          + possible slash
 
 ---
 
@@ -1262,15 +1078,11 @@ Therefore:
 
 Current `v3.1.1` default:
 
-```text id="ox1yb9"
-20 bps
-```
+    20 bps
 
 Equivalent:
 
-```text id="4kf436"
-0.2%
-```
+    0.2%
 
 Slash calculations are subject to the staking/effective-stake constraints implemented by the finalizer.
 
@@ -1280,15 +1092,11 @@ Slash calculations are subject to the staking/effective-stake constraints implem
 
 Slashing is enabled only when the macro-epoch snapshot says:
 
-```text id="9adtvq"
-noSlashMode = false
-```
+    noSlashMode = false
 
 Emergency validator selection stores:
 
-```text id="dh7naz"
-noSlashMode = true
-```
+    noSlashMode = true
 
 for the affected macro-epoch context.
 
@@ -1300,9 +1108,7 @@ Therefore emergency validator fallback does not expose validators to normal epoc
 
 Current `v3.1.1` slash destination resolves to:
 
-```text id="m0m0dz"
-0x0000000000000000000000000000000000000666
-```
+    0x0000000000000000000000000000000000000666
 
 The implementation describes slashed stake as burned at this address.
 
@@ -1312,9 +1118,7 @@ The implementation describes slashed stake as burned at this address.
 
 If:
 
-```text id="w9zmoy"
-okSlots = 0
-```
+    okSlots = 0
 
 the epoch finalizer can additionally mark the validator inactive in staking state.
 
@@ -1328,10 +1132,8 @@ This is separate from the percentage slash calculation.
 
 Primary methods:
 
-```text id="xpgxso"
-eth_getPosValidatorsOverview
-eth_getPosValidatorDelegators
-```
+    eth_getPosValidatorsOverview
+    eth_getPosValidatorDelegators
 
 The overview exposes live information such as:
 
@@ -1356,11 +1158,9 @@ Historical finalized economic records are emitted as deterministic PoS system lo
 
 For historical analytics, index:
 
-```text id="dl8o41"
-canonical receipts
-+
-PosSysAddr system logs
-```
+    canonical receipts
+    +
+    PosSysAddr system logs
 
 Do not infer historical reward history from only current staking balances.
 
@@ -1386,9 +1186,7 @@ Explorers should distinguish:
 
 These values should not be collapsed into one generic:
 
-```text id="s9kxri"
-stake
-```
+    stake
 
 field.
 
@@ -1495,15 +1293,13 @@ A delegation should not be shown as contributing to the current epoch merely bec
 
 The XGRChain PoS model intentionally separates four concepts:
 
-```text id="jerb0c"
-staking position
-        ↓
-epoch-effective eligibility
-        ↓
-selected validator voting stake
-        ↓
-uptime-weighted consensus power
-```
+    staking position
+            ↓
+    epoch-effective eligibility
+            ↓
+    selected validator voting stake
+            ↓
+    uptime-weighted consensus power
 
 A staking transaction alone does not grant immediate consensus authority.
 
