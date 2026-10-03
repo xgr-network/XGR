@@ -1,92 +1,86 @@
 # XGR Chain — Node Operation & Validator Runbook
 
 **Document ID:** XGRCHAIN-NODE-OPERATION  
-**Last updated:** 2026-05-24  
+**Last updated:** 2026-10-03  
 **Audience:** Node operators, validator operators, RPC operators, infrastructure engineers  
-**Release baseline:** `xgr-node` release tag `v2.0.5`  
-**Mainnet genesis source:** `xgr-network/XGR` branch `main`, path `genesis/mainnet/genesis.json`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
-**Operating mode:** Standalone XGR Chain node, without xgrEngine and without XDaLa
+**Operating mode:** Standalone public XGRChain node
 
 ---
 
 ## 1. Purpose
 
-This document is the practical operator runbook for starting an XGR Chain node.
+This document is the practical operations runbook for XGRChain.
 
-It is written so that a user can:
+It covers:
 
-- check out the correct release
-- build the node binary
-- install the binary
-- install the published mainnet genesis
-- start a full node
-- start an RPC node
-- prepare a validator node
-- generate validator keys
-- join as a validator
-- check validator-set state
-- open a delegation pool
-- enable or disable validator activity
-- add stake
-- request unstake
-- withdraw stake
-- monitor the node
+- installing `xgr-node v3.1.1`,
+- verifying release artifacts,
+- building from source,
+- installing the canonical mainnet genesis,
+- starting full nodes,
+- starting RPC nodes,
+- configuring systemd,
+- operating the Online State Trie Sweeper,
+- choosing a historical-state retention profile,
+- monitoring and recovering from storage problems,
+- preparing validator infrastructure,
+- generating validator keys,
+- joining delegated PoS,
+- configuring delegation,
+- activating/deactivating validators,
+- staking,
+- unstaking,
+- withdrawing,
+- optional interchain-validator participation,
+- health checks,
+- security,
+- troubleshooting.
 
 This document is intentionally operational.
 
-It does not describe XDaLa, XRC standards, UI behavior, or private engine integration.
+Protocol details belong in the specialized Chain documentation.
 
 ---
 
-## 2. Operating model
+## 2. Current release
 
-The public XGR Chain node can be built and run from:
-
-```text
-https://github.com/xgr-network/xgr-node
-```
-
-Use release tag:
+Current production baseline:
 
 ```text
-v2.0.5
+xgr-node v3.1.1
 ```
 
-The binary built from this tag is enough to run a normal XGR Chain node.
-
-Do **not** build with embedded private engine tags for this public node guide.
-
-Do **not** require:
+Release commit:
 
 ```text
-xgrEngine
-XDaLa
-private engine module
-engine_embedded build tag
+1a4844b311fb856cb8c2303a40fa8aa69b560544
 ```
 
-The public `go.mod` explicitly states that `xgrchain` must build standalone even if the private `../xgrEngine` repository is absent.
+Published Linux AMD64 artifact:
 
-Standard build:
-
-```bash
-go build -o xgrchain .
+```text
+xgrchain-v3.1.1-linux-amd64
 ```
 
-Do not use:
+Published artifact SHA-256:
 
-```bash
-go build -tags engine_embedded -o xgrchain .
+```text
+429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d
 ```
 
-unless a separate official operator instruction explicitly requires it.
+The public node can run standalone.
+
+Normal XGRChain operation does not require a private XDaLa or xgrEngine repository.
 
 ---
 
-## 3. Mainnet genesis reference
+## 3. Mainnet identity
 
-The published mainnet genesis is in the XGR repository:
+Canonical mainnet configuration:
 
 ```text
 Repository: xgr-network/XGR
@@ -94,87 +88,114 @@ Branch:     main
 Path:       genesis/mainnet/genesis.json
 ```
 
-Raw download path:
-
-```text
-https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json
-```
-
-Mainnet identity:
+Mainnet parameters:
 
 | Field | Value |
-|---|---|
-| Network name | `xgrchain` |
+| --- | --- |
+| Network | `xgrchain` |
 | Chain ID | `1643` |
 | Chain ID hex | `0x66b` |
-| Genesis gas limit | `0x3938700` |
-| Genesis gas limit decimal | `60,000,000` |
-| Bootnode port | `1478` |
+| Native asset | XGR |
+| Decimals | `18` |
+| P2P port | `1478` |
+| IBFT block target | approximately 2 seconds |
 | PoS active from | `5446500` |
-| Micro epoch size | `25` |
-| Macro epoch micro factor | `40` |
-| Derived PoS epoch size | `1000` blocks |
-| Minimum PoS validators | `4` |
-| Maximum PoS validators | `25` |
+| Micro epoch | `25` blocks |
+| Macro factor | `40` |
+| Macro epoch | `1000` blocks |
+| Minimum validators | `4` |
+| Maximum validators | `25` |
 
-Install the published genesis to:
+Do not edit the published genesis locally for mainnet operation.
+
+---
+
+## 4. Suggested filesystem layout
 
 ```text
+/opt/xgr/bin/xgrchain
 /etc/xgr/genesis.json
+
+/var/lib/xgr/node
+/var/lib/xgr/validator
+
+/var/log/xgr
 ```
 
-Example:
+Create user and directories:
 
 ```bash
+sudo useradd \
+  --system \
+  --home /var/lib/xgr \
+  --shell /usr/sbin/nologin \
+  xgr || true
+
+sudo install -d -m 0755 /opt/xgr/bin
 sudo install -d -m 0755 /etc/xgr
 
-sudo curl -fsSL   https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json   -o /etc/xgr/genesis.json
-
-sudo chown root:root /etc/xgr/genesis.json
-sudo chmod 0644 /etc/xgr/genesis.json
+sudo install -d -m 0750 -o xgr -g xgr /var/lib/xgr
+sudo install -d -m 0700 -o xgr -g xgr /var/lib/xgr/node
+sudo install -d -m 0700 -o xgr -g xgr /var/lib/xgr/validator
+sudo install -d -m 0750 -o xgr -g xgr /var/log/xgr
 ```
 
-Do not edit this file locally for mainnet.
+---
+
+## 5. Install the published `v3.1.1` binary
+
+For Linux AMD64:
+
+```bash
+curl -fL \
+  https://github.com/xgr-network/xgr-node/releases/download/v3.1.1/xgrchain-v3.1.1-linux-amd64 \
+  -o xgrchain
+```
+
+Verify:
+
+```bash
+echo \
+"429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d  xgrchain" \
+| sha256sum -c -
+```
+
+Expected:
+
+```text
+xgrchain: OK
+```
+
+Install:
+
+```bash
+chmod +x xgrchain
+sudo install -m 0755 xgrchain /opt/xgr/bin/xgrchain
+```
+
+Check:
+
+```bash
+/opt/xgr/bin/xgrchain version
+```
+
+For production installation, prefer the published release artifact or an equivalently reproducible build.
 
 ---
 
-## 4. Placeholders used in this guide
+## 6. Build `v3.1.1` from source
 
-Replace these placeholders before running commands:
-
-| Placeholder | Meaning | Example |
-|---|---|---|
-| `<PUBLIC_IP>` | Public IP address of the server | `203.0.113.10` |
-| `<RPC_URL>` | Client URL to a JSON-RPC endpoint | `http://127.0.0.1:8545` |
-| `<VALIDATOR_DATA_DIR>` | Validator node data directory | `/var/lib/xgr/validator` |
-| `<NODE_DATA_DIR>` | Non-validator node data directory | `/var/lib/xgr/node` |
-| `<STAKE_XGR>` | Stake amount in whole XGR units | `2000000` |
-| `<MAX_DELEGATED_XGR>` | Pool cap in whole XGR units | `5000000` |
-| `<MIN_DELEGATOR_XGR>` | Minimum delegation in whole XGR units | `1000` |
-| `<COMMISSION_BPS>` | Commission in basis points | `500` means 5% |
-
-Important syntax distinction:
-
-| Context | Correct format |
-|---|---|
-| Server bind flag | `--jsonrpc 127.0.0.1:8545` |
-| CLI transaction command | `--jsonrpc http://127.0.0.1:8545` |
-| curl client URL | `http://127.0.0.1:8545` |
-
-Do not pass `http://...` to the server bind flag.
-
----
-
-## 5. Build from release tag `v2.0.5`
-
-Install prerequisites:
+Prerequisites:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git curl ca-certificates build-essential
+sudo apt-get install -y \
+  git \
+  curl \
+  ca-certificates \
+  build-essential \
+  make
 ```
-
-Install Go `1.23.x`.
 
 The release declares:
 
@@ -183,85 +204,147 @@ go 1.23.4
 toolchain go1.23.11
 ```
 
-Check Go:
-
-```bash
-go version
-```
-
-Clone and build:
+Clone:
 
 ```bash
 git clone https://github.com/xgr-network/xgr-node.git
 cd xgr-node
 
 git fetch --all --tags
-git checkout v2.0.5
-
-git status
-git describe --tags --exact-match
-
-go build -o xgrchain .
-./xgrchain version
+git checkout v3.1.1
 ```
 
-Expected source state:
+Verify:
+
+```bash
+git describe --tags --exact-match
+git rev-parse HEAD
+```
+
+Expected:
 
 ```text
-HEAD detached at v2.0.5
+v3.1.1
 ```
 
-or equivalent release-tag checkout.
+and:
 
----
-
-## 6. Install binary and directories
-
-Create system user and directories:
-
-```bash
-sudo useradd --system --home /var/lib/xgr --shell /usr/sbin/nologin xgr || true
-
-sudo install -d -m 0755 /opt/xgr/bin
-sudo install -d -m 0755 /etc/xgr
-sudo install -d -m 0750 -o xgr -g xgr /var/lib/xgr
-sudo install -d -m 0700 -o xgr -g xgr /var/lib/xgr/node
-sudo install -d -m 0700 -o xgr -g xgr /var/lib/xgr/validator
-sudo install -d -m 0750 -o xgr -g xgr /var/log/xgr
+```text
+1a4844b311fb856cb8c2303a40fa8aa69b560544
 ```
 
-Install binary:
+For a versioned source build use the repository build target:
 
 ```bash
-sudo install -m 0755 ./xgrchain /opt/xgr/bin/xgrchain
+make -f scripts/Makefile build
 ```
 
-Install mainnet genesis:
+This embeds:
 
-```bash
-sudo curl -fsSL   https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json   -o /etc/xgr/genesis.json
+- version,
+- commit,
+- branch,
+- build time.
 
-sudo chown root:root /etc/xgr/genesis.json
-sudo chmod 0644 /etc/xgr/genesis.json
+The resulting binary is:
+
+```text
+./xgrchain
 ```
 
 Check:
 
 ```bash
-/opt/xgr/bin/xgrchain version
-test -f /etc/xgr/genesis.json
+./xgrchain version
+```
+
+Install:
+
+```bash
+sudo install -m 0755 ./xgrchain /opt/xgr/bin/xgrchain
 ```
 
 ---
 
-## 7. Start a normal full node
-
-Use this for a node that follows the chain but does not validate.
-
-Manual start:
+## 7. Install canonical mainnet genesis
 
 ```bash
-sudo -u xgr /opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/node   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=false   --log-level INFO   --log-to /var/log/xgr/node.log
+sudo curl -fsSL \
+  https://raw.githubusercontent.com/xgr-network/XGR/main/genesis/mainnet/genesis.json \
+  -o /etc/xgr/genesis.json
+```
+
+Permissions:
+
+```bash
+sudo chown root:root /etc/xgr/genesis.json
+sudo chmod 0644 /etc/xgr/genesis.json
+```
+
+Do not modify:
+
+```text
+chainID
+fork schedule
+IBFT configuration
+PoS activation
+initial allocation
+protocol addresses
+```
+
+on a node intended to join mainnet.
+
+---
+
+## 8. Placeholder conventions
+
+| Placeholder | Meaning |
+| --- | --- |
+| `<PUBLIC_IP>` | Public IPv4 address |
+| `<VALIDATOR_ADDRESS>` | Validator ECDSA address |
+| `<NODE_DATA_DIR>` | Normal/full node data directory |
+| `<VALIDATOR_DATA_DIR>` | Validator data directory |
+| `<STAKE_XGR>` | Amount in whole XGR units |
+
+Important distinction:
+
+Server bind:
+
+```text
+--jsonrpc 127.0.0.1:8545
+```
+
+Client URL:
+
+```text
+--jsonrpc http://127.0.0.1:8545
+```
+
+Do not use:
+
+```text
+http://127.0.0.1:8545
+```
+
+as a server bind address.
+
+---
+
+## 9. Start a normal full node
+
+A non-validator node must explicitly disable sealing.
+
+```bash
+sudo -u xgr /opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false \
+  --log-level INFO \
+  --log-to /var/log/xgr/node.log
 ```
 
 Important:
@@ -270,20 +353,16 @@ Important:
 --seal=false
 ```
 
-is mandatory for a normal full node.
-
-The server default is sealing enabled, so non-validator nodes must explicitly disable sealing.
+should be explicit for non-validator infrastructure.
 
 ---
 
-## 8. systemd service for a full node
-
-Create service file:
+## 10. Full-node systemd service
 
 ```bash
 sudo tee /etc/systemd/system/xgr-node.service >/dev/null <<'EOF'
 [Unit]
-Description=XGR Chain Full Node
+Description=XGRChain Full Node
 After=network-online.target
 Wants=network-online.target
 
@@ -291,7 +370,16 @@ Wants=network-online.target
 User=xgr
 Group=xgr
 Type=simple
-ExecStart=/opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/node   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=false   --log-level INFO   --log-to /var/log/xgr/node.log
+ExecStart=/opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false \
+  --log-level INFO \
+  --log-to /var/log/xgr/node.log
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=1048576
@@ -307,18 +395,17 @@ WantedBy=multi-user.target
 EOF
 ```
 
-Replace `<PUBLIC_IP>`:
+Replace:
 
-```bash
-sudo vi /etc/systemd/system/xgr-node.service
+```text
+<PUBLIC_IP>
 ```
 
-Start service:
+then:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable xgr-node
-sudo systemctl start xgr-node
+sudo systemctl enable --now xgr-node
 ```
 
 Check:
@@ -330,41 +417,59 @@ journalctl -u xgr-node -n 100 --no-pager
 
 ---
 
-## 9. Start an RPC node
+## 11. Start an RPC node
 
-An RPC node is a full node with JSON-RPC exposed through a proxy.
-
-Node process should bind locally:
+Recommended local node bind:
 
 ```bash
-sudo -u xgr /opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/node   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=false   --json-rpc-batch-request-limit 20   --json-rpc-block-range-limit 1000   --concurrent-requests-debug 32   --websocket-read-limit 8192   --log-level INFO   --log-to /var/log/xgr/rpc.log
+sudo -u xgr /opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false \
+  --json-rpc-batch-request-limit 20 \
+  --json-rpc-block-range-limit 1000 \
+  --concurrent-requests-debug 32 \
+  --websocket-read-limit 8192 \
+  --log-level INFO \
+  --log-to /var/log/xgr/rpc.log
 ```
 
-Do not expose validator keys on an RPC node.
-
-Public RPC should normally be exposed as:
+Public exposure should normally be:
 
 ```text
 Internet
-  -> TLS reverse proxy / load balancer
-  -> rate limiting
-  -> local RPC node on 127.0.0.1:8545
+   ↓
+TLS reverse proxy / gateway
+   ↓
+rate limiting
+   ↓
+127.0.0.1:8545
 ```
+
+Do not place validator private keys on public RPC infrastructure.
 
 ---
 
-## 10. Basic node checks
+## 12. Basic node checks
 
-Check client version:
+Client version:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"web3_clientVersion","params":[]}'
+curl -s http://127.0.0.1:8545 \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"web3_clientVersion","params":[]}'
 ```
 
-Check chain ID:
+Chain ID:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl -s http://127.0.0.1:8545 \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
 Expected:
@@ -373,325 +478,442 @@ Expected:
 0x66b
 ```
 
-Check current block:
+Block height:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+curl -s http://127.0.0.1:8545 \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
 ```
 
-Check peer count:
+Sync:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"net_peerCount","params":[]}'
+curl -s http://127.0.0.1:8545 \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_syncing","params":[]}'
 ```
 
-Check syncing:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_syncing","params":[]}'
-```
-
----
-
-## 11. Validator workflow overview
-
-Validator onboarding has this sequence:
-
-1. Build and install `v2.0.5`.
-2. Install mainnet genesis.
-3. Create validator data directory.
-4. Generate validator ECDSA and BLS keys with `ibft join --init-only`.
-5. Fund the generated validator address with XGR for gas and stake.
-6. Start a synced node using the same validator data directory.
-7. Run `ibft join`.
-8. Check validator state.
-9. Configure/open delegation pool if desired.
-10. Set validator active.
-11. Run validator node with `--seal=true`.
-12. Monitor PoS overview and logs.
-
-The validator data directory matters.
-
-The same data directory must be used by:
-
-- the node process
-- `ibft join`
-- `ibft stake`
-- `ibft pool-config`
-- `ibft set-active`
-- `ibft unstake`
-- `ibft withdraw`
-
-Example validator data directory:
-
-```text
-/var/lib/xgr/validator
-```
-
----
-
-## 12. Generate validator keys only
-
-This step generates local validator ECDSA and BLS keys and prints the validator address.
-
-It does not send an on-chain transaction.
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft join   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --stake 2000000   --init-only
-```
-
-Output includes the validator address.
-
-Fund that validator address with enough XGR for:
-
-- gas
-- validator self-stake
-
-The `--stake` value is in whole XGR units.
-
-Example:
-
-```text
---stake 2000000
-```
-
-means:
-
-```text
-2,000,000 XGR
-```
-
-The join command converts XGR units to wei internally using 18 decimals.
-
----
-
-## 13. Start a validator node before joining
-
-Before the validator is active, start the node in synced non-sealing mode using the validator data directory.
-
-Manual start:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/validator   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=false   --log-level INFO   --log-to /var/log/xgr/validator.log
-```
-
-Wait until the node is synced.
-
-Check:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_syncing","params":[]}'
-```
-
-Expected when synced:
+Synced:
 
 ```text
 false
 ```
 
----
-
-## 14. Join as validator
-
-Run the join transaction using the same validator data directory.
+Peers:
 
 ```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft join   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --stake 2000000
-```
-
-What this command does:
-
-- ensures ECDSA and BLS keys exist
-- loads validator keys from the secrets manager
-- checks current on-chain stake
-- queries validator self-stake minimum
-- stakes missing amount if needed
-- registers the validator BLS public key if needed
-- returns validator status
-
-The `--stake` value is in whole XGR units.
-
-The command uses the staking contract methods:
-
-```text
-stake()
-registerBLSPublicKey(bytes)
-validatorInfo(address)
-accountStake(address)
-VALIDATOR_MIN_SELF_STAKE()
-```
-
-Join does not mean instant consensus participation.
-
-The command result states that activation becomes effective at the next epoch boundary.
-
----
-
-## 15. Check validator set
-
-Check staking-contract validator set:
-
-```bash
-/opt/xgr/bin/xgrchain ibft validators   --jsonrpc http://127.0.0.1:8545
-```
-
-This returns:
-
-- minimum validator count
-- maximum validator count
-- validator threshold
-- validator addresses
-- stake balances
-- BLS public keys where available
-
-Check full PoS overview:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorsOverview","params":[]}'
-```
-
-Expected high-level fields on mainnet:
-
-```text
-posActive = true
-posFromBlock = 0x531c04
-epochSize = 0x3e8
-microEpochSize = 0x19
-minimumNumValidators = 0x4
-maximumNumValidators = 0x19
-```
-
-For the validator address, check:
-
-```text
-currentlyValidating
-stakingActive
-currentStake
-selfStake
-delegatedRawStake
-delegatedActiveStake
-totalActiveCurrentStake
+curl -s http://127.0.0.1:8545 \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"net_peerCount","params":[]}'
 ```
 
 ---
 
-## 16. Open a delegation pool
+# State Growth Control / Trie Pruning
 
-A validator can open a delegation pool after it has a joined self-position.
+## 13. Online State Trie Sweeper
 
-Use:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft pool-config   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --enabled=true   --max-total-delegated 5000000   --min-delegator-stake 1000   --commission-bps 500
-```
-
-Meaning:
-
-| Flag | Meaning |
-|---|---|
-| `--enabled=true` | Enables delegation pool |
-| `--max-total-delegated 5000000` | Pool accepts up to 5,000,000 XGR delegated stake |
-| `--min-delegator-stake 1000` | Minimum delegation is 1,000 XGR |
-| `--commission-bps 500` | Validator commission is 500 bps = 5% |
-
-Amounts are whole XGR units.
-
-The command converts them to wei internally.
-
-Commission limit:
+`xgr-node` includes an online state-trie garbage collector called the:
 
 ```text
-commission-bps must be <= 10000
+Online State Trie Sweeper
 ```
 
-Disable delegation pool:
+It was introduced in `v2.1.0` and remains available in `v3.1.1`.
 
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft pool-config   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --enabled=false   --max-total-delegated 0   --min-delegator-stake 0   --commission-bps 0
-```
+The feature reclaims obsolete historical EVM-state trie and contract-code data while the node remains online.
 
-Check pool and delegator state:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorDelegators","params":["<VALIDATOR_ADDRESS>"]}'
-```
-
-Replace:
+It is:
 
 ```text
-<VALIDATOR_ADDRESS>
+local storage policy
 ```
 
-with the validator address printed by `ibft join --init-only` or `ibft join`.
+not:
+
+```text
+consensus pruning
+```
+
+It does not change:
+
+- canonical state roots,
+- blocks,
+- transaction execution,
+- consensus,
+- validator selection,
+- staking,
+- receipts,
+- logs,
+- genesis.
 
 ---
 
-## 17. Activate validator
-
-Set validator active:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft set-active   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --value=true
-```
-
-The command sends:
+## 14. Trie Sweeper flags
 
 ```text
-setActive(true)
+--trie-sweeper
+--trie-sweeper-retain-blocks
+--trie-sweeper-interval
 ```
 
-to the staking contract from the validator key.
+Defaults:
 
-Check result with:
+| Setting | Default |
+| --- | ---: |
+| Sweeper enabled | `false` |
+| Retention | `10,000` blocks |
+| Interval | `6h` |
 
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorsOverview","params":[]}'
-```
-
-Then check the validator entry.
-
-Important fields:
+When enabled:
 
 ```text
-stakingActive
-currentlyValidating
-joinEffectiveAtBlock
+retain blocks > 0
+interval > 0
+```
+
+are required.
+
+---
+
+## 15. Bounded-history full-node profile
+
+A typical bounded-history configuration:
+
+```bash
+sudo -u xgr /opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false \
+  --trie-sweeper \
+  --trie-sweeper-retain-blocks 10000 \
+  --trie-sweeper-interval 6h
+```
+
+At the nominal two-second block target:
+
+```text
+10,000 blocks ≈ 5 hours 33 minutes
+```
+
+This is only an approximate wall-clock duration.
+
+Retention is measured in blocks.
+
+---
+
+## 16. Longer-history RPC profile
+
+For infrastructure requiring more historical state:
+
+```text
+--trie-sweeper-retain-blocks 100000
+```
+
+At nominal block timing this corresponds to roughly:
+
+```text
+55 hours 33 minutes
+```
+
+of recent canonical state.
+
+Actual elapsed time varies with real block production.
+
+A larger retention window requires more disk.
+
+---
+
+## 17. Archive-style profile
+
+If the node must support arbitrary historical EVM-state queries:
+
+```text
+leave trie sweeper disabled
+```
+
+Do not enable pruning on an archive-style endpoint.
+
+An archive-style node may be required for historical:
+
+```text
+eth_getBalance
+eth_getTransactionCount
+eth_getCode
+eth_getStorageAt
+eth_call
+```
+
+against old block heights.
+
+Block history and state history are different.
+
+---
+
+## 18. What the Trie Sweeper deletes
+
+The sweeper identifies recent canonical state roots and marks state reachable from them.
+
+Potentially reclaimable data includes:
+
+- obsolete trie nodes,
+- historical contract-code entries no longer reachable from retained state.
+
+It does **not** delete normal canonical:
+
+- block headers,
+- block bodies,
+- transactions,
+- receipts,
+- logs.
+
+Therefore an old block may remain queryable while its historical EVM state is no longer available.
+
+---
+
+## 19. First-sweep behavior
+
+The first sweep intentionally does not begin immediately at process startup.
+
+Sequence:
+
+```text
+node starts
+    ↓
+trie write tracking enabled
+    ↓
+current canonical head recorded
+    ↓
+wait for at least one canonical head advance
+    ↓
+first sweep starts
+```
+
+This protects state around startup and sweep-generation boundaries.
+
+Operators should not interpret the lack of an immediate sweep after process start as a failure.
+
+---
+
+## 20. Sweep cycle
+
+A sweep conceptually performs:
+
+```text
+select retained canonical roots
+        ↓
+mark reachable trie/code data
+        ↓
+protect concurrent write generations
+        ↓
+scan database
+        ↓
+recheck candidates
+        ↓
+delete unreachable data
+        ↓
+compact affected LevelDB ranges
+        ↓
+capture fresh canonical head
+        ↓
+verify current state root
+```
+
+The final state-root verification is an important integrity check.
+
+---
+
+## 21. Trie GC work directory
+
+Working data is stored below:
+
+```text
+<data-dir>/trie-gc
+```
+
+For example:
+
+```text
+/var/lib/xgr/node/trie-gc
+```
+
+Marker metadata:
+
+```text
+<data-dir>/trie-gc/marks
+```
+
+The marker database is garbage-collection working state.
+
+It is rebuilt when required and is not canonical blockchain state.
+
+---
+
+## 22. Trie Sweeper logging
+
+Initialization logs include values such as:
+
+```text
+retainBlocks
+interval
+trackingFromBlock
+workDir
+```
+
+Sweep selection includes:
+
+```text
+fromBlock
+toBlock
+roots
+```
+
+Completed sweep statistics include:
+
+```text
+generation
+roots
+marked
+scanned
+deleted
+retained
+skipped
+duration
+verifiedHead
+verifiedStateRoot
+```
+
+Operators should explicitly monitor:
+
+```text
+verifiedHead
+verifiedStateRoot
+```
+
+after completed sweeps.
+
+---
+
+## 23. Trie Sweeper monitoring
+
+During and after a sweep monitor:
+
+- canonical block progression,
+- node synchronization,
+- peer count,
+- CPU,
+- memory,
+- disk latency,
+- disk throughput,
+- free disk space,
+- LevelDB compaction activity,
+- sweep duration,
+- sweep errors,
+- `verifiedHead`,
+- `verifiedStateRoot`.
+
+A sweep may take significant time on a large database.
+
+This is not automatically abnormal.
+
+---
+
+## 24. Trie Sweeper and validators
+
+The Trie Sweeper is technically consensus-independent and can operate on validator nodes.
+
+However, validators are latency-sensitive infrastructure.
+
+If enabling the sweeper on a validator:
+
+- monitor disk I/O carefully,
+- ensure the storage subsystem has sufficient headroom,
+- verify block progression,
+- monitor round participation,
+- monitor sweep duration.
+
+An RPC/full node is generally a safer place to evaluate pruning behavior before applying an aggressive retention profile to consensus infrastructure.
+
+---
+
+## 25. Disabling pruning
+
+Remove:
+
+```text
+--trie-sweeper
+```
+
+or configure:
+
+```yaml
+trie_sweeper: false
+```
+
+This stops future sweep cycles.
+
+It does **not** restore state that has already been removed.
+
+---
+
+## 26. Trie-pruning recovery
+
+If historical state that has already been pruned is required again, disabling the sweeper is not sufficient.
+
+Recovery may require:
+
+- rebuilding the node database,
+- resynchronizing the node,
+- restoring an appropriate archive-capable backup,
+- using another archive-style node as the required data source.
+
+Do not assume deleted trie state will automatically reappear.
+
+If a sweep reports an integrity problem:
+
+1. preserve logs,
+2. stop using the node as an authoritative RPC/validator source,
+3. verify disk and database health,
+4. compare canonical head with trusted nodes,
+5. rebuild or resynchronize if state integrity cannot be established.
+
+The complete storage design is documented in:
+
+```text
+XGRCHAIN_State_Storage_and_Retention.md
 ```
 
 ---
 
-## 18. Start validator in sealing mode
+## 27. Recommended pruning profiles
 
-After join and activation, run validator node with sealing enabled.
+| Role | Suggested retention approach |
+| --- | --- |
+| General full node | `10,000` blocks is the software default when enabled |
+| Public RPC with some history | Increase retention based on application needs |
+| Archive RPC | Sweeper disabled |
+| Validator | Optional; enable conservatively and monitor I/O |
+| Indexer | Depends on whether indexer needs raw historical state or only blocks/logs |
 
-Manual start:
+There is no universal retention value for every deployment.
 
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/validator   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=true   --log-level INFO   --log-to /var/log/xgr/validator.log
-```
-
-If using systemd, set:
-
-```text
---seal=true
-```
-
-and use the validator data directory:
-
-```text
---data-dir /var/lib/xgr/validator
-```
+The correct value depends on historical-state requirements.
 
 ---
 
-## 19. systemd service for validator
+## 28. systemd example with Trie Sweeper
 
-Create service:
+Example bounded-history full node:
 
 ```bash
-sudo tee /etc/systemd/system/xgr-validator.service >/dev/null <<'EOF'
+sudo tee /etc/systemd/system/xgr-node.service >/dev/null <<'EOF'
 [Unit]
-Description=XGR Chain Validator
+Description=XGRChain Full Node
 After=network-online.target
 Wants=network-online.target
 
@@ -699,436 +921,13 @@ Wants=network-online.target
 User=xgr
 Group=xgr
 Type=simple
-ExecStart=/opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/validator   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=true   --log-level INFO   --log-to /var/log/xgr/validator.log
-Restart=on-failure
-RestartSec=5
-LimitNOFILE=1048576
-WorkingDirectory=/var/lib/xgr
-ReadWritePaths=/var/lib/xgr /var/log/xgr
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
-
-Replace `<PUBLIC_IP>`:
-
-```bash
-sudo vi /etc/systemd/system/xgr-validator.service
-```
-
-Start:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable xgr-validator
-sudo systemctl start xgr-validator
-```
-
-Check:
-
-```bash
-systemctl status xgr-validator
-journalctl -u xgr-validator -n 100 --no-pager
-```
-
----
-
-## 20. Check local validator key
-
-The local IBFT status command uses gRPC.
-
-```bash
-/opt/xgr/bin/xgrchain ibft status   --grpc-address 127.0.0.1:9632
-```
-
-This returns the current validator key known by the local node.
-
-Use this to verify that the running node is using the expected validator identity.
-
----
-
-## 21. Add more self-stake
-
-To increase validator stake:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft stake   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --amount 100000
-```
-
-This sends:
-
-```text
-stake()
-```
-
-with value:
-
-```text
-100000 XGR
-```
-
-The `--amount` value is in whole XGR units and is converted to wei using 18 decimals.
-
-Check stake after transaction:
-
-```bash
-/opt/xgr/bin/xgrchain ibft validators   --jsonrpc http://127.0.0.1:8545
-```
-
-or:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorsOverview","params":[]}'
-```
-
----
-
-## 22. Set validator inactive
-
-To stop active validator participation through staking state:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft set-active   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --value=false
-```
-
-This sends:
-
-```text
-setActive(false)
-```
-
-After deactivation:
-
-- the validator remains on disk
-- keys remain in the data directory
-- the validator does not instantly disappear from every view
-- epoch-boundary timing matters
-- unstake/withdraw actions have timing rules
-
-Check:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorsOverview","params":[]}'
-```
-
-Look for:
-
-```text
-stakingActive
-deactivatedAtBlock
-deactivateEffectiveAtBlock
-unstakeAvailableAtBlock
-canUnstakeNow
-```
-
----
-
-## 23. Request unstake
-
-Unstake is a full exit path.
-
-The command requires validator deactivation first.
-
-Step 1: deactivate.
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft set-active   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --value=false
-```
-
-Step 2: wait until the required epoch boundary has passed.
-
-Step 3: request unstake.
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft unstake   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator
-```
-
-The command sends:
-
-```text
-unstake()
-```
-
-If called too early or while still active, the command returns a clear error.
-
----
-
-## 24. Withdraw stake
-
-Withdraw is for withdrawing a specific amount from staking contract state.
-
-Partial withdraw example:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft withdraw   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --amount 100000
-```
-
-This sends:
-
-```text
-withdraw(uint256)
-```
-
-with:
-
-```text
-100000 XGR
-```
-
-The `--amount` value is in whole XGR units.
-
-Preconditions:
-
-- validator must be deactivated
-- epoch transition must have passed where required
-- amount must be greater than zero
-- remaining stake must satisfy contract rules
-
-Full exit normally uses:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft unstake   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator
-```
-
----
-
-## 25. Re-activate validator after inactivity
-
-If the validator was set inactive but should return:
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft set-active   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --value=true
-```
-
-Then ensure the validator service runs with sealing enabled:
-
-```bash
-sudo systemctl restart xgr-validator
-```
-
-Check logs:
-
-```bash
-journalctl -u xgr-validator -n 100 --no-pager
-```
-
-Check validator state:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorsOverview","params":[]}'
-```
-
----
-
-## 26. Operator command summary
-
-### Build
-
-```bash
-git clone https://github.com/xgr-network/xgr-node.git
-cd xgr-node
-git fetch --all --tags
-git checkout v2.0.5
-go build -o xgrchain .
-```
-
-### Start full node
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain server   --chain /etc/xgr/genesis.json   --data-dir /var/lib/xgr/node   --libp2p 0.0.0.0:1478   --nat <PUBLIC_IP>   --jsonrpc 127.0.0.1:8545   --grpc-address 127.0.0.1:9632   --seal=false
-```
-
-### Generate validator keys
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft join   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --stake 2000000   --init-only
-```
-
-### Join validator set
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft join   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --stake 2000000
-```
-
-### Show validators
-
-```bash
-/opt/xgr/bin/xgrchain ibft validators   --jsonrpc http://127.0.0.1:8545
-```
-
-### Open delegation pool
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft pool-config   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --enabled=true   --max-total-delegated 5000000   --min-delegator-stake 1000   --commission-bps 500
-```
-
-### Activate validator
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft set-active   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --value=true
-```
-
-### Deactivate validator
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft set-active   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --value=false
-```
-
-### Add stake
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft stake   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --amount 100000
-```
-
-### Request unstake
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft unstake   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator
-```
-
-### Withdraw
-
-```bash
-sudo -u xgr /opt/xgr/bin/xgrchain ibft withdraw   --jsonrpc http://127.0.0.1:8545   --data-dir /var/lib/xgr/validator   --amount 100000
-```
-
----
-
-## 27. Troubleshooting
-
-### Node does not start
-
-Check:
-
-```bash
-journalctl -u xgr-node -n 200 --no-pager
-```
-
-Common causes:
-
-- wrong `--chain` path
-- missing `--data-dir`
-- data directory permissions wrong
-- port already in use
-- invalid `--nat` IP
-- genesis file edited locally
-
-### Node syncs but does not validate
-
-Check:
-
-```bash
-/opt/xgr/bin/xgrchain ibft status   --grpc-address 127.0.0.1:9632
-```
-
-Check PoS overview:
-
-```bash
-curl -s -X POST http://127.0.0.1:8545   -H 'content-type: application/json'   --data '{"jsonrpc":"2.0","id":1,"method":"eth_getPosValidatorsOverview","params":[]}'
-```
-
-Common causes:
-
-- node running with `--seal=false`
-- validator not joined
-- validator not active
-- validator not effective until epoch boundary
-- wrong data directory
-- validator key not funded
-- not enough stake
-- peer count too low
-- node not synced
-
-### Join fails with insufficient balance
-
-The join command stakes from the validator address.
-
-Fix:
-
-- fund the validator address printed by `ibft join --init-only`
-- include enough XGR for stake plus gas
-- rerun `ibft join`
-
-### Pool config fails
-
-Common causes:
-
-- validator has not joined
-- wrong `--data-dir`
-- pool enabled with `--max-total-delegated 0`
-- `--commission-bps` greater than `10000`
-
-### Unstake fails
-
-Common causes:
-
-- validator is still active
-- deactivation epoch boundary has not passed
-- wrong validator key / data directory
-- staking contract state does not permit the operation yet
-
----
-
-## 28. Security rules
-
-Validator nodes:
-
-- do not expose public JSON-RPC directly
-- do not reuse validator keys on RPC nodes
-- keep `/var/lib/xgr/validator` readable only by the `xgr` user
-- use firewall rules
-- use key-based SSH only
-- monitor process, disk, peers and block height
-- back up validator key material securely
-
-RPC nodes:
-
-- use `--seal=false`
-- do not contain validator keys
-- run behind TLS reverse proxy
-- enforce rate limits
-- restrict debug endpoints
-- monitor request volume and error rate
-
-Filesystem:
-
-```bash
-sudo chown -R xgr:xgr /var/lib/xgr
-sudo chmod -R go-rwx /var/lib/xgr/validator
-sudo chmod -R go-rwx /var/lib/xgr/node
-```
-
----
-
-## 29. Final checklist
-
-Before considering a node production-ready:
-
-- binary built from `v2.0.5`
-- mainnet genesis from `xgr-network/XGR:genesis/mainnet/genesis.json`
-- chain ID returns `0x66b`
-- node reaches current block height
-- peer count is non-zero
-- full/RPC node uses `--seal=false`
-- validator node uses `/var/lib/xgr/validator`
-- validator key address is funded
-- `ibft join` completed
-- validator appears in `ibft validators`
-- delegation pool configured if desired
-- `set-active --value=true` completed
-- validator service uses `--seal=true`
-- PoS overview reports expected validator state
-- logs show no repeated signer or consensus errors
-- firewall and RPC exposure are correct
-- backups exist for validator key material
-
-This guide is for operating XGR Chain as a standalone public node.
-
-It does not require xgrEngine.
-
-It does not require XDaLa.
+ExecStart=/opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false \
+  --trie-sweeper \
+ 
