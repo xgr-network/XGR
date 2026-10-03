@@ -17,22 +17,16 @@ This document describes the XGR-specific staking and PoS JSON-RPC methods implem
 
 The two supported PoS data methods are:
 
-```text id="s8hrjd"
-eth_getPosValidatorsOverview
-eth_getPosValidatorDelegators
-```
+    eth_getPosValidatorsOverview
+    eth_getPosValidatorDelegators
 
 The node also currently registers the deprecated legacy compatibility method:
 
-```text id="kut4ve"
-eth_getBeaconTimeStatus
-```
+    eth_getBeaconTimeStatus
 
 These methods use the Ethereum-style:
 
-```text id="2m4ioz"
-eth_*
-```
+    eth_*
 
 namespace but are not standard Ethereum JSON-RPC methods.
 
@@ -56,16 +50,12 @@ The published XGRChain mainnet consensus schedule is:
 
 PoS activation:
 
-```text id="5q78m4"
-decimal: 5446500
-hex:     0x531b64
-```
+    decimal: 5446500
+    hex:     0x531b64
 
 PoS deployment:
 
-```text id="b1dwfm"
-5446500
-```
+    5446500
 
 Validator limits:
 
@@ -86,15 +76,11 @@ Epoch configuration:
 
 The PoS RPC derives macro epoch size as:
 
-```text id="gmamx3"
-microEpochSize × macroEpochMicroFactor
-```
+    microEpochSize × macroEpochMicroFactor
 
 For mainnet:
 
-```text id="k9jaik"
-25 × 40 = 1000 blocks
-```
+    25 × 40 = 1000 blocks
 
 ---
 
@@ -116,12 +102,10 @@ Numeric values represented by `argUint64` and `argBig` use Ethereum JSON-RPC qua
 
 Examples:
 
-```text id="j0itn7"
-0        -> "0x0"
-25       -> "0x19"
-1000     -> "0x3e8"
-5446500  -> "0x531b64"
-```
+    0        -> "0x0"
+    25       -> "0x19"
+    1000     -> "0x3e8"
+    5446500  -> "0x531b64"
 
 Rules:
 
@@ -137,9 +121,7 @@ Rules:
 
 Native denomination:
 
-```text id="j047qm"
-1 XGR = 10^18 wei
-```
+    1 XGR = 10^18 wei
 
 ---
 
@@ -149,7 +131,7 @@ Native denomination:
 
 Implementation:
 
-```go id="of0hm2"
+```go
 func (e *Eth) GetPosValidatorsOverview(
     reportEpoch *string,
 ) (interface{}, error)
@@ -157,9 +139,7 @@ func (e *Eth) GetPosValidatorsOverview(
 
 JSON-RPC:
 
-```text id="mq15p0"
-eth_getPosValidatorsOverview
-```
+    eth_getPosValidatorsOverview
 
 ---
 
@@ -173,15 +153,13 @@ The endpoint accepts zero or one parameter.
 
 Default:
 
-```text id="rbsuht"
-current
-```
+    current
 
 when no parameter is supplied.
 
 ### Current epoch
 
-```json id="cexa7a"
+```json
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -192,7 +170,7 @@ when no parameter is supplied.
 
 Equivalent explicit call:
 
-```json id="aao98b"
+```json
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -203,7 +181,7 @@ Equivalent explicit call:
 
 ### Last finalized epoch
 
-```json id="z3lkll"
+```json
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -214,9 +192,7 @@ Equivalent explicit call:
 
 Invalid values return:
 
-```text id="kn133u"
-invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
-```
+    invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
 
 ---
 
@@ -224,23 +200,17 @@ invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
 
 The endpoint resolves the first configured:
 
-```text id="ggaztm"
-type = "PoS"
-```
+    type = "PoS"
 
 IBFT phase and selects its lowest `from` block.
 
 For mainnet:
 
-```text id="slzhgy"
-posFromBlock = 5446500
-```
+    posFromBlock = 5446500
 
 If the current head is below that block:
 
-```text id="ndxb6y"
-PoS is not active yet (activates at block 5446500)
-```
+    PoS is not active yet (activates at block 5446500)
 
 is returned.
 
@@ -252,34 +222,26 @@ Current mainnet is already beyond this activation boundary.
 
 The endpoint calculates the epoch as:
 
-```text id="mvq2hu"
-if block == 0:
-    epoch = 0
+    if block == 0:
+        epoch = 0
 
-else if block % epochSize == 0:
-    epoch = block / epochSize
+    else if block % epochSize == 0:
+        epoch = block / epochSize
 
-else:
-    epoch = block / epochSize + 1
-```
+    else:
+        epoch = block / epochSize + 1
 
 For PoS mainnet:
 
-```text id="k5wtoa"
-epochSize = 1000
-```
+    epochSize = 1000
 
 Current epoch start:
 
-```text id="jmsk3d"
-(epoch - 1) × epochSize + 1
-```
+    (epoch - 1) × epochSize + 1
 
 Current epoch end while still in progress:
 
-```text id="ci61hq"
-current head block
-```
+    current head block
 
 ---
 
@@ -287,9 +249,7 @@ current head block
 
 Current `v3.1.1` response type:
 
-```text id="4jf2qp"
-posOverviewResponse
-```
+    posOverviewResponse
 
 Fields:
 
@@ -333,18 +293,14 @@ Fields:
 
 Current implementation sets:
 
-```text id="njh47d"
-rewardIneligibleStatusExact = true
-slashStatusExact            = false
-lastRoundStakeExact         = false
-lastRoundDistributedStake   = 0
-```
+    rewardIneligibleStatusExact = true
+    slashStatusExact            = false
+    lastRoundStakeExact         = false
+    lastRoundDistributedStake   = 0
 
 The current overview loop also sets:
 
-```text id="o8pw48"
-slashed = false
-```
+    slashed = false
 
 for every returned validator.
 
@@ -354,9 +310,7 @@ Therefore:
 
 The endpoint explicitly tells clients:
 
-```text id="bjmqd7"
-slashStatusExact = false
-```
+    slashStatusExact = false
 
 ---
 
@@ -364,9 +318,7 @@ slashStatusExact = false
 
 `currentEpochPendingRewards` is read from the live:
 
-```text id="8u8kzo"
-FeePool
-```
+    FeePool
 
 account balance at the current state root.
 
@@ -435,31 +387,23 @@ This is one of the most important fields in the endpoint.
 
 The current code derives it strictly from:
 
-```text id="d2qjv8"
-current consensus header validator snapshot
-```
+    current consensus header validator snapshot
 
 Conceptually:
 
-```text id="bjf6pa"
-currentlyValidating =
-    validator address exists
-    in current IBFT header validator set
-```
+    currentlyValidating =
+        validator address exists
+        in current IBFT header validator set
 
 There is deliberately no stake-based heuristic fallback.
 
 Therefore:
 
-```text id="p7wmfh"
-stakingActive = true
-```
+    stakingActive = true
 
 does not necessarily mean:
 
-```text id="z77fr3"
-currentlyValidating = true
-```
+    currentlyValidating = true
 
 ---
 
@@ -473,9 +417,7 @@ It does not alone prove current IBFT voting authority.
 
 Use:
 
-```text id="yhwsf0"
-currentlyValidating
-```
+    currentlyValidating
 
 for current consensus-set membership.
 
@@ -485,13 +427,11 @@ for current consensus-set membership.
 
 When `joinedAtBlock` is available, the endpoint derives:
 
-```text id="273vjn"
-joinEpoch =
-    joinedAtBlock / epochSize
+    joinEpoch =
+        joinedAtBlock / epochSize
 
-joinEffectiveAtBlock =
-    (joinEpoch + 1) × epochSize
-```
+    joinEffectiveAtBlock =
+        (joinEpoch + 1) × epochSize
 
 This exposes the deterministic macro-epoch boundary used for validator lifecycle visibility.
 
@@ -501,24 +441,18 @@ This exposes the deterministic macro-epoch boundary used for validator lifecycle
 
 When a non-zero `deactivatedAtBlock` exists:
 
-```text id="j22jhe"
-deactEpoch =
-    deactivatedAtBlock / epochSize
-```
+    deactEpoch =
+        deactivatedAtBlock / epochSize
 
 The endpoint derives:
 
-```text id="m1al1u"
-deactivateEffectiveAtBlock =
-    (deactEpoch + 1) × epochSize
-```
+    deactivateEffectiveAtBlock =
+        (deactEpoch + 1) × epochSize
 
 and:
 
-```text id="0q4ev5"
-unstakeAvailableAtBlock =
-    (deactEpoch + 1) × epochSize
-```
+    unstakeAvailableAtBlock =
+        (deactEpoch + 1) × epochSize
 
 `canUnstakeNow` additionally requires the validator to be inactive and the current contract epoch to have advanced beyond the deactivation epoch.
 
@@ -540,34 +474,24 @@ This behavior is explicitly called out in `monitoringNotes`.
 
 The endpoint reads:
 
-```text id="sn6fcd"
-proposer slots
-missed proposer slots
-```
+    proposer slots
+    missed proposer slots
 
 and calculates:
 
-```text id="7iy71h"
-okSlots = slots - missed
-```
+    okSlots = slots - missed
 
 The validator is considered reward-ineligible when:
 
-```text id="e7t33o"
-okSlots × 10 < slots × 8
-```
+    okSlots × 10 < slots × 8
 
 Equivalent threshold:
 
-```text id="nnydrc"
-successful proposer duties < 80%
-```
+    successful proposer duties < 80%
 
 If no proposer slots are recorded:
 
-```text id="v90gup"
-rewardIneligible = false
-```
+    rewardIneligible = false
 
 ---
 
@@ -575,10 +499,8 @@ rewardIneligible = false
 
 The endpoint exposes rolling proposer-duty reliability over:
 
-```text id="6ht5dh"
-3 epochs
-10 epochs
-```
+    3 epochs
+    10 epochs
 
 These metrics are not lifetime validator uptime.
 
@@ -586,26 +508,20 @@ They are based on observed proposer duties.
 
 Fields include:
 
-```text id="67n7jq"
-proposalUptimeLast3EpochsBps
-proposalUptimeLast10EpochsBps
-proposalUptimeLast3EpochsPercent
-proposalUptimeLast10EpochsPercent
-proposalUptimeLast3EpochsObserved
-proposalUptimeLast10EpochsObserved
-```
+    proposalUptimeLast3EpochsBps
+    proposalUptimeLast10EpochsBps
+    proposalUptimeLast3EpochsPercent
+    proposalUptimeLast10EpochsPercent
+    proposalUptimeLast3EpochsObserved
+    proposalUptimeLast10EpochsObserved
 
 If no proposer duties were observed:
 
-```text id="cxee6g"
-Observed = 0
-```
+    Observed = 0
 
 and the corresponding uptime fields are omitted rather than fabricating:
 
-```text id="c7ng0n"
-100%
-```
+    100%
 
 ---
 
@@ -613,11 +529,9 @@ and the corresponding uptime fields are omitted rather than fabricating:
 
 The endpoint reads current PoS-system-state values for:
 
-```text id="pln9n5"
-microNominalWeight
-microEffectiveWeight
-microInactivity
-```
+    microNominalWeight
+    microEffectiveWeight
+    microInactivity
 
 These fields expose current micro-epoch uptime accounting used by the weighted PoS path.
 
@@ -629,23 +543,17 @@ They are returned when at least one corresponding stored value is non-zero.
 
 The chain configuration defines:
 
-```text id="5jvpqu"
-microEpochSize = 25
-```
+    microEpochSize = 25
 
 The endpoint applies a runtime safety check:
 
-```text id="j4dpgq"
-if microEpochSize < currentValidatorCount:
-    effective microEpochSize = 0
-```
+    if microEpochSize < currentValidatorCount:
+        effective microEpochSize = 0
 
 For current mainnet configuration:
 
-```text id="1d582n"
-max validators = 25
-microEpochSize = 25
-```
+    max validators = 25
+    microEpochSize = 25
 
 so the configured maximum does not exceed the micro-epoch size.
 
@@ -655,26 +563,20 @@ so the configured maximum does not exceed the micro-epoch size.
 
 The validator response struct still defines:
 
-```text id="ibezc4"
-reportedEpochReward
-reportedEpochRewardValidatorNet
-reportedEpochRewardCommission
-reportedEpochRewardDelegatorsNet
-```
+    reportedEpochReward
+    reportedEpochRewardValidatorNet
+    reportedEpochRewardCommission
+    reportedEpochRewardDelegatorsNet
 
 Current `v3.1.1` overview code does not assign these fields.
 
 Tests explicitly expect:
 
-```text id="ls630d"
-ReportedEpochReward == nil
-```
+    ReportedEpochReward == nil
 
 Because they use:
 
-```text id="6zn9zq"
-omitempty
-```
+    omitempty
 
 they are not returned in normal JSON output.
 
@@ -686,19 +588,15 @@ Clients must not depend on them.
 
 Current implementation comments and monitoring notes explicitly state that historical:
 
-```text id="1m4u5e"
-rewards
-slashes
-stake-after values
-```
+    rewards
+    slashes
+    stake-after values
 
 are emitted as PoS system logs and must be indexed from receipts for historical analytics.
 
 The PoS RPC is primarily a:
 
-```text id="9yyn2w"
-live/current-state monitoring API
-```
+    live/current-state monitoring API
 
 not a complete historical accounting API.
 
@@ -706,9 +604,7 @@ Finalized epoch working state can be deleted after epoch finalization.
 
 For historical analytics:
 
-```text id="b2crkg"
-index canonical receipts / PosSysAddr logs
-```
+    index canonical receipts / PosSysAddr logs
 
 rather than expecting all history from the live endpoint.
 
@@ -720,7 +616,7 @@ rather than expecting all history from the live endpoint.
 
 Implementation:
 
-```go id="idmjyc"
+```go
 func (e *Eth) GetPosValidatorDelegators(
     validator types.Address,
     reportEpoch *string,
@@ -729,9 +625,7 @@ func (e *Eth) GetPosValidatorDelegators(
 
 JSON-RPC:
 
-```text id="wshlt1"
-eth_getPosValidatorDelegators
-```
+    eth_getPosValidatorDelegators
 
 ---
 
@@ -744,7 +638,7 @@ eth_getPosValidatorDelegators
 
 Example:
 
-```json id="xp2run"
+```json
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -757,7 +651,7 @@ Example:
 
 Last-finalized context:
 
-```json id="y2ka02"
+```json
 {
   "jsonrpc": "2.0",
   "id": 1,
@@ -771,9 +665,7 @@ Last-finalized context:
 
 Invalid epoch selector:
 
-```text id="azzgo2"
-invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
-```
+    invalid reportEpoch "<value>" (expected "current" or "lastFinalized")
 
 ---
 
@@ -811,22 +703,18 @@ The delegator endpoint deliberately exposes both live and epoch-effective values
 
 ### Live state
 
-```text id="yjlkew"
-selfStakeLive
-delegatedLiveRaw
-delegatedLiveActive
-totalLiveStake
-```
+    selfStakeLive
+    delegatedLiveRaw
+    delegatedLiveActive
+    totalLiveStake
 
 represents current staking-contract state.
 
 ### Epoch-effective state
 
-```text id="sx1ioh"
-selfStakeEpochEffective
-delegatedEpochEffective
-totalEpochEffectiveStake
-```
+    selfStakeEpochEffective
+    delegatedEpochEffective
+    totalEpochEffectiveStake
 
 represents PoS snapshot values for the selected epoch context.
 
@@ -858,10 +746,8 @@ Entries are sorted by delegator address.
 
 Current implementation sets:
 
-```text id="hts5hs"
-effectiveAtPoint =
-    epochEffectiveAmount > 0
-```
+    effectiveAtPoint =
+        epochEffectiveAmount > 0
 
 This provides a direct signal for whether the delegator contributes to the selected epoch-effective stake snapshot.
 
@@ -871,9 +757,7 @@ This provides a direct signal for whether the delegator contributes to the selec
 
 The delegator struct defines:
 
-```text id="10xk0j"
-reportedEpochReward
-```
+    reportedEpochReward
 
 but current `v3.1.1` code does not assign it.
 
@@ -881,9 +765,7 @@ The corresponding test expects the value to remain nil.
 
 Because it is tagged:
 
-```text id="6fj37o"
-omitempty
-```
+    omitempty
 
 it is not returned in current JSON output.
 
@@ -897,9 +779,7 @@ If validator pool configuration cannot be obtained, the endpoint creates a zero-
 
 At minimum:
 
-```text id="ssitqr"
-maxTotalDelegatedStake = 0
-```
+    maxTotalDelegatedStake = 0
 
 is initialized.
 
@@ -915,21 +795,17 @@ Clients should not interpret zero-value fallback fields as proof that an explici
 
 The `Eth` endpoint still exports:
 
-```text id="9eg73w"
-eth_getBeaconTimeStatus
-```
+    eth_getBeaconTimeStatus
 
 but `v3.1.1` explicitly marks it as:
 
-```text id="awts3x"
-Deprecated legacy endpoint
-```
+    Deprecated legacy endpoint
 
 The old beacon recovery path has been removed.
 
 Current response:
 
-```json id="3zrgmr"
+```json
 {
   "enabled": false,
   "active": false,
@@ -943,9 +819,7 @@ This endpoint must not be used for current XGRChain PoS health monitoring.
 
 Use:
 
-```text id="vfo7md"
-eth_getPosValidatorsOverview
-```
+    eth_getPosValidatorsOverview
 
 instead.
 
@@ -963,9 +837,7 @@ This demonstrates an important API rule:
 
 Clients should respect the explicit:
 
-```text id="pzog2p"
-deprecated = true
-```
+    deprecated = true
 
 status.
 
@@ -995,9 +867,7 @@ status.
 
 `eth_getPosValidatorDelegators` does not contain the same explicit:
 
-```text id="6y30a0"
-head >= posFromBlock
-```
+    head >= posFromBlock
 
 guard.
 
@@ -1015,17 +885,13 @@ For current mainnet operation PoS is already active.
 
 Dashboards should use:
 
-```text id="7mtyyh"
-currentlyValidating
-```
+    currentlyValidating
 
 for current consensus validator-set membership.
 
 Use:
 
-```text id="0wmy85"
-stakingActive
-```
+    stakingActive
 
 for current staking lifecycle state.
 
@@ -1033,10 +899,8 @@ Do not combine them into one field.
 
 A useful UI can therefore distinguish:
 
-```text id="9rb08u"
-Staking active:       yes/no
-Currently validating: yes/no
-```
+    Staking active:       yes/no
+    Currently validating: yes/no
 
 ---
 
@@ -1046,15 +910,11 @@ All stake fields are returned in wei.
 
 Example:
 
-```text id="hfpy0j"
-2000000000000000000000000 wei
-```
+    2000000000000000000000000 wei
 
 equals:
 
-```text id="gfqcw6"
-2,000,000 XGR
-```
+    2,000,000 XGR
 
 Convert only in the presentation layer.
 
@@ -1149,72 +1009,68 @@ The actual response remains authoritative for live values.
 
 ### Overview top-level
 
-```text id="7bk7ou"
-blockNumber
-epochSize
-microEpochSize
-currentMicroEpoch
-currentMicroEpochStartBlock
-currentMicroEpochEndBlock
-currentEpoch
-lastFinalizedEpoch
-reportedEpoch
-reportedEpochStartBlock
-reportedEpochEndBlock
-currentEpochPendingRewards
-stakingContractBalance
-minimumNumValidators
-maximumNumValidators
-validatorThreshold
-totalCurrentStake
-totalValidatorSelfStake
-totalDelegatedRawStake
-totalDelegatedActiveStake
-totalActiveCurrentStake
-rewardIneligibleCount
-slashedCount
-rewardIneligibleStatusExact
-slashStatusExact
-lastRoundStakeExact
-lastRoundDistributedStake
-monitoringNotes
-validators
-posActive
-posFromBlock
-```
+    blockNumber
+    epochSize
+    microEpochSize
+    currentMicroEpoch
+    currentMicroEpochStartBlock
+    currentMicroEpochEndBlock
+    currentEpoch
+    lastFinalizedEpoch
+    reportedEpoch
+    reportedEpochStartBlock
+    reportedEpochEndBlock
+    currentEpochPendingRewards
+    stakingContractBalance
+    minimumNumValidators
+    maximumNumValidators
+    validatorThreshold
+    totalCurrentStake
+    totalValidatorSelfStake
+    totalDelegatedRawStake
+    totalDelegatedActiveStake
+    totalActiveCurrentStake
+    rewardIneligibleCount
+    slashedCount
+    rewardIneligibleStatusExact
+    slashStatusExact
+    lastRoundStakeExact
+    lastRoundDistributedStake
+    monitoringNotes
+    validators
+    posActive
+    posFromBlock
 
 ---
 
 ## 45. Validator active field checklist
 
-```text id="ag2frz"
-address
-joinedAtBlock
-joinEffectiveAtBlock
-currentStake
-selfStake
-delegatedRawStake
-delegatedActiveStake
-totalActiveCurrentStake
-currentlyValidating
-stakingActive
-deactivatedAtBlock
-deactivateEffectiveAtBlock
-unstakeAvailableAtBlock
-canUnstakeNow
-wasValidatorLastEpoch
-rewardIneligible
-slashed
-microNominalWeight
-microEffectiveWeight
-microInactivity
-proposalUptimeLast3EpochsBps
-proposalUptimeLast10EpochsBps
-proposalUptimeLast3EpochsPercent
-proposalUptimeLast10EpochsPercent
-proposalUptimeLast3EpochsObserved
-proposalUptimeLast10EpochsObserved
-```
+    address
+    joinedAtBlock
+    joinEffectiveAtBlock
+    currentStake
+    selfStake
+    delegatedRawStake
+    delegatedActiveStake
+    totalActiveCurrentStake
+    currentlyValidating
+    stakingActive
+    deactivatedAtBlock
+    deactivateEffectiveAtBlock
+    unstakeAvailableAtBlock
+    canUnstakeNow
+    wasValidatorLastEpoch
+    rewardIneligible
+    slashed
+    microNominalWeight
+    microEffectiveWeight
+    microInactivity
+    proposalUptimeLast3EpochsBps
+    proposalUptimeLast10EpochsBps
+    proposalUptimeLast3EpochsPercent
+    proposalUptimeLast10EpochsPercent
+    proposalUptimeLast3EpochsObserved
+    proposalUptimeLast10EpochsObserved
 
 Not all optional fields are present for every validator.
 
@@ -1224,12 +1080,10 @@ Not all optional fields are present for every validator.
 
 Defined but not populated by the overview path:
 
-```text id="jfnhvi"
-reportedEpochReward
-reportedEpochRewardValidatorNet
-reportedEpochRewardCommission
-reportedEpochRewardDelegatorsNet
-```
+    reportedEpochReward
+    reportedEpochRewardValidatorNet
+    reportedEpochRewardCommission
+    reportedEpochRewardDelegatorsNet
 
 Do not model these as required API fields.
 
@@ -1237,47 +1091,41 @@ Do not model these as required API fields.
 
 ## 47. Delegator top-level checklist
 
-```text id="wqlqww"
-validator
-selfStake
-delegatedRaw
-delegatedActive
-delegatedActiveCurrent
-totalActiveCurrentStake
-selfStakeLive
-delegatedLiveRaw
-delegatedLiveActive
-totalLiveStake
-selfStakeEpochEffective
-delegatedEpochEffective
-totalEpochEffectiveStake
-delegationEnabled
-maxTotalDelegatedStake
-minDelegatorStake
-effectiveMinDelegatorStake
-commissionBps
-delegators
-```
+    validator
+    selfStake
+    delegatedRaw
+    delegatedActive
+    delegatedActiveCurrent
+    totalActiveCurrentStake
+    selfStakeLive
+    delegatedLiveRaw
+    delegatedLiveActive
+    totalLiveStake
+    selfStakeEpochEffective
+    delegatedEpochEffective
+    totalEpochEffectiveStake
+    delegationEnabled
+    maxTotalDelegatedStake
+    minDelegatorStake
+    effectiveMinDelegatorStake
+    commissionBps
+    delegators
 
 ---
 
 ## 48. Delegator-entry checklist
 
-```text id="1x9q9i"
-delegator
-amount
-epochEffectiveAmount
-active
-joinedAtBlock
-deactivatedAtBlock
-effectiveAtPoint
-```
+    delegator
+    amount
+    epochEffectiveAmount
+    active
+    joinedAtBlock
+    deactivatedAtBlock
+    effectiveAtPoint
 
 Currently not populated:
 
-```text id="0p5ccy"
-reportedEpochReward
-```
+    reportedEpochReward
 
 ---
 
