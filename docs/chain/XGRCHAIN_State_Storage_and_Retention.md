@@ -1,448 +1,677 @@
 # XGR Chain — State Storage & Retention
 
 **Document ID:** XGRCHAIN-STATE-STORAGE-RETENTION  
-**Last updated:** 2026-09-06  
+**Last updated:** 2026-10-03  
 **Audience:** Node operators, validator operators, RPC operators, infrastructure engineers, auditors  
-**Release baseline:** `xgr-node` release tag `v2.1.0`  
-**Node implementation:** `xgr-network/xgr-node`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Feature introduced:** `xgr-node v2.1.0`  
 **Feature:** State Growth Control — Online State Trie Sweeper  
-**Scope:** Local immutable-trie storage, historical-state retention and storage reclamation
+**Node implementation:** `xgr-network/xgr-node`  
+**Scope:** Local immutable-trie storage, historical-state retention, online pruning and recovery
 
 ---
 
 ## 1. Purpose
 
-XGR Chain `v2.1.0` introduces **State Growth Control**, implemented as an online garbage collector for the immutable EVM state trie.
+XGRChain stores EVM state in an immutable, content-addressed trie.
 
-The feature allows node operators to control long-term state-storage growth by retaining a configurable window of recent canonical state roots and reclaiming trie nodes and contract-code entries that are no longer reachable from the retained state.
+As the chain evolves, new trie nodes and contract-code entries are written while historical versions can remain physically present in the local LevelDB database.
 
-The implementation is designed to operate while the node remains online.
+`xgr-node` includes **State Growth Control**, implemented as an online mark-and-sweep garbage collector:
+
+```text
+Online State Trie Sweeper
+```
+
+The feature was introduced in:
+
+```text
+v2.1.0
+```
+
+and remains part of the current:
+
+```text
+v3.1.1
+```
+
+production node.
+
+It allows operators to retain a configurable window of recent canonical state roots and reclaim historical trie/code data that is no longer reachable from the retained state.
+
+---
+
+## 2. Consensus boundary
+
+The Trie Sweeper is a **local storage feature**.
 
 It does not change:
 
-- transaction execution
-- EVM semantics
-- block validity
-- canonical state roots
-- receipts or logs
-- consensus
-- validator selection
-- staking
-- genesis configuration
-- fork activation
-
-State Growth Control is therefore a **local node-storage feature**, not a consensus fork.
-
----
-
-## 2. Feature summary
-
-XGR Chain uses an immutable, content-addressed state trie.
-
-As chain state changes, new trie nodes are created while historical nodes can remain physically present in the local trie database even when they are no longer needed for the operator's desired historical-state window.
-
-Starting with `xgr-node v2.1.0`, operators may enable the **Online State Trie Sweeper**.
-
-When enabled, the node periodically:
-
-1. identifies the configured recent canonical block range
-2. collects the corresponding canonical state roots
-3. marks all trie nodes and contract code reachable from those roots
-4. protects state written concurrently with the sweep
-5. removes unreachable trie and code entries
-6. compacts affected LevelDB ranges
-7. verifies a freshly captured canonical state root after the sweep
-
-This allows physical storage occupied by obsolete historical trie data to be reclaimed without stopping normal block processing.
-
----
-
-## 3. Consensus boundary
-
-The trie sweeper is not consensus-critical.
-
-Two nodes may use different local state-retention settings while following the same canonical XGR Chain.
+- transaction execution,
+- EVM semantics,
+- canonical state transitions,
+- block validity,
+- state roots recorded in blocks,
+- receipts,
+- logs,
+- consensus,
+- validator selection,
+- staking,
+- genesis,
+- fork activation.
 
 For example:
 
 ```text
-Node A:
-trie sweeper disabled
+Node A
+    sweeper disabled
 
-Node B:
-trie sweeper enabled
-retain 10,000 blocks
+Node B
+    sweeper enabled
+    retain 10,000 blocks
 
-Node C:
-trie sweeper enabled
-retain 100,000 blocks
+Node C
+    sweeper enabled
+    retain 100,000 blocks
 ```
 
-All three nodes can:
+can all follow and validate the same canonical XGRChain.
 
-- validate the same blocks
-- reproduce the same current state transition
-- participate in the same network
-- agree on the same canonical state root
+The difference is how much historical EVM state remains locally available.
 
-The retention configuration affects only which historical state data remains available in each node's local state database.
+---
 
-No mainnet genesis change, activation block or hardfork is required.
+## 3. Block history versus state history
+
+These are separate storage concepts.
+
+### Canonical chain history
+
+Includes:
+
+- block headers,
+- block bodies,
+- transactions,
+- receipts,
+- logs.
+
+### Historical EVM state
+
+Includes historical versions of:
+
+- accounts,
+- balances,
+- nonces,
+- contract storage,
+- contract code references,
+- state tries.
+
+The Trie Sweeper targets historical EVM trie/code storage.
+
+It does not delete normal canonical block/receipt history.
+
+Therefore:
+
+```text
+old block available
+```
+
+does not necessarily imply:
+
+```text
+old state root still executable/queryable
+```
 
 ---
 
 ## 4. Retention model
 
-The retention window is defined in canonical blocks.
-
-The default configured retention value is:
+Operator setting:
 
 ```text
-10,000 blocks
+--trie-sweeper-retain-blocks
 ```
 
-For each sweep, the node determines:
+Default:
 
 ```text
-toBlock = current canonical head
+10,000
+```
+
+For every sweep:
+
+```text
+toBlock = canonical head
 ```
 
 and:
 
 ```text
-fromBlock = max(0, toBlock + 1 - retainBlocks)
+fromBlock =
+    max(
+        0,
+        toBlock + 1 - retainBlocks
+    )
 ```
 
-The state roots of the canonical blocks in that range are selected as retained roots.
+The node loads every canonical header in:
 
-Duplicate state roots are de-duplicated before traversal.
+```text
+[fromBlock, toBlock]
+```
 
-All trie data and contract code reachable from those retained roots remain live.
+and collects its state root.
 
-Trie and code entries that are:
-
-- outside the retained state history
-- not reachable from a retained root
-- not protected by the concurrent-write generations
-
-may be deleted.
-
-Retention therefore applies to **historical state availability**, not to block history.
+Duplicate state roots are de-duplicated.
 
 ---
 
-## 5. Online safety model
+## 5. What retention means
 
-State Growth Control is designed to operate concurrently with normal node activity.
+The configured block count defines the canonical roots that must remain traversable.
 
-### 5.1 Write tracking
+For example:
 
-When the trie sweeper starts, trie writes are generation-tracked.
+```text
+retainBlocks = 10,000
+```
 
-The current and immediately previous write generations are protected during garbage collection.
+means the state roots from the most recent 10,000 canonical blocks are selected as live roots.
 
-This protects state that is created while a sweep is running or immediately around a sweep-generation boundary.
+All trie/code data reachable from those roots is preserved.
 
-### 5.2 Startup synchronization
+This is not equivalent to:
 
-After write tracking becomes active, the sweeper records the current canonical head.
+> delete everything older than exactly 10,000 blocks.
 
-Before the first sweep starts, it waits until the canonical chain advances by at least one block.
+Historical nodes can remain because:
 
-This closes the startup race between state writes that were already in progress and the first garbage-collection cycle.
+- immutable trie nodes are shared across state versions,
+- old nodes may still be reachable from a retained root,
+- recent write generations are conservatively protected,
+- conservative marker state can retain additional garbage.
 
-### 5.3 Mark before delete
-
-The sweeper first traverses and marks all state reachable from the retained canonical roots.
-
-No trie entries are deleted during this mark phase.
-
-### 5.4 Bounded scanning
-
-The production sweep does not hold one long-lived LevelDB snapshot across the entire database.
-
-Instead, the trie database is scanned using short-lived iterators and bounded ranges.
-
-This avoids keeping obsolete SSTables pinned for the duration of a potentially long-running sweep.
-
-### 5.5 Recheck before deletion
-
-Deletion candidates are rechecked under the trie GC write barrier before they are removed.
-
-A trie entry that became live through a concurrent write is retained.
-
-### 5.6 Post-sweep integrity verification
-
-After deletion and compaction, the node captures a fresh canonical head and performs a strict traversal of its state root.
-
-The verified result must equal the state root stored in that canonical block header.
-
-A missing hash-linked node or state-root mismatch is treated as an integrity failure.
+Therefore the setting defines a **minimum retained canonical state-root window**, not an exact physical age cutoff.
 
 ---
 
-## 6. Configuration
+## 6. What can be deleted
 
-State Growth Control is disabled by default.
+The production sweeper considers only two LevelDB key classes sweepable.
 
-### 6.1 CLI flags
+### Trie nodes
 
-```text
---trie-sweeper
---trie-sweeper-retain-blocks
---trie-sweeper-interval
-```
-
-Defaults:
-
-| Setting | Default | Meaning |
-|---|---:|---|
-| `--trie-sweeper` | `false` | Enable online state-trie garbage collection |
-| `--trie-sweeper-retain-blocks` | `10000` | Number of latest canonical blocks whose state roots are retained |
-| `--trie-sweeper-interval` | `6h` | Delay between completed sweep cycles |
-
-Example:
-
-```bash
-/opt/xgr/bin/xgrchain server \
-  --chain /etc/xgr/genesis.json \
-  --data-dir /var/lib/xgr/node \
-  --trie-sweeper \
-  --trie-sweeper-retain-blocks 10000 \
-  --trie-sweeper-interval 6h
-```
-
-### 6.2 Configuration-file fields
-
-Equivalent configuration fields are:
-
-```yaml
-trie_sweeper: true
-trie_sweeper_retain_blocks: 10000
-trie_sweeper_interval: 6h
-```
-
-### 6.3 Validation requirements
-
-When enabled:
+Raw hash-addressed keys:
 
 ```text
-trie_sweeper_retain_blocks > 0
-trie_sweeper_interval > 0
+32-byte hash key
 ```
 
-The node also requires:
+### Contract code
 
-- a persistent data directory
-- an initialized canonical chain head
-- the supported LevelDB-backed immutable-trie storage
-
-The temporary GC working directory is created under:
+Keys of the form:
 
 ```text
-<data-dir>/trie-gc
+"code" + 32-byte code hash
 ```
 
-Marker metadata is stored under:
+Other LevelDB keys are skipped.
 
-```text
-<data-dir>/trie-gc/marks
-```
-
-This marker database contains disposable garbage-collection metadata and is rebuilt when the node starts.
+The sweeper does not perform arbitrary database-key deletion.
 
 ---
 
-## 7. Sweep scheduling
+## 7. Mark-and-sweep model
 
-The first sweep does not start immediately when the node process starts.
-
-Sequence:
+One production cycle performs:
 
 ```text
-node start
+select retained canonical roots
+        ↓
+start new GC generation
+        ↓
+mark reachable account trie
+        ↓
+mark reachable storage tries
+        ↓
+mark referenced contract code
+        ↓
+scan LevelDB in bounded ranges
+        ↓
+identify unmarked candidates
+        ↓
+recheck candidates under write barrier
+        ↓
+delete unreachable trie/code data
+        ↓
+compact affected LevelDB ranges
+        ↓
+capture fresh canonical head
+        ↓
+strictly verify its state root
+```
+
+No deletion occurs before the mark phase has completed.
+
+---
+
+## 8. Account and storage traversal
+
+For every retained root, the marker recursively traverses:
+
+```text
+account trie
     ↓
-trie write tracking enabled
-    ↓
-current head recorded
-    ↓
-wait for one canonical head advance
-    ↓
-first sweep
+account value
+    ├── contract code hash
+    └── contract storage root
 ```
 
-After a sweep finishes, the node waits for the configured interval before beginning the next cycle.
+For contract accounts it therefore marks:
 
-With the default setting:
+- account-trie nodes,
+- storage-trie nodes,
+- referenced contract code.
 
-```text
---trie-sweeper-interval 6h
-```
+If referenced contract code is found, the implementation recalculates its Keccak hash and verifies it against the stored account code hash.
 
-the next cycle starts approximately six hours after the previous cycle completed.
-
-The interval is not measured from the start of the previous sweep.
+A mismatch causes the mark operation to fail.
 
 ---
 
-## 8. Operator profiles
+## 9. Missing retained state is an error
 
-### 8.1 Bounded-history full node
+During marking, a hash-linked trie node required by a retained root must exist.
 
-Example:
-
-```text
-trie sweeper: enabled
-retain blocks: 10,000
-interval: 6h
-```
-
-This profile prioritizes bounded historical-state retention and reduced long-term trie-storage accumulation.
-
-At the XGR Chain target block time of approximately two seconds:
+If it does not:
 
 ```text
-10,000 blocks × 2 seconds
-≈ 20,000 seconds
-≈ 5 hours 33 minutes
+missing trie node ...
 ```
 
-This is only an approximate wall-clock window. Actual retention time depends on real block production.
+is returned.
 
-### 8.2 Longer historical-state window
+The sweeper does not silently reinterpret missing retained data as empty state.
 
-Operators that require more historical state can increase:
-
-```text
---trie-sweeper-retain-blocks
-```
-
-Example:
-
-```text
---trie-sweeper-retain-blocks 100000
-```
-
-A larger retention window requires more local storage.
-
-### 8.3 Archive-style node
-
-A node that must preserve historical EVM state for arbitrary old block heights should leave the trie sweeper disabled:
-
-```text
---trie-sweeper=false
-```
-
-Block-history retention and historical-state retention are different requirements.
+This is an important integrity property.
 
 ---
 
-## 9. Historical RPC implications
+# Online concurrency safety
 
-The trie sweeper does not delete canonical block headers, block bodies, transactions, receipts or logs.
+## 10. Write tracking
 
-It affects historical **EVM state** stored in the immutable trie.
+The immutable-trie LevelDB implementation contains a GC write barrier.
 
-With State Growth Control enabled, historical state older than the configured retention window is not guaranteed to remain locally available.
-
-This affects RPC operations that require execution or state lookup against an older state root, including:
+When the sweeper is enabled:
 
 ```text
-eth_getBalance
-eth_getTransactionCount
-eth_getCode
-eth_getStorageAt
-eth_call
+normal trie write
+        ↓
+GC barrier read lock
+        ↓
+mark written key with current generation
+        ↓
+write key to trie database
 ```
 
-when an old block selector is used.
-
-A block may therefore still be available through:
+Both:
 
 ```text
-eth_getBlockByNumber
-eth_getBlockByHash
+Put(...)
 ```
 
-while the complete EVM state associated with that historical block is no longer locally available.
+and batched writes are generation protected.
 
-Applications that require arbitrary historical-state queries should use an archive-style node or another indexed historical-state service designed for that purpose.
+Contract code uses the same protected storage path.
 
 ---
 
-## 10. Storage behavior
+## 11. GC generations
 
-State Growth Control reduces accumulation caused by obsolete historical trie versions.
-
-It does **not** impose a fixed maximum database size.
-
-The local trie database can still grow because:
-
-- the current live account set can grow
-- contract storage can grow
-- new contract code can be deployed
-- the configured retention window can contain more state over time
-- LevelDB maintains its own storage and compaction structures
-
-The feature should therefore be understood as:
-
-> reclamation of unreachable historical trie and code data
-
-rather than:
-
-> a fixed-size state database
-
-Disk-space reclamation is coupled with LevelDB compaction of ranges in which garbage collection deleted data.
-
----
-
-## 11. Runtime impact
-
-Garbage collection is performed in bounded batches.
-
-The implementation inserts short pauses between batches so normal block processing remains prioritized over storage cleanup.
-
-A sweep can take significant time on a large database.
-
-This is expected.
-
-The node remains online while the sweep runs.
-
-Operators should monitor:
-
-- block-head progression
-- peer health
-- CPU utilization
-- disk I/O
-- free disk space
-- trie sweeper logs
-- sweep duration
-
----
-
-## 12. Logging
-
-When enabled, the node reports initialization parameters including:
+When write tracking begins:
 
 ```text
-retainBlocks
-interval
-trackingFromBlock
-workDir
+gcGeneration = 1
 ```
 
-A sweep reports its selected canonical range:
+Each sweep starts a new generation:
 
 ```text
-fromBlock
+gcGeneration++
+```
+
+For a production sweep with generation:
+
+```text
+G
+```
+
+the deletion logic preserves keys whose marker generation is:
+
+```text
+>= G - 1
+```
+
+Therefore both:
+
+```text
+current generation
+```
+
+and:
+
+```text
+immediately previous generation
+```
+
+are protected.
+
+---
+
+## 12. Why the previous generation is retained
+
+The extra generation protects the race where state is written shortly before the sweep generation changes but becomes canonical only afterward.
+
+Conceptually:
+
+```text
+state written in generation G-1
+        ↓
+sweep begins generation G
+        ↓
+that state becomes canonical
+```
+
+Without the grace generation it could appear unmarked during the new retained-root snapshot.
+
+The previous-generation protection prevents this race from deleting newly canonical state.
+
+---
+
+## 13. Startup synchronization
+
+The sweeper enables write tracking before recording its synchronization head.
+
+Startup sequence:
+
+```text
+initialize Trie Sweeper
+        ↓
+enable GC write tracking
+        ↓
+record current canonical head H
+        ↓
+wait until canonical head > H
+        ↓
+begin first sweep
+```
+
+Polling interval:
+
+```text
+250 ms
+```
+
+The first sweep therefore intentionally does not run immediately after process start.
+
+---
+
+## 14. Why it waits for a new head
+
+A state transition may already have been in flight when write tracking was enabled.
+
+In IBFT such a transition can target the next canonical height.
+
+Waiting for one canonical head advance ensures that this pre-tracking/in-flight state becomes either:
+
+- canonical and covered by retained-root selection, or
+- obsolete.
+
+This closes the startup race before deletion begins.
+
+---
+
+# Production scan path
+
+## 15. `SweepLive`
+
+The production server uses:
+
+```text
+SweepLive(...)
+```
+
+not the older snapshot-based sweep path.
+
+This matters operationally.
+
+`SweepLive` does not hold one long-lived LevelDB snapshot across a potentially very long full-database sweep.
+
+---
+
+## 16. Why long-lived snapshots are avoided
+
+A LevelDB snapshot or iterator can pin SSTables that it can still see.
+
+During a large online cleanup this could temporarily prevent physical disk reclamation of obsolete SSTables for hours.
+
+The production implementation instead:
+
+1. marks against the live immutable database,
+2. scans in bounded chunks,
+3. releases each iterator,
+4. deletes candidates,
+5. compacts the completed key range.
+
+This allows disk reclamation to progress during the sweep itself.
+
+---
+
+## 17. Range scanning
+
+The production sweep scans the database by first-byte ranges:
+
+```text
+0x00
+0x01
+...
+0xff
+```
+
+There are therefore:
+
+```text
+256
+```
+
+top-level scan ranges.
+
+Within each range, scanning occurs in bounded chunks.
+
+---
+
+## 18. Internal batching defaults
+
+Current `v3.1.1` internal defaults:
+
+| Internal setting | Value |
+| --- | ---: |
+| Delete batch | `256` keys |
+| Scan batch | `4096` keys |
+| Mark batch | `2048` operations |
+| GC pause | `10 ms` |
+
+These are implementation details, not current operator CLI settings.
+
+Small batches and short pauses are intended to keep normal block/state processing ahead of garbage collection.
+
+---
+
+## 19. Candidate deletion recheck
+
+The scan itself does not directly delete a candidate.
+
+Before deletion:
+
+1. scan iterator is released,
+2. exclusive GC write barrier is acquired,
+3. candidate generation marker is re-read,
+4. candidate is deleted only if it is still unprotected.
+
+This closes the race where a key becomes live between:
+
+```text
+scan
+```
+
+and:
+
+```text
+delete
+```
+
+---
+
+## 20. Conservative failure behavior
+
+If trie deletion succeeds but cleanup of its temporary GC marker metadata fails, the implementation reports an error.
+
+However, stale marker metadata is conservative.
+
+It can cause later cycles to:
+
+```text
+retain too much
+```
+
+but not to:
+
+```text
+delete live state because of the stale marker
+```
+
+The marker database is therefore safety-biased toward over-retention.
+
+---
+
+# Compaction
+
+## 21. LevelDB compaction
+
+The production server invokes the sweeper with:
+
+```text
+Compact: true
+```
+
+After a first-byte range has been scanned, that range is compacted only when the sweep actually deleted data from it.
+
+This helps physically reclaim LevelDB storage.
+
+Deletion alone does not guarantee immediate filesystem shrinkage without compaction.
+
+---
+
+## 22. Disk usage expectations
+
+The Trie Sweeper does not create a fixed maximum database size.
+
+Disk can continue to grow because:
+
+- current live state grows,
+- more accounts exist,
+- contracts add storage,
+- new code is deployed,
+- retained roots share substantial history,
+- the chosen retention window is large,
+- LevelDB maintains SSTables and compaction overhead,
+- temporary GC metadata also consumes storage during operation.
+
+Therefore:
+
+```text
+retainBlocks = 10,000
+```
+
+does not mean:
+
+```text
+database will stay below a specific GB size
+```
+
+---
+
+# Post-sweep verification
+
+## 23. Fresh canonical-head verification
+
+After sweep deletion and compaction, the server captures the current canonical head again.
+
+This can be newer than:
+
+```text
 toBlock
-roots
 ```
 
-A completed sweep reports statistics including:
+selected at the beginning of the sweep.
+
+That fresh head's state root is passed to:
+
+```text
+HashCheckerStrict(...)
+```
+
+---
+
+## 24. Strict hash checker
+
+The strict checker:
+
+- requires hash-linked trie nodes to exist,
+- recursively reconstructs the trie,
+- recalculates its root,
+- returns an error for missing referenced nodes.
+
+The calculated root must equal:
+
+```text
+head.StateRoot
+```
+
+If not, the cycle fails with an integrity mismatch.
+
+---
+
+## 25. Scope of the post-sweep check
+
+There are two integrity layers.
+
+### During mark phase
+
+Every configured retained root is traversed.
+
+Missing nodes or code for those roots cause marking to fail before deletion.
+
+### After sweep
+
+A freshly captured **current canonical head** is traversed again using the strict checker.
+
+The post-sweep check does not separately re-run the strict checker for every historical retained root.
+
+It verifies that current canonical state remained intact across the online sweep.
+
+---
+
+## 26. Completion log
+
+A successful production cycle logs:
 
 ```text
 generation
+fromBlock
+toBlock
 roots
 marked
 scanned
@@ -454,90 +683,688 @@ verifiedHead
 verifiedStateRoot
 ```
 
-These values can be used to monitor storage-reclamation behavior over time.
+A normal operator should pay particular attention to:
 
-A cycle failure is logged and does not silently redefine canonical chain state.
+```text
+deleted
+duration
+verifiedHead
+verifiedStateRoot
+```
 
 ---
 
-## 13. Disabling the feature
+# Configuration
 
-The feature may be disabled by removing:
+## 27. CLI flags
+
+```text
+--trie-sweeper
+--trie-sweeper-retain-blocks
+--trie-sweeper-interval
+```
+
+Current defaults:
+
+| Setting | Default |
+| --- | ---: |
+| Sweeper | disabled |
+| Retained canonical blocks | `10,000` |
+| Interval | `6h` |
+
+The defaults are defined directly by the `v3.1.1` server configuration.
+
+---
+
+## 28. Configuration-file fields
+
+Equivalent JSON/YAML/HCL configuration fields:
+
+```yaml
+trie_sweeper: true
+trie_sweeper_retain_blocks: 10000
+trie_sweeper_interval: 6h
+```
+
+---
+
+## 29. Validation requirements
+
+When the feature is enabled:
+
+```text
+retainBlocks > 0
+```
+
+and:
+
+```text
+interval > 0
+```
+
+are required.
+
+The sweeper additionally requires:
+
+- persistent non-empty data directory,
+- initialized canonical head,
+- LevelDB-backed immutable-trie storage.
+
+If these conditions are not met, startup of the sweeper fails.
+
+---
+
+## 30. Work directory
+
+The GC work directory is:
+
+```text
+<data-dir>/trie-gc
+```
+
+Marker database:
+
+```text
+<data-dir>/trie-gc/marks
+```
+
+Example:
+
+```text
+/var/lib/xgr/node/trie-gc/marks
+```
+
+---
+
+## 31. Marker data is temporary
+
+When the Trie Sweeper initializes, the implementation removes and recreates:
+
+```text
+<data-dir>/trie-gc
+```
+
+The marker database is therefore disposable garbage-collection metadata.
+
+It is not canonical blockchain state.
+
+It should not be treated as an authoritative component of a blockchain-state backup.
+
+The canonical trie database remains the important persistent state.
+
+---
+
+# Sweep scheduling
+
+## 32. First cycle
+
+The first cycle starts after:
+
+```text
+one canonical head advance
+```
+
+following write-tracking activation.
+
+It does not wait six hours before the first sweep.
+
+---
+
+## 33. Following cycles
+
+After a cycle ends, the worker starts a timer for:
+
+```text
+--trie-sweeper-interval
+```
+
+Default:
+
+```text
+6h
+```
+
+Therefore the cadence is:
+
+```text
+sweep duration
+        +
+configured interval
+        +
+next sweep
+```
+
+not:
+
+```text
+fixed every six hours from process start
+```
+
+---
+
+## 34. Failed cycle behavior
+
+If a cycle fails:
+
+- the error is logged,
+- canonical chain state is not silently changed to hide the error,
+- the background worker remains alive,
+- the normal interval is waited before another cycle is attempted.
+
+Integrity failures therefore remain visible in logs.
+
+---
+
+# Operator profiles
+
+## 35. General bounded-history node
+
+Example:
+
+```bash
+/opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --seal=false \
+  --trie-sweeper \
+  --trie-sweeper-retain-blocks 10000 \
+  --trie-sweeper-interval 6h
+```
+
+At the nominal two-second block target:
+
+```text
+10,000 blocks
+≈ 20,000 seconds
+≈ 5h 33m
+```
+
+The wall-clock duration is only approximate.
+
+---
+
+## 36. Longer-history RPC node
+
+Example:
+
+```text
+--trie-sweeper-retain-blocks 100000
+```
+
+Nominal time window:
+
+```text
+100,000 × 2 seconds
+≈ 55h 33m
+```
+
+A larger retention window requires more disk and more mark work.
+
+---
+
+## 37. Archive-style node
+
+For unrestricted historical EVM-state access:
+
+```text
+Trie Sweeper disabled
+```
+
+Do not enable pruning on the only node intended to provide arbitrary historical state.
+
+An archive-style node is appropriate for workloads requiring old:
+
+```text
+eth_getBalance
+eth_getTransactionCount
+eth_getCode
+eth_getStorageAt
+eth_call
+debug_trace*
+```
+
+against arbitrary historical heights.
+
+---
+
+## 38. Validator profile
+
+The Trie Sweeper can technically run on a validator because pruning is consensus-independent.
+
+However, validators are latency-sensitive.
+
+Before enabling it on validators:
+
+- validate behavior on a full/RPC node,
+- ensure adequate storage IOPS,
+- monitor consensus round changes,
+- monitor block progression,
+- monitor sweep duration,
+- avoid excessively aggressive retention policies without operational evidence.
+
+Consensus reliability takes priority over disk reclamation.
+
+---
+
+# RPC implications
+
+## 39. State-dependent historical RPC
+
+Pruning can affect requests such as:
+
+```text
+eth_getBalance
+eth_getTransactionCount
+eth_getCode
+eth_getStorageAt
+eth_call
+eth_estimateGas
+debug_traceCall
+debug_traceTransaction
+debug_traceBlockByNumber
+debug_traceBlockByHash
+```
+
+when execution requires an old state root that has been reclaimed.
+
+---
+
+## 40. History that remains independent
+
+The sweeper does not target canonical:
+
+```text
+eth_getBlockByNumber
+eth_getBlockByHash
+eth_getTransactionByHash
+eth_getTransactionReceipt
+eth_getLogs
+```
+
+data merely because its corresponding historical trie state is no longer retained.
+
+A node can therefore answer:
+
+```text
+What happened in block N?
+```
+
+while being unable to answer:
+
+```text
+What would this contract call have returned against state at block N?
+```
+
+---
+
+## 41. No exact expiry guarantee
+
+Operators should not promise clients that state will disappear exactly after:
+
+```text
+retainBlocks
+```
+
+because trie nodes can remain reachable through newer roots.
+
+The safe client contract is:
+
+> State inside the configured retained canonical-root window is intended to remain available; arbitrary state older than that window is not guaranteed.
+
+---
+
+# Operational monitoring
+
+## 42. Logs to monitor
+
+Initialization:
+
+```text
+Trie sweeper enabled
+retainBlocks
+interval
+trackingFromBlock
+workDir
+```
+
+Startup synchronization:
+
+```text
+Trie sweeper write tracking synchronized
+trackingFromBlock
+currentBlock
+```
+
+Cycle start:
+
+```text
+Trie sweeper cycle started
+fromBlock
+toBlock
+roots
+```
+
+Completion:
+
+```text
+Trie sweeper cycle completed
+generation
+marked
+scanned
+deleted
+retained
+skipped
+duration
+verifiedHead
+verifiedStateRoot
+```
+
+Failure:
+
+```text
+Trie sweeper cycle failed
+```
+
+---
+
+## 43. System metrics to correlate
+
+Monitor:
+
+- free filesystem capacity,
+- LevelDB directory size,
+- GC marker directory size,
+- disk latency,
+- disk throughput,
+- CPU,
+- memory,
+- block progression,
+- synchronization state,
+- peer count,
+- validator round behavior if applicable,
+- RPC latency,
+- sweep duration.
+
+Disk-space trends should be evaluated across multiple completed sweeps rather than immediately after enabling the feature.
+
+---
+
+## 44. Healthy cycle indicators
+
+A healthy completed cycle should show:
+
+```text
+verifiedHead
+verifiedStateRoot
+```
+
+and continued:
+
+```text
+canonical block progression
+```
+
+after completion.
+
+The absolute number of:
+
+```text
+deleted
+```
+
+entries can vary widely by chain state and prior pruning history.
+
+A low deletion count does not itself indicate failure.
+
+---
+
+## 45. Disk does not shrink immediately
+
+Possible explanations include:
+
+- few unreachable nodes existed,
+- much data is shared with retained roots,
+- current live state is large,
+- retention window is large,
+- filesystem/LevelDB effects lag behind logical deletion,
+- concurrent chain growth offsets reclaimed space.
+
+Use trend monitoring rather than a single filesystem snapshot.
+
+---
+
+# Disabling and recovery
+
+## 46. Disable future pruning
+
+Remove:
 
 ```text
 --trie-sweeper
 ```
 
-or configuring:
+or configure:
 
 ```yaml
 trie_sweeper: false
 ```
 
-Disabling the sweeper prevents future garbage-collection cycles.
+This stops future sweeps.
 
-It does **not** restore historical trie data that has already been deleted.
-
-If an operator later requires historical state that was previously pruned, that state must be reconstructed from an appropriate source or by rebuilding/resynchronizing the node under an archive-compatible retention policy.
+It does not recreate deleted state.
 
 ---
 
-## 14. Upgrade classification
+## 47. Deleted historical state cannot be toggled back on
 
-State Growth Control was introduced with:
+After pruning:
+
+```text
+disable sweeper
+```
+
+does **not** mean:
+
+```text
+historical state restored
+```
+
+The node has no local inverse operation that reconstructs deleted trie nodes simply from the configuration change.
+
+---
+
+## 48. Recovery when historical state is needed again
+
+Possible recovery paths include:
+
+- rebuild/resynchronize under an archive-compatible policy,
+- restore a suitable pre-pruning/archive backup,
+- query another archive-style node,
+- rebuild a dedicated historical-state service.
+
+Which approach is appropriate depends on the workload and available infrastructure.
+
+---
+
+## 49. Recovery after integrity failure
+
+If a sweep reports:
+
+```text
+post-sweep trie integrity check ...
+```
+
+or:
+
+```text
+post-sweep trie integrity mismatch ...
+```
+
+treat it as a serious storage-integrity event.
+
+Recommended procedure:
+
+1. preserve node logs,
+2. avoid treating the node as authoritative,
+3. if it is a validator, remove it from production consensus duties if integrity cannot immediately be established,
+4. compare block number and head hash with trusted nodes,
+5. check filesystem and disk health,
+6. preserve relevant database files for investigation if required,
+7. rebuild/resynchronize from a trusted state if integrity cannot be proven.
+
+Do not suppress the error and continue assuming historical/current trie integrity.
+
+---
+
+## 50. Backup considerations
+
+The canonical trie database is persistent node state.
+
+The directory:
+
+```text
+trie-gc
+```
+
+contains temporary GC tracking metadata.
+
+A backup/recovery strategy should therefore focus on:
+
+- canonical chain database,
+- trie database,
+- node role/configuration,
+- validator key material where applicable.
+
+Validator key backups must remain protected independently of storage-pruning policy.
+
+---
+
+# Upgrade classification
+
+## 51. Feature history
+
+State Growth Control was introduced in:
 
 ```text
 xgr-node v2.1.0
 ```
 
-Upgrade classification:
+Current verified baseline:
 
-| Property | v2.1.0 State Growth Control |
-|---|---|
+```text
+xgr-node v3.1.1
+```
+
+The original introduction remains historical; the current implementation reference should use `v3.1.1`.
+
+---
+
+## 52. Upgrade classification
+
+| Property | Trie Sweeper |
+| --- | --- |
 | Consensus change | No |
-| EVM execution change | No |
+| EVM semantics change | No |
 | State-transition change | No |
 | Canonical state-root change | No |
 | Transaction-format change | No |
 | Genesis change | No |
-| Fork activation | No |
-| Required activation block | No |
-| Node-local storage behavior | Yes |
-| Historical-state retention behavior | Yes, when enabled |
+| Hardfork required | No |
+| Activation block required | No |
+| Local storage behavior | Yes |
+| Historical-state availability | Yes |
 | Operator configurable | Yes |
 
-Nodes can therefore adopt `v2.1.0` without a coordinated consensus activation block.
+Changing local retention does not require validator-wide coordination.
 
 ---
 
-## 15. Operator checklist
+## 53. Operator checklist before enabling
 
-Before enabling State Growth Control:
-
-- confirm the node runs `xgr-node v2.1.0` or later
-- confirm the data directory is persistent
-- determine the historical-state window required by local applications
-- do not enable pruning on a node intended to provide unrestricted archive-state access
-- ensure sufficient temporary free disk capacity for normal LevelDB operation and compaction
-- monitor the first completed sweep carefully
-
-After enabling:
-
-- verify normal block progression
-- verify the node remains synchronized
-- inspect trie sweeper completion logs
-- confirm the reported `verifiedStateRoot`
-- monitor disk usage across multiple sweep cycles
-- verify RPC applications do not depend on state older than the configured retention window
+- Run a release that supports the Trie Sweeper.
+- For this documentation baseline, use `v3.1.1`.
+- Confirm a persistent data directory.
+- Confirm adequate free disk space.
+- Determine required historical-state window.
+- Determine whether any application needs archive RPC.
+- Determine whether historical debug tracing is required.
+- Do not prune the only archive node.
+- Record the chosen retention setting.
+- Record the sweep interval.
+- Ensure storage/IO monitoring is active.
+- Plan recovery before deleting historical state.
 
 ---
 
-## 16. Design principle
+## 54. Operator checklist after enabling
 
-XGR Chain separates canonical state correctness from local historical-state retention.
+Verify:
 
-The blockchain determines **what the current canonical state is**.
+- sweeper initialization log,
+- write-tracking synchronization,
+- first cycle starts after head advancement,
+- canonical head continues advancing,
+- synchronization remains healthy,
+- sweep completion appears,
+- `verifiedHead` is plausible,
+- `verifiedStateRoot` is present,
+- no integrity error appears,
+- disk latency remains acceptable,
+- applications function inside the expected state-history window.
 
-The node operator determines **how much historical state must remain locally queryable**.
+---
 
-State Growth Control makes that retention policy explicit and operationally configurable while preserving the canonical state-transition and consensus model of XGR Chain.
+## 55. Production defaults summary
+
+| Parameter | `v3.1.1` |
+| --- | --- |
+| Sweeper enabled by default | No |
+| Default retention | `10,000` blocks |
+| Default interval | `6h` |
+| Production sweep path | `SweepLive` |
+| Long-lived full DB snapshot | No |
+| Scan ranges | `256` first-byte ranges |
+| Default scan batch | `4096` |
+| Default delete batch | `256` |
+| Default mark batch | `2048` |
+| Default GC pause | `10 ms` |
+| Current + previous generation protected | Yes |
+| Contract code marked | Yes |
+| Contract code hash checked | Yes |
+| Compaction | Affected ranges |
+| Post-sweep current-head verification | Strict |
+| GC marker DB persistent canonical state | No |
+| Historical state outside window | Not guaranteed |
+| Canonical block history removed | No |
+
+---
+
+## 56. Design principle
+
+XGRChain separates:
+
+```text
+canonical state correctness
+```
+
+from:
+
+```text
+historical-state retention policy
+```
+
+The blockchain determines the canonical state root.
+
+The operator decides how much old EVM state must remain locally queryable.
+
+The Online State Trie Sweeper makes that policy explicit while protecting concurrent writes, retained canonical roots and the freshly captured canonical head.
+
+The operational contract is therefore:
+
+```text
+retain what is required
+verify what remains canonical
+reclaim what is no longer reachable
+```
+
+without changing XGRChain consensus.
