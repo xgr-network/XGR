@@ -5,7 +5,7 @@
 **Audience:** Developers, integrators, infrastructure operators, validator operators, auditors, wallet and exchange integrators  
 **Release baseline:** `xgr-node v3.1.1`  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
-**Implementation status:** XGRChain ↔ Base mainnet deployment active; both asset-transfer directions validated end-to-end on mainnet  
+**Implementation status:** Mainnet  
 **Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Canonical public network identities, deployed Interchain contracts, asset routers, validator registries, security modules and route relationships for the XGRChain ↔ Base mainnet deployment
@@ -33,19 +33,29 @@ It records:
 - route relationships,
 - known cross-chain address collisions,
 - mainnet end-to-end validation evidence,
+- public route status,
 - source-of-truth boundaries.
 
-This document describes public deployment identity.
+Both asset-transfer directions are deployed, end-to-end validated and publicly enabled on mainnet.
+
+Public bridge:
+
+```text
+https://bridge.xgr.network
+```
+
+This document defines deployment identity.
 
 Dynamic runtime state such as:
 
 - current RPC health,
-- router pause state,
 - router directional gates,
+- PausableISM state,
 - relayer process state,
 - relayer submission state,
+- validator attestation progress,
 
-must be queried live and must not be inferred solely from this document.
+must still be queried live when current operational availability is material.
 
 ---
 
@@ -53,15 +63,21 @@ must be queried live and must not be inferred solely from this document.
 
 The current production Interchain deployment connects:
 
-| Network | Chain ID | Chain ID hex | Interchain domain | Native gas asset |
-| --- | ---: | --- | ---: | --- |
-| XGRChain Mainnet | `1643` | `0x66b` | `1643` | XGR |
-| Base | `8453` | `0x2105` | `8453` | ETH |
+| Network | Chain ID | Chain ID hex | Interchain domain | Native gas asset | Status |
+| --- | ---: | --- | ---: | --- | --- |
+| XGRChain Mainnet | `1643` | `0x66b` | `1643` | XGR | Mainnet |
+| Base Mainnet | `8453` | `0x2105` | `8453` | ETH | Mainnet |
 
 Current XGRChain public node baseline:
 
 ```text
 xgr-node v3.1.1
+```
+
+Release commit:
+
+```text
+1a4844b311fb856cb8c2303a40fa8aa69b560544
 ```
 
 ---
@@ -161,12 +177,20 @@ Current XGRChain mainnet Interchain contracts:
 | Component | Address |
 | --- | --- |
 | Mailbox | `0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79` |
-| ValidatorAnnounce | `0x1814Be3E608883cA510707d3dc6f31792FD5CAaF` |
-| MerkleTreeHook | `0xeD98Af715b5a72dCD412567eb086d48225CDDACF` |
+| Mailbox implementation | `0xAAFc36b53FdC857429351256447E82f626d47F8a` |
+| ProxyAdmin | `0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3` |
+| StaticMerkleRootMultisigIsmFactory | `0xefBbbe5739662201d66b4B79017c4F6FC4E23896` |
+| StaticAggregationIsmFactory | `0xFEBEa0a947349E0aC857F9b7b248f1027804438e` |
+| DomainRoutingIsmFactory | `0xfbcE47b2A2Eb371700C6b82bf001d82996C64035` |
 | DomainRoutingISM | `0xAf03B407FED3c4857A24Be9ac8EC64b7d178AA51` |
+| MerkleTreeHook | `0xeD98Af715b5a72dCD412567eb086d48225CDDACF` |
+| ProtocolFee | `0xf5f7A6D1Bd721D56F016b77e4Fc59C24bE5EA75f` |
+| ValidatorAnnounce | `0x1814Be3E608883cA510707d3dc6f31792FD5CAaF` |
 | PausableISM | `0x1175F84765CFeA514ea1fd75162CFE8a6C64d4CA` |
 
-These contracts provide the XGRChain-side Hyperlane-compatible message infrastructure and route security composition.
+These contracts provide the XGRChain-side Hyperlane-compatible message infrastructure and route-security composition.
+
+`ValidatorAnnounce` remains deployed Hyperlane-compatible infrastructure but is not the trust anchor for XGR-native BLS Interchain security.
 
 ---
 
@@ -233,14 +257,20 @@ native XGR
 Role:
 
 ```text
-XGRChain → external network:
+XGRChain → Base:
 lock native XGR
 
-external network → XGRChain:
+Base → XGRChain:
 unlock native XGR
 ```
 
-This router is the XGRChain asset endpoint for the current XGR ↔ wXGR route.
+Deployment transaction:
+
+```text
+0x54229bb14d6a46a8f73b40a69e9a1c47b597741fb26b79007ae57e9d87331827
+```
+
+This router is the XGRChain asset endpoint for the production XGR ↔ wXGR route.
 
 ---
 
@@ -365,6 +395,10 @@ Base chain ID 8453
 
 The symbol `wXGR` alone is not sufficient identification.
 
+The Base synthetic router deployment transaction has not been recovered into the repository inventory.
+
+It therefore remains intentionally unset rather than guessed.
+
 ---
 
 # Forward Security Deployment
@@ -405,6 +439,14 @@ native XGR
 wXGR
 ```
 
+Status:
+
+```text
+Mainnet
+E2E validated
+publicly enabled
+```
+
 ---
 
 ## 15. Base BLS verifier
@@ -426,6 +468,18 @@ Component:
 
 ```text
 XGRInterchainBLSVerifier
+```
+
+Deployment transaction:
+
+```text
+0xff5615002c089761f6fd4822be328d9f296c3cc7b3459e190da7f8f4923232b8
+```
+
+Deployment block:
+
+```text
+51565950
 ```
 
 This component performs destination-side BLS verification for the deployed forward native XGR security generation.
@@ -458,6 +512,18 @@ Generation:
 V1
 ```
 
+Deployment transaction:
+
+```text
+0x5331761a279fd2f187c28439a7b54048f072427f4d0807cb712b88b631883778
+```
+
+Deployment block:
+
+```text
+51566144
+```
+
 Purpose:
 
 - canonical forward destination Interchain membership,
@@ -488,6 +554,18 @@ Component:
 XGRNativeInterchainISM
 ```
 
+Deployment transaction:
+
+```text
+0x41fdae1ce76c6da393c33f8facdafc4dd1faf469bb88c126be9935833beb5a15
+```
+
+Deployment block:
+
+```text
+51566230
+```
+
 The ISM verifies the native XGR Interchain security evidence required before XGR-origin messages can be accepted by the Base Mailbox.
 
 ---
@@ -498,17 +576,11 @@ The forward Base destination registry has been validated using:
 
 ```text
 setId = 3
-```
-
-with:
-
-```text
+validators = 3
 quorum = 2
 ```
 
-for the mainnet validation configuration.
-
-Validator-set membership is live deployment state and should be read from the canonical registry when current membership is required.
+Current validator-set membership is live deployment state and should be read from the canonical registry when current membership is required.
 
 Static documentation must not be treated as a permanent substitute for live registry state.
 
@@ -583,6 +655,14 @@ wXGR
 native XGR
 ```
 
+Status:
+
+```text
+Mainnet
+E2E validated
+publicly enabled
+```
+
 ---
 
 ## 21. Reverse external-source configuration
@@ -628,12 +708,30 @@ Generation:
 V2
 ```
 
+Deployment transaction:
+
+```text
+0x0cf70e63929a91ce3940bc1379dcbd2960732e69750152923480b6314f982873
+```
+
+Deployment block:
+
+```text
+10984538
+```
+
 The V2 registry supports:
 
 - destination-specific Interchain membership,
 - validator-set versioning,
 - historical validator-set retention,
 - BLS identity resolution.
+
+Set-1 commitment:
+
+```text
+0xd033fe96bf990d175beaae337ef327b8de94ca1aa8335b0bccc875bfcb2bff90
+```
 
 ---
 
@@ -643,21 +741,21 @@ The reverse XGRChain destination registry has been validated using:
 
 ```text
 setId = 1
-```
-
-with:
-
-```text
+validators = 3
 quorum = 2
 ```
 
-across:
+Verifier format:
 
 ```text
-3 configured Interchain validators
+compressed
 ```
 
-for the validated mainnet reverse deployment.
+Verifier:
+
+```text
+0x0000000000000000000000000000000000002040
+```
 
 Current membership must be read from live registry state when operationally relevant.
 
@@ -681,6 +779,18 @@ Component:
 
 ```text
 XGRNativeInterchainISMV2
+```
+
+Deployment transaction:
+
+```text
+0x6dbadb839dd1765f86455965a5fa237b73e9221ce77d332c5b60dca88f7c0708
+```
+
+Deployment block:
+
+```text
+11070512
 ```
 
 The ISM verifies:
@@ -713,6 +823,18 @@ Network:
 
 ```text
 XGRChain
+```
+
+Deployment transaction:
+
+```text
+0xdc160be658e85ca4f1c34ee49b1e4e6ad3722f93f886f796f454af70c45e7e67
+```
+
+Deployment block:
+
+```text
+11070639
 ```
 
 Policy:
@@ -755,7 +877,9 @@ operational safety gate
 
 The pause state is dynamic.
 
-Current availability must be queried on-chain and must not be assumed from this document.
+At the current mainnet baseline the required reverse safety gate is open and the route is publicly enabled.
+
+Current state must still be queried on-chain when operational availability is material.
 
 ---
 
@@ -767,7 +891,29 @@ Canonical XGRChain DomainRoutingISM:
 0xAf03B407FED3c4857A24Be9ac8EC64b7d178AA51
 ```
 
-The Base source domain is configured to use the corresponding reverse destination security path.
+Base source domain:
+
+```text
+8453
+```
+
+is configured to use the reverse V2 AggregationISM:
+
+```text
+0x35c2B8403a65D3bd2b86294BF1f26E13A246c05e
+```
+
+Routing update transaction:
+
+```text
+0x6f94a1652effdc487bf36ea51c47401536b5a06be64fd6e224cbbb53f897850f
+```
+
+XGRChain block:
+
+```text
+11070767
+```
 
 The routing relationship is part of the deployed Interchain security configuration.
 
@@ -824,10 +970,10 @@ XGR native router
 
 ## 29. Router reference
 
-| Network | Asset | Router | Role |
-| --- | --- | --- | --- |
-| XGRChain | Native XGR | `0x202C10bDeCf3B796EA4B4025C81952C4F2DD9f93` | Lock / unlock |
-| Base | wXGR | `0x3b83687d77170d42feddfe221629cc21e771e021` | Mint / burn |
+| Network | Asset | Router | Role | Status |
+| --- | --- | --- | --- | --- |
+| XGRChain | Native XGR | `0x202C10bDeCf3B796EA4B4025C81952C4F2DD9f93` | Lock / unlock | Mainnet |
+| Base | wXGR | `0x3b83687d77170d42feddfe221629cc21e771e021` | Mint / burn | Mainnet |
 
 These addresses define the current canonical XGRChain ↔ Base asset route.
 
@@ -897,20 +1043,26 @@ These are separate contracts on separate networks.
 
 ## 33. `0x3b83687...` collision
 
-Address:
+Base address:
 
 ```text
-0x3b83687d77170d42feDDfe221629cc21e771e021
+0x3b83687d77170d42feDDFe221629cc21e771e021
 ```
 
-On Base:
+identifies:
 
 ```text
 official wXGR contract
 Base synthetic XGR router
 ```
 
-On XGRChain:
+The corresponding checksummed address on XGRChain:
+
+```text
+0x3b83687d77170D42feDDFe221629cc21e771E021
+```
+
+identifies:
 
 ```text
 XGRNativeInterchainISMV2
@@ -972,12 +1124,28 @@ Source block:
 10836602
 ```
 
-The transfer produced an Interchain message and completed through the Base destination path.
-
-Observed Base destination processing transaction:
+Interchain message ID:
 
 ```text
-0x686e93af...
+0x1b73073ea020bbebbd716a68a58f11a10f8c0d712ccbd38d41ed1dfc53550ad7
+```
+
+Base destination processing transaction:
+
+```text
+0x686e93af92e2a14dee061b33042b62683bd51dcc7069374339d778c54403b90e
+```
+
+Checkpoint index:
+
+```text
+3
+```
+
+Set ID:
+
+```text
+3
 ```
 
 The validation confirmed:
@@ -991,7 +1159,7 @@ The validation confirmed:
 - Base destination verification,
 - wXGR mint.
 
-Where complete transaction identifiers are required for external audit evidence, use the canonical deployment and validation records in the Interchain repository rather than abbreviated documentation values.
+The forward route is publicly enabled on mainnet.
 
 ---
 
@@ -1008,7 +1176,7 @@ Amount:
 Base source transaction:
 
 ```text
-0x7a1b61b1...
+0x7a1b61b106e4d631ac599af322cdd7a54510e110ce747076fd934880e27edc89
 ```
 
 Interchain message ID:
@@ -1017,7 +1185,19 @@ Interchain message ID:
 0x47919e62a3811e192d5bfe3c1b70f1309675c6d8f8c2b2ee3a439358276c2160
 ```
 
-Observed XGRChain destination process transaction:
+Checkpoint index:
+
+```text
+2184212
+```
+
+Set ID:
+
+```text
+1
+```
+
+XGRChain destination processing transaction:
 
 ```text
 0x968503696b8a2eebd2c3701fc4c25ef7bde650883e1d81c63a472b0587f333ec
@@ -1047,21 +1227,26 @@ The validation confirmed:
 - XGR Mailbox processing,
 - native XGR unlock.
 
+The reverse route is publicly enabled on mainnet.
+
 ---
 
 ## 37. Validation evidence and production identity
 
-End-to-end validation establishes that the configured route has successfully executed a real mainnet asset transfer.
+End-to-end validation establishes that the configured route has successfully executed real mainnet asset transfers in both directions.
 
-It does not make historical test transactions part of the protocol configuration.
+Historical validation transactions are evidence.
+
+They are not themselves protocol configuration.
 
 The canonical production identity remains defined by:
 
-- live chain IDs,
+- chain IDs,
 - deployed contract addresses,
 - active route configuration,
 - validator registries,
-- security modules.
+- security modules,
+- live contract state where dynamic.
 
 ---
 
@@ -1069,9 +1254,9 @@ The canonical production identity remains defined by:
 
 ## 38. Static deployment versus dynamic state
 
-This document contains static deployment identity.
+This document contains canonical deployment identity.
 
-The following values are dynamic and must be checked live:
+The following values are dynamic:
 
 ```text
 router outboundEnabled
@@ -1085,16 +1270,58 @@ current registry membership
 current registry setId
 ```
 
-A static deployment reference must never be used as proof that a route is currently available.
+At the current documentation baseline, both production directions are publicly enabled.
+
+Dynamic state can still change after publication and must be checked live when current availability matters.
 
 ---
 
-## 39. Route availability
+## 39. Current mainnet route state
+
+Current production route:
+
+```text
+XGRChain ↔ Base
+```
+
+Forward:
+
+```text
+XGRChain → Base
+status: Mainnet
+E2E validated: yes
+publicly enabled: yes
+relayer submission: enabled
+relayer process: running
+```
+
+Reverse:
+
+```text
+Base → XGRChain
+status: Mainnet
+E2E validated: yes
+publicly enabled: yes
+relayer submission: enabled
+relayer process: running
+```
+
+Public bridge:
+
+```text
+https://bridge.xgr.network
+```
+
+These runtime observations do not convert dynamic controls into immutable protocol properties.
+
+---
+
+## 40. Route availability
 
 A production route can be:
 
 ```text
-deployed
+Mainnet
 ```
 
 while temporarily:
@@ -1103,36 +1330,38 @@ while temporarily:
 unavailable
 ```
 
-For example because:
+for example because:
 
 - a router direction is disabled,
 - a required safety module is paused,
 - validator quorum is unavailable,
 - a relayer is stopped,
-- destination RPC is unavailable.
+- an RPC endpoint is unavailable.
 
-Deployment identity and operational availability are intentionally separate concepts.
+Mainnet describes the production deployment environment.
+
+Current availability remains a live operational property.
 
 ---
 
-## 40. Forward availability checks
+## 41. Forward availability checks
 
 For XGRChain → Base, current operational availability can depend on:
 
 ```text
 XGR native router outboundEnabled
-Base wXGR router inboundEnabled
+Base destination route state
 forward relayer submission enabled
 forward relayer process running
 source and destination RPC availability
 validator attestation health
 ```
 
-These values must be queried from current runtime or live chain state.
+These values should be queried from current runtime or live chain state.
 
 ---
 
-## 41. Reverse availability checks
+## 42. Reverse availability checks
 
 For Base → XGRChain, current operational availability can depend on:
 
@@ -1146,13 +1375,13 @@ source and destination RPC availability
 reverse validator attestation health
 ```
 
-These values must be queried live.
+These values should be queried live.
 
 ---
 
 # Attestation Routes
 
-## 42. Forward attestation route
+## 43. Forward attestation route
 
 Forward route identifier:
 
@@ -1168,7 +1397,7 @@ xgr_getInterchainAttestation("base")
 
 ---
 
-## 43. Reverse attestation route
+## 44. Reverse attestation route
 
 Reverse route identifier:
 
@@ -1184,7 +1413,7 @@ xgr_getInterchainAttestation("base_to_xgr")
 
 ---
 
-## 44. Checkpoint-specific lookup
+## 45. Checkpoint-specific lookup
 
 A completed historical attestation can be queried using:
 
@@ -1205,7 +1434,7 @@ They do not request or force new validator signatures.
 
 # Relayer Deployment
 
-## 45. Native relayer implementation
+## 46. Native relayer implementation
 
 The current native relayer implementation is maintained in:
 
@@ -1213,13 +1442,13 @@ The current native relayer implementation is maintained in:
 xgr-network/xgr-hyperlane
 ```
 
-runtime path:
+Runtime path:
 
 ```text
 runtime/native-relayer/
 ```
 
-Route process management is implemented through:
+Route process management:
 
 ```text
 runtime/manage-relayers.sh
@@ -1227,7 +1456,7 @@ runtime/manage-relayers.sh
 
 ---
 
-## 46. Forward and reverse processes
+## 47. Forward and reverse processes
 
 Forward:
 
@@ -1252,7 +1481,37 @@ This allows one direction to be operated independently from the other.
 
 ---
 
-## 47. Relayer authority
+## 48. Current relayer baseline
+
+Forward:
+
+```text
+attestation route: base
+signature format: eip2537
+RELAYER_SUBMIT=true
+process: RUNNING
+```
+
+Reverse:
+
+```text
+attestation route: base_to_xgr
+signature format: compressed
+RELAYER_SUBMIT=true
+process: RUNNING
+```
+
+Current reverse Base RPC:
+
+```text
+https://base-rpc.publicnode.com
+```
+
+Runtime process state must still be monitored live.
+
+---
+
+## 49. Relayer authority
 
 The relayer account pays destination-chain transaction gas and submits message-delivery transactions.
 
@@ -1280,7 +1539,7 @@ docs/interchain/XGR_INTERCHAIN_Security_Model.md
 
 # Explorers and RPC
 
-## 48. XGRChain public RPC
+## 50. XGRChain public RPC
 
 Canonical public RPC:
 
@@ -1296,7 +1555,7 @@ Chain ID:
 
 ---
 
-## 49. XGRChain explorer
+## 51. XGRChain explorer
 
 Canonical public XGRChain explorer:
 
@@ -1306,9 +1565,9 @@ https://explorer.xgr.network
 
 ---
 
-## 50. Base RPC
+## 52. Base RPC
 
-The current public Base RPC endpoint used by XGR Interchain public configuration is:
+The current Base RPC endpoint used by XGR Interchain runtime configuration is:
 
 ```text
 https://base-rpc.publicnode.com
@@ -1320,13 +1579,13 @@ Chain ID:
 8453
 ```
 
-RPC provider endpoints are operational dependencies and may change without changing the deployed on-chain contract identities.
+RPC provider endpoints are operational dependencies and may change without changing deployed on-chain contract identities.
 
 ---
 
-## 51. Base explorer
+## 53. Base explorer
 
-Canonical explorer links for the current public bridge use:
+Canonical Base explorer:
 
 ```text
 https://basescan.org
@@ -1336,14 +1595,14 @@ The official wXGR contract can therefore be inspected under:
 
 ```text
 Base
-0x3b83687d77170d42feddfe221629cc21e771e021
+0x3b83687d77170d42feDDFe221629cc21e771e021
 ```
 
 ---
 
 # Deployment Source of Truth
 
-## 52. Public Interchain implementation
+## 54. Public Interchain implementation
 
 Implementation repository:
 
@@ -1351,7 +1610,7 @@ Implementation repository:
 https://github.com/xgr-network/xgr-hyperlane
 ```
 
-The canonical public implementation branch is:
+Canonical public implementation branch:
 
 ```text
 main
@@ -1370,7 +1629,7 @@ The repository contains:
 
 ---
 
-## 53. Deployment manifests
+## 55. Deployment manifests
 
 Machine-readable deployment inventories are maintained under:
 
@@ -1378,13 +1637,34 @@ Machine-readable deployment inventories are maintained under:
 xgr-network/xgr-hyperlane/deployments/
 ```
 
+Current canonical route manifests include:
+
+```text
+deployments/xgrchain-mainnet.json
+deployments/xgr-base-route.json
+```
+
 These manifests are the repository-level inventory for deployed components.
 
-When exact deployment transaction hashes, blocks or superseded deployment history are required, the deployment manifests should be used together with live chain state.
+Exact deployment transaction hashes, blocks and superseded deployment history should be taken from these manifests together with live chain state where verification is required.
 
 ---
 
-## 54. XGR public specifications
+## 56. Human-readable deployment inventory
+
+The implementation repository also maintains:
+
+```text
+docs/DEPLOYMENTS.md
+```
+
+as the human-readable deployment inventory.
+
+The public XGR specification and the implementation inventory serve different documentation layers and should remain synchronized.
+
+---
+
+## 57. XGR public specifications
 
 Public XGR specifications and reference documentation are maintained in:
 
@@ -1402,7 +1682,7 @@ This document is part of that specification layer.
 
 ---
 
-## 55. XGRChain node implementation
+## 58. XGRChain node implementation
 
 Native XGRChain Interchain functionality is implemented in:
 
@@ -1422,12 +1702,14 @@ Native Interchain node functionality and on-chain Interchain deployment are inde
 
 # Canonical Address Summary
 
-## 56. XGRChain
+## 59. XGRChain
 
 | Component | Address |
 | --- | --- |
 | Native XGR router | `0x202C10bDeCf3B796EA4B4025C81952C4F2DD9f93` |
 | Mailbox | `0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79` |
+| Mailbox implementation | `0xAAFc36b53FdC857429351256447E82f626d47F8a` |
+| ProxyAdmin | `0xa49AB7f367B6EA25ae1362883F505E2Dc612d1e3` |
 | MerkleTreeHook | `0xeD98Af715b5a72dCD412567eb086d48225CDDACF` |
 | ValidatorAnnounce | `0x1814Be3E608883cA510707d3dc6f31792FD5CAaF` |
 | DomainRoutingISM | `0xAf03B407FED3c4857A24Be9ac8EC64b7d178AA51` |
@@ -1439,7 +1721,7 @@ Native Interchain node functionality and on-chain Interchain deployment are inde
 
 ---
 
-## 57. Base
+## 60. Base
 
 | Component | Address |
 | --- | --- |
@@ -1456,7 +1738,7 @@ Native Interchain node functionality and on-chain Interchain deployment are inde
 
 # Integration Reference
 
-## 58. Minimum wallet integration data
+## 61. Minimum wallet integration data
 
 For XGRChain:
 
@@ -1482,7 +1764,7 @@ Official wXGR:
 
 ---
 
-## 59. Minimum DEX integration data
+## 62. Minimum DEX integration data
 
 A Base DEX integrating official wXGR should use:
 
@@ -1499,7 +1781,7 @@ The DEX pool itself remains separate from the XGR Interchain bridge contracts.
 
 ---
 
-## 60. Minimum bridge integration data
+## 63. Minimum bridge integration data
 
 Forward:
 
@@ -1521,7 +1803,7 @@ Reverse:
 Source:
 Base
 domain 8453
-router 0x3b83687d77170d42feddfe221629cc21e771e021
+router 0x3b83687d77170d42feDDFe221629cc21e771e021
 
 Destination:
 XGRChain
@@ -1535,21 +1817,19 @@ Applications must additionally respect live route availability.
 
 # Security and Operational Boundaries
 
-## 61. Addresses do not prove availability
+## 64. Addresses do not prove availability
 
 The existence of deployed bytecode at the canonical addresses proves deployment.
 
-It does not prove:
+It does not prove that every required runtime dependency is currently healthy.
 
-```text
-route currently open
-```
+At the current mainnet baseline, both route directions are publicly enabled.
 
-Current route operation depends on live state.
+Live availability can nevertheless change independently from deployment identity.
 
 ---
 
-## 62. Registry state is dynamic
+## 65. Registry state is dynamic
 
 The validator registry addresses are static deployment identities.
 
@@ -1571,11 +1851,11 @@ when needed.
 
 ---
 
-## 63. Safety state is dynamic
+## 66. Safety state is dynamic
 
 The PausableISM address is static.
 
-Its current:
+Its:
 
 ```text
 paused()
@@ -1583,11 +1863,13 @@ paused()
 
 state is dynamic.
 
-A monitoring system must query the contract rather than infer current state from this document.
+At the current mainnet baseline the required reverse safety module is not paused.
+
+Monitoring systems must still query the contract for current state.
 
 ---
 
-## 64. Router gates are dynamic
+## 67. Router gates are dynamic
 
 Router directional state such as:
 
@@ -1603,11 +1885,13 @@ inboundEnabled()
 
 is dynamic.
 
-Integrations that need to decide whether users can currently transfer should read current state.
+At the current mainnet baseline the required XGRChain ↔ Base route gates are enabled.
+
+Integrations should still read current state when deciding whether users can transfer.
 
 ---
 
-## 65. Relayer state is off-chain runtime state
+## 68. Relayer state is off-chain runtime state
 
 Relayer process state and submission state are not encoded solely by deployed contract addresses.
 
@@ -1620,13 +1904,23 @@ RELAYER_SUBMIT=true / false
 
 belong to the operational runtime layer.
 
-They must be monitored separately.
+At the current mainnet baseline:
+
+```text
+forward RELAYER_SUBMIT=true
+forward process=RUNNING
+
+reverse RELAYER_SUBMIT=true
+reverse process=RUNNING
+```
+
+These values remain dynamic and must be monitored operationally.
 
 ---
 
 # Documentation Relationships
 
-## 66. Interchain overview
+## 69. Interchain overview
 
 Architecture overview:
 
@@ -1636,7 +1930,7 @@ docs/interchain/XGR_INTERCHAIN_Overview.md
 
 ---
 
-## 67. Security model
+## 70. Security model
 
 Validator, BLS, quorum and trust semantics:
 
@@ -1646,7 +1940,7 @@ docs/interchain/XGR_INTERCHAIN_Security_Model.md
 
 ---
 
-## 68. Asset bridge
+## 71. Asset bridge
 
 Asset and supply behavior:
 
@@ -1656,7 +1950,7 @@ docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md
 
 ---
 
-## 69. Implementation documentation
+## 72. Implementation documentation
 
 Detailed implementation, deployment and operator documentation:
 
@@ -1667,8 +1961,10 @@ https://github.com/xgr-network/xgr-hyperlane
 Relevant repository documentation includes:
 
 ```text
+README.md
 docs/architecture.md
 docs/operations.md
+docs/DEPLOYMENTS.md
 ```
 
 and the deployment manifests under:
@@ -1679,7 +1975,7 @@ deployments/
 
 ---
 
-## 70. Update triggers
+## 73. Update triggers
 
 This document must be reviewed when any of the following changes:
 
@@ -1710,29 +2006,38 @@ do not require rewriting static deployment identity unless they change the canon
 
 ---
 
-## 71. Deployment summary
+## 74. Deployment summary
 
 | Topic | Current production deployment |
 | --- | --- |
+| Implementation status | Mainnet |
 | Native network | XGRChain |
 | XGRChain ID/domain | `1643` |
 | External network | Base |
 | Base ID/domain | `8453` |
 | Native asset | XGR |
 | Wrapped asset | wXGR |
+| Asset decimals | `18` |
+| Nominal representation | `1 XGR ↔ 1 wXGR` |
 | XGR native router | `0x202C10bDeCf3B796EA4B4025C81952C4F2DD9f93` |
 | Base wXGR / router | `0x3b83687d77170d42feddfe221629cc21e771e021` |
 | XGR Mailbox | `0x5632409bc2f0e8bAc4AaF43654D4FFc7822C9c79` |
 | Base Mailbox | `0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D` |
 | Forward registry | `0x70F5752326735b31641f21D174BA035E904Db93c` |
+| Forward set | `setId 3`, `3 validators`, `quorum 2` |
 | Forward ISM | `0x3d2aDD3a7dAcb82C11338b6731B22d2aFeD4E1Cc` |
 | Reverse RegistryV2 | `0x013F2F2f7dB897F941b19C4ab71C5395a48A0292` |
+| Reverse set | `setId 1`, `3 validators`, `quorum 2` |
 | Reverse ISMV2 | `0x3b83687d77170D42feDDFe221629cc21e771E021` |
 | Reverse AggregationISM | `0x35c2B8403a65D3bd2b86294BF1f26E13A246c05e` |
 | Reverse PausableISM | `0x1175F84765CFeA514ea1fd75162CFE8a6C64d4CA` |
 | Native XGR BLS precompile | `0x2040` |
-| Forward route | Mainnet E2E validated |
-| Reverse route | Mainnet E2E validated |
+| Reverse confirmation delay | `12 Base blocks` |
+| Forward route | Mainnet / E2E validated / public |
+| Reverse route | Mainnet / E2E validated / public |
+| Forward relayer | Submission enabled / running |
+| Reverse relayer | Submission enabled / running |
+| Public bridge | `https://bridge.xgr.network` |
 
 The canonical production asset identity is:
 
@@ -1749,3 +2054,5 @@ with official Base wXGR at:
 ```
 
 All deployment addresses must be interpreted together with their network identity.
+
+The XGRChain ↔ Base Interchain route is deployed, bidirectionally validated, operationally enabled and publicly available on mainnet.
