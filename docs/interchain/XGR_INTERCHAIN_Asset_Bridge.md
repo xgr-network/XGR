@@ -5,7 +5,7 @@
 **Audience:** Developers, integrators, wallet developers, exchange integrators, infrastructure operators, auditors  
 **Release baseline:** `xgr-node v3.1.1`  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
-**Implementation status:** XGRChain ↔ Base asset bridge deployed and bidirectionally validated on mainnet  
+**Implementation status:** Mainnet  
 **Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Native XGR and wXGR asset model, lock/mint and burn/unlock semantics, transfer lifecycle, supply relationship and integration requirements
@@ -30,6 +30,20 @@ It explains:
 - bridge versus exchange behavior,
 - transfer lifecycle,
 - public integration requirements.
+
+The current production route is:
+
+```text
+XGRChain ↔ Base
+```
+
+Both transfer directions are deployed, end-to-end validated and publicly enabled on mainnet.
+
+Public bridge:
+
+```text
+https://bridge.xgr.network
+```
 
 The Interchain security model is documented separately in:
 
@@ -95,6 +109,7 @@ Mainnet identity:
 | Interchain domain | `1643` |
 | Native asset | XGR |
 | Decimals | `18` |
+| Status | Mainnet |
 
 Native XGR is part of the XGRChain protocol environment.
 
@@ -125,6 +140,7 @@ For the current Base deployment:
 | Asset | wXGR |
 | Decimals | `18` |
 | Type | Synthetic wrapped representation of native XGR |
+| Status | Mainnet |
 
 Official Base wXGR contract:
 
@@ -281,6 +297,8 @@ Base synthetic router
 wXGR
 ```
 
+The route is deployed and publicly enabled on mainnet.
+
 ---
 
 ## 9. Forward custody model
@@ -369,6 +387,8 @@ XGR native router
     ▼
 native XGR
 ```
+
+The route is deployed and publicly enabled on mainnet.
 
 ---
 
@@ -567,14 +587,27 @@ For example:
 0x202C10bDeCf3B796EA4B4025C81952C4F2DD9f93
 ```
 
-is currently:
+is:
 
 ```text
 XGRChain:
 native XGR asset router
 ```
 
-and on Base the same hexadecimal address is used by a different Interchain component.
+and:
+
+```text
+Base:
+XGR Interchain BLS verifier
+```
+
+Likewise:
+
+```text
+0x3b83687d77170d42feDDFe221629cc21e771e021
+```
+
+is the official wXGR / synthetic router on Base, while the corresponding XGRChain address identifies `XGRNativeInterchainISMV2`.
 
 Therefore integration software must never identify a bridge component by address alone.
 
@@ -635,6 +668,12 @@ A normal Base → XGRChain user transfer follows this lifecycle:
 16. recipient receives native XGR
 ```
 
+Current Base source confirmation delay:
+
+```text
+12 Base blocks
+```
+
 ---
 
 ## 22. Source transaction
@@ -667,7 +706,7 @@ By default, the recipient can be the same wallet address that initiated the tran
 
 Because both current networks use EVM-style addresses, the same account address can exist on both networks.
 
-A bridge interface may also support a different destination address.
+A bridge interface may also support a different destination address where the deployed interface permits it.
 
 Users must verify the destination address before signing the source transaction.
 
@@ -735,7 +774,7 @@ required asset:
 wXGR
 ```
 
-Where a route requires a separate native gas asset, the user must also hold enough of that network's native gas token to submit the source transaction.
+The source wallet must also hold enough of the network's native gas asset to submit the source transaction.
 
 ---
 
@@ -753,7 +792,7 @@ Base transaction gas is paid in:
 ETH
 ```
 
-Therefore a Base → XGRChain transfer may require:
+Therefore a Base → XGRChain transfer requires:
 
 ```text
 wXGR
@@ -769,13 +808,13 @@ even though the transferred asset itself is wXGR.
 
 The bridge can require fees associated with routing and destination processing.
 
-The user-facing bridge should calculate the current route requirements before transaction submission.
+The user-facing bridge calculates current route requirements before transaction submission.
 
-A quoted transfer can contain:
+A transfer quote can contain:
 
 - transferred asset amount,
-- native routing fee,
-- additional token-denominated fee where configured,
+- routing or transfer fee,
+- source-chain transaction gas requirement,
 - total amount required from the source wallet.
 
 Fee configuration is operational and may change independently from the nominal:
@@ -796,16 +835,16 @@ Example conceptually:
 
 ```text
 conversion amount: 100 XGR
-routing fee:         separate
+transfer fee:       separate
 ```
 
-The asset representation remains:
+The bridge representation remains nominally:
 
 ```text
-100 XGR → 100 wXGR
+100 XGR ↔ 100 wXGR
 ```
 
-while the sender may need additional value to cover execution or route fees.
+while the sender may need additional value to cover execution or route costs.
 
 Therefore:
 
@@ -819,18 +858,16 @@ conversion exchange rate
 
 ## 30. Quote behavior
 
-Before submission, the bridge can request a current quote from the source router.
-
-The quote provides the currently required transfer cost for the selected:
+Before submission, the bridge can obtain current transfer requirements for the selected:
 
 - source network,
 - destination network,
 - recipient,
 - amount.
 
-A quote is an execution requirement.
+The resulting quote represents current bridge execution requirements.
 
-It must not be interpreted as a guaranteed market price.
+It must not be interpreted as a market-price quote.
 
 ---
 
@@ -858,7 +895,9 @@ A successful forward transfer requires at least:
 - working destination verification,
 - message delivery.
 
-If a required condition is unavailable, the transfer should not be represented as available to the user.
+At the current mainnet baseline, the forward route is publicly enabled.
+
+If a required live condition becomes unavailable, the transfer should not be represented as currently available to the user.
 
 ---
 
@@ -867,7 +906,7 @@ If a required condition is unavailable, the transfer should not be represented a
 A successful reverse transfer requires at least:
 
 - sufficient wXGR,
-- sufficient Base ETH for transaction gas where required,
+- sufficient Base ETH for transaction gas,
 - source wallet authorization,
 - Base router enabled,
 - XGR router enabled,
@@ -875,7 +914,9 @@ A successful reverse transfer requires at least:
 - destination security policy open,
 - message delivery.
 
-The existence of the wXGR contract alone does not prove that reverse conversion is currently available.
+At the current mainnet baseline, the reverse route is publicly enabled.
+
+The existence of the wXGR contract alone does not prove current reverse-route health.
 
 ---
 
@@ -901,33 +942,35 @@ These controls are operational availability mechanisms.
 
 They do not redefine the asset model.
 
+At the current production baseline, the required XGRChain ↔ Base route gates are enabled.
+
+Their state remains dynamic and must be checked live when current availability is material.
+
 ---
 
 ## 35. Reverse pause control
 
 The current Base → XGRChain route includes an additional destination safety control.
 
-A paused required security module prevents reverse message delivery.
-
-In that state:
+The reverse destination path uses a 2-of-2 aggregation containing:
 
 ```text
-wXGR exists
+PausableISM
++
+XGRNativeInterchainISMV2
 ```
 
-and:
+A paused PausableISM prevents reverse message delivery.
+
+At the current production baseline:
 
 ```text
-reverse protocol is deployed
+PausableISM = not paused
 ```
 
-can both remain true while:
+and the reverse route is publicly enabled.
 
-```text
-reverse transfer currently unavailable
-```
-
-is also true.
+The pause state remains dynamic.
 
 ---
 
@@ -949,7 +992,7 @@ A source transaction can be finalized before the destination transfer has comple
 
 A user interface should therefore represent cross-chain progress explicitly.
 
-A simple user-facing model is:
+The current public bridge uses the simplified lifecycle:
 
 ```text
 Sent
@@ -1307,13 +1350,13 @@ A user-facing application should present this as a normal cancellation rather th
 
 ## 56. Token approval behavior
 
-Wrapped-token routes may require ERC-20 approval when the router needs permission to transfer an additional token-denominated fee or asset amount according to the deployed contract design.
+Token allowance requirements are deployment- and call-path-specific.
 
-Approval is separate from final transfer execution.
+Integrations must not assume that every wrapped-token bridge transfer requires a separate ERC-20 approval transaction.
 
-The wallet may therefore display more than one transaction where contract allowances are required.
+If a deployed route or future integration requires an ERC-20 allowance for a specific contract call, that approval is separate from the final transfer execution.
 
-The exact approval behavior must follow the current deployed router implementation.
+The current behavior must be derived from the deployed router interface and production bridge implementation rather than from a generic wrapped-token assumption.
 
 ---
 
@@ -1378,20 +1421,20 @@ Official bridge minting remains tied to authenticated XGR Interchain processing.
 
 ## 60. Creating wXGR for ecosystem liquidity
 
-wXGR intended for normal ecosystem use should be created through the bridge route.
+wXGR intended for normal ecosystem use should be created through the official bridge route.
 
 Conceptually:
 
 ```text
-strategic native XGR
-        │
-        ▼
+native XGR
+    │
+    ▼
 official XGR bridge
-        │
-        ▼
+    │
+    ▼
 official wXGR
-        │
-        ▼
+    │
+    ▼
 DEX / application liquidity
 ```
 
@@ -1480,6 +1523,8 @@ The validation demonstrated successful:
 - Base verification,
 - wXGR minting.
 
+The forward route is publicly enabled on mainnet.
+
 ---
 
 ## 65. Mainnet reverse validation
@@ -1513,44 +1558,63 @@ The validation demonstrated successful:
 - native XGRChain verification,
 - native XGR unlocking.
 
+The reverse route is publicly enabled on mainnet.
+
 ---
 
 ## 66. End-to-end validation meaning
 
 End-to-end validation demonstrates that the full asset path has executed successfully.
 
-It does not by itself mean that:
+It establishes implementation evidence for the configured route.
 
-- every route is permanently enabled,
-- every relayer is always online,
-- every RPC endpoint is always healthy,
+It does not mean that:
+
+- a relayer can never experience an outage,
+- an RPC endpoint can never fail,
+- a route can never be deliberately paused,
 - every future transfer is guaranteed to complete within a fixed time.
 
-Operational availability is a live system property.
+For the current XGRChain ↔ Base deployment, both directions have additionally progressed beyond validation to normal public mainnet availability.
+
+Operational health remains a live system property.
 
 ---
 
 ## 67. Public bridge availability
 
-A public bridge should only allow submission when the required route conditions are available.
+The production bridge is publicly available at:
 
-Relevant conditions can include:
+```text
+https://bridge.xgr.network
+```
 
-- source network reachable,
-- destination network reachable,
-- source router enabled,
-- destination router enabled,
-- required safety module unpaused,
-- relayer submission enabled,
-- relayer process operational.
+Current supported directions:
 
-The UI should fail closed when these required conditions are not satisfied.
+```text
+XGR → wXGR
+wXGR → XGR
+```
+
+At the current mainnet baseline, both directions are enabled.
+
+The bridge should continue to derive user-facing availability from live route conditions, including where applicable:
+
+- source network reachability,
+- destination network reachability,
+- source router state,
+- destination router state,
+- required safety-module state,
+- relayer submission state,
+- relayer process state.
+
+The UI should fail closed when required conditions are not satisfied.
 
 ---
 
 ## 68. User-facing terminology
 
-A user-facing bridge may describe the asset operation as:
+The production bridge describes the asset operation using simplified terminology such as:
 
 ```text
 Convert XGR to wXGR
@@ -1561,8 +1625,6 @@ and:
 ```text
 Convert wXGR to XGR
 ```
-
-This terminology is intended to simplify the user experience.
 
 The technical semantics remain:
 
@@ -1582,22 +1644,19 @@ burn / verify / unlock
 
 ## 69. Bridge branding versus protocol terminology
 
-The public service can be presented as:
+The public service is the XGR Bridge.
 
-```text
-XGR Bridge
-```
-
-while the primary user action is described as:
+The primary user-facing action may be described as:
 
 ```text
 Move XGR
 ```
 
-or:
+or direction-specifically as:
 
 ```text
 Convert XGR to wXGR
+Convert wXGR to XGR
 ```
 
 This does not alter the underlying XGR Interchain protocol terminology.
@@ -1619,12 +1678,12 @@ An application integrating the asset bridge should know at minimum:
 - asset decimals,
 - transfer amount,
 - recipient,
-- current fee quote,
+- current fee requirements,
 - source transaction hash,
 - Interchain message ID,
 - destination completion state.
 
-Applications should not hard-code assumptions about current availability based solely on deployment existence.
+Applications should not hard-code assumptions about current runtime health based solely on deployment existence.
 
 ---
 
@@ -1769,7 +1828,11 @@ XGRChain explorer:
 https://explorer.xgr.network
 ```
 
-Base transactions and contracts can be inspected through compatible Base explorers such as BaseScan.
+Base explorer:
+
+```text
+https://basescan.org
+```
 
 Explorer presentation does not replace direct chain-state verification for protocol integrations.
 
@@ -1790,7 +1853,7 @@ before:
 
 - importing wXGR,
 - creating a DEX pool,
-- approving token spending,
+- interacting with token permissions,
 - building bridge integrations.
 
 ---
@@ -1900,7 +1963,8 @@ Each route must be separately:
 - configured,
 - security-validated,
 - end-to-end tested,
-- operationally enabled.
+- operationally enabled,
+- publicly enabled where intended.
 
 ---
 
@@ -1967,7 +2031,7 @@ This document must be reviewed when any of the following changes:
 - burn/unlock semantics,
 - transfer-fee model,
 - router call interface,
-- token approval requirements,
+- token allowance requirements,
 - bridge supply accounting,
 - public transfer lifecycle,
 - multi-network wrapped-asset model.
@@ -1980,6 +2044,7 @@ Purely cosmetic user-interface changes do not require a revision unless they cha
 
 | Topic | Current model |
 | --- | --- |
+| Implementation status | Mainnet |
 | Native asset | XGR |
 | Native network | XGRChain |
 | XGRChain ID | `1643` |
@@ -1994,8 +2059,9 @@ Purely cosmetic user-interface changes do not require a revision unless they cha
 | DEX market price | Separate from bridge ratio |
 | Official Base wXGR | `0x3b83687d77170d42feddfe221629cc21e771e021` |
 | XGR native router | `0x202C10bDeCf3B796EA4B4025C81952C4F2DD9f93` |
-| Forward route | Mainnet E2E validated |
-| Reverse route | Mainnet E2E validated |
+| Forward route | Mainnet / E2E validated / public |
+| Reverse route | Mainnet / E2E validated / public |
+| Public bridge | `https://bridge.xgr.network` |
 
 The core asset invariant is:
 
