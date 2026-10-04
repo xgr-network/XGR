@@ -4,7 +4,7 @@ XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on d
 
 The core technology is XDaLa, a validation-to-execution engine that extends transactions into auditable multi-step workflows by combining on-chain rules, external data sources and smart contract execution.
 
-XGR Network also provides Interchain infrastructure for transferring XGR between XGRChain and supported external networks.
+XGR Network also provides native Interchain infrastructure for transferring XGR between XGRChain and supported external networks.
 
 This repository contains the public specifications, standards and reference documentation for XGR Network.
 
@@ -53,64 +53,143 @@ XDaLa is a process layer that operates across three stages:
 
 XDaLa is designed for use cases that require deterministic behavior, regulatory constraints or controlled execution flows.
 
+XDaLa is deployed on XGRChain mainnet.
+
 ---
 
 ## Interchain
 
-XGR Network maintains Interchain infrastructure for cross-chain XGR transfers.
+XGR Network maintains XGRChain-native Interchain infrastructure for cross-chain XGR transfers.
 
-The first implemented and mainnet-validated XGR asset route connects:
+The first production XGR asset route connects:
 
 - **XGRChain** — chain/domain `1643`
 - **Base** — chain/domain `8453`
 
-The route preserves native XGR on XGRChain and represents bridged XGR as synthetic XGR / wXGR on Base.
+The route preserves native XGR on XGRChain and represents bridged XGR as wrapped XGR / wXGR on Base.
 
 ### XGRChain → Base
 
-    native XGR
-        │
-        │ lock
-        ▼
-    XGR native router
-        │
-        │ cross-chain message
-        ▼
-    Base synthetic router
-        │
-        │ mint
-        ▼
-    wXGR
+```text
+native XGR
+    │
+    │ lock
+    ▼
+XGR native router
+    │
+    │ authenticated cross-chain message
+    ▼
+Base synthetic router
+    │
+    │ mint
+    ▼
+wXGR
+```
 
 ### Base → XGRChain
 
-    wXGR
-        │
-        │ burn
-        ▼
-    Base synthetic router
-        │
-        │ cross-chain message
-        ▼
-    XGR native router
-        │
-        │ unlock
-        ▼
-    native XGR
+```text
+wXGR
+    │
+    │ burn
+    ▼
+Base synthetic router
+    │
+    │ authenticated cross-chain message
+    ▼
+XGR native router
+    │
+    │ unlock
+    ▼
+native XGR
+```
 
-Both directions have been validated end-to-end on mainnet.
+Both directions are deployed and have been validated end-to-end on mainnet.
 
-Bidirectional end-to-end validation demonstrates that both transfer paths have operated successfully on mainnet. It does not by itself imply that every route direction is continuously enabled, that every relayer is currently submitting transactions, or that a public user-facing bridge is open.
+The public bidirectional bridge is available at:
 
-Current route, deployment and operational state is maintained separately in the Interchain repository and its deployment manifests.
+https://bridge.xgr.network
 
-The Interchain backend combines Hyperlane-compatible messaging with XGR-specific validator, BLS, Merkle-proof and destination security-module infrastructure.
+The official Base wXGR contract is:
 
-Implementation and deployment tooling are maintained in:
+```text
+0x3b83687d77170d42feddfe221629cc21e771e021
+```
+
+The nominal bridge representation is:
+
+```text
+1 XGR ↔ 1 wXGR
+```
+
+before applicable transaction and routing fees.
+
+XGRChain provides native support for the Interchain security model, including native BLS12-381 verification through the execution precompile:
+
+```text
+0x0000000000000000000000000000000000002040
+```
+
+XGR Interchain uses:
+
+- Hyperlane-compatible message transport,
+- XGR-native validator attestations,
+- BLS aggregate signatures,
+- destination-specific validator registries,
+- Merkle inclusion proofs,
+- destination Interchain Security Modules,
+- native relayers,
+- explicit route and safety controls.
+
+XGRChain consensus and XGR Interchain security are deliberately separate security domains:
+
+```text
+XGRChain consensus
+≠
+XGR Interchain validator quorum
+```
+
+The native Interchain worker is outside the weighted-IBFT consensus-critical path.
+
+A remote-chain or relayer failure therefore does not become an XGRChain consensus dependency.
+
+The relayer transports already authorized proof material and pays destination transaction gas.
+
+It is not the trust anchor for transfer validity and cannot create a valid XGR Interchain BLS quorum by itself.
+
+### Public Interchain documentation
+
+The public specification set is maintained under:
+
+```text
+docs/interchain/
+```
+
+Start with:
+
+- [`docs/interchain/XGR_INTERCHAIN_Overview.md`](docs/interchain/XGR_INTERCHAIN_Overview.md)
+- [`docs/interchain/XGR_INTERCHAIN_Security_Model.md`](docs/interchain/XGR_INTERCHAIN_Security_Model.md)
+- [`docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md`](docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md)
+- [`docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md`](docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md)
+
+These documents define:
+
+- architecture and system boundaries,
+- validator membership and quorum,
+- BLS attestations,
+- Merkle proof verification,
+- relayer trust boundaries,
+- native XGR and wXGR asset semantics,
+- lock/mint and burn/unlock behavior,
+- canonical production deployment identities.
+
+Implementation, deployment manifests and operator tooling are maintained in:
 
 https://github.com/xgr-network/xgr-hyperlane
 
-Detailed architecture, deployment and operator documentation is maintained separately from the XGRChain node implementation.
+Detailed implementation and operations documentation is maintained separately from the XGRChain node implementation.
+
+Dynamic operational state such as route gates, pause controls, current validator membership, RPC health and relayer process state must be read from live deployment and runtime state.
 
 ---
 
@@ -136,7 +215,7 @@ MCP-compatible agents can:
 - create mainnet XGR purchase reservations for an exact XGR amount or a maximum USDC/USDT budget,
 - request a fixed native-XGR starter-gas grant for an eligible low-balance address where the service is enabled.
 
-The optional purchase tools are mainnet-only and deployment-controlled.
+The optional purchase tools are mainnet services with deployment-controlled availability.
 
 A purchase tool may create a real off-chain order and reserve XGR inventory. The purchase workflow does not hold payment private keys and does not send USDC or USDT. Payment remains an external wallet action based on the exact structured payment instruction returned by the tool.
 
@@ -158,7 +237,9 @@ User deployment, Session Start and contract-call transactions remain under the c
 
 The complete public documentation index is maintained at:
 
-`docs/INDEX.md`
+```text
+docs/INDEX.md
+```
 
 It provides the entry points for:
 
@@ -166,8 +247,8 @@ It provides the entry points for:
 - XDaLa,
 - XRC standards,
 - MCP,
-- UI documentation,
-- separately maintained Interchain documentation.
+- XGR Interchain,
+- UI documentation.
 
 ### XGRChain
 
@@ -187,6 +268,24 @@ The `docs/chain/` section contains the public technical documentation for XGRCha
 - network upgrades and hardfork procedures.
 
 The current Chain documentation targets `xgr-node v3.1.1` unless explicitly marked as historical.
+
+### XGR Interchain
+
+The `docs/interchain/` section contains the public technical specification for XGR Interchain, including:
+
+- architecture overview,
+- security model,
+- validator and quorum boundaries,
+- BLS verification,
+- native XGR and wXGR asset behavior,
+- lock/mint and burn/unlock semantics,
+- canonical mainnet deployment references.
+
+Implementation-specific deployment and operator material remains in:
+
+```text
+xgr-network/xgr-hyperlane
+```
 
 ### XDaLa Specifications
 
@@ -228,9 +327,18 @@ XDaLa is designed to support privacy-preserving execution.
 
 This enables auditable processes while preserving data-sovereignty boundaries.
 
-Interchain infrastructure uses a separate security model based on authenticated cross-chain messages, validator attestations, destination-side security modules and explicit asset locking, minting, burning and unlocking.
+XGR Interchain uses a separate security model based on:
 
-XGRChain consensus authority, XDaLa permissions, MCP service authority and Interchain service authority are separate security domains.
+- authenticated cross-chain messages,
+- destination-specific XGR Interchain validator sets,
+- BLS quorum attestations,
+- Merkle inclusion proofs,
+- destination-side security modules,
+- explicit asset locking, minting, burning and unlocking.
+
+The relayer is not the trust anchor for message validity.
+
+XGRChain consensus authority, XDaLa permissions, MCP service authority and XGR Interchain authority are separate security domains.
 
 ---
 
@@ -244,27 +352,29 @@ This repository is intended for:
 - teams working on regulated or compliance-sensitive workflows,
 - agent builders integrating the XGR MCP Gateway,
 - Interchain integrators,
+- wallet and exchange integrators,
 - auditors and reviewers evaluating deterministic execution and cross-chain security models.
 
 ---
 
 ## Project Status
 
-- **XGRChain:** Mainnet live; testnet available
+- **XGRChain:** Mainnet
 - **Current public node release:** `v3.1.1`
-- **Consensus:** IBFT finality with delegated PoS validator participation active on XGRChain mainnet
-- **State Growth Control:** Online State Trie Sweeper available for configurable historical-state retention and reclamation of unreachable trie/code data
-- **XDaLa:** Active specification and implementation
-- **MCP Gateway:** Mainnet and testnet live
-- **MCP chain, transaction, session, XRC, evidence, validation, diagram and handoff tools:** Live
-- **MCP native-XGR relation graph and value-flow tools:** Live
-- **MCP XDaLa start-payload history tools:** Live
-- **Mainnet XGR purchase tools:** Implemented and deployment-controlled
-- **Native XGR starter-gas service:** Implemented and deployment-controlled
-- **XGR Interchain:** XGRChain ↔ Base backend implemented and bidirectionally validated on mainnet; current operational availability is maintained separately
-- **XRC standards:** Maintained as independently versioned specifications
+- **Consensus:** Mainnet — IBFT finality with delegated PoS validator participation
+- **State Growth Control:** Mainnet — Online State Trie Sweeper available for configurable historical-state retention and reclamation of unreachable trie/code data
+- **XDaLa:** Mainnet
+- **MCP Gateway:** Mainnet
+- **MCP chain, transaction, session, XRC, evidence, validation, diagram and handoff tools:** Mainnet
+- **MCP native-XGR relation graph and value-flow tools:** Mainnet
+- **MCP XDaLa start-payload history tools:** Mainnet
+- **Mainnet XGR purchase tools:** Mainnet
+- **Native XGR starter-gas service:** Mainnet
+- **XGR Interchain:** Mainnet — XGRChain ↔ Base bidirectional bridge deployed, validated and publicly available
+- **wXGR on Base:** Mainnet
+- **XRC standards:** Mainnet specifications for deployed XGR functionality
 
-The repository reflects the public and stable interfaces of the XGR ecosystem.
+The repository reflects the public and stable mainnet interfaces of the XGR ecosystem.
 
 ---
 
@@ -274,7 +384,9 @@ XGR components use independent but coordinated versioning.
 
 The current XGRChain documentation baseline is:
 
-    xgr-node v3.1.1
+```text
+xgr-node v3.1.1
+```
 
 This version applies to the public node and the Chain documentation describing that node baseline.
 
@@ -287,6 +399,8 @@ A new `xgr-node` release does not automatically imply:
 - a new Interchain deployment,
 - a new XDaLa version,
 - a new XRC specification version.
+
+Likewise, an Interchain deployment or runtime update does not automatically imply a new XGRChain node release.
 
 ---
 
@@ -305,7 +419,11 @@ Implementation-specific code is maintained in separate repositories.
 
 If you discover a potential security issue, please report it responsibly.
 
-Contact: security@xgr.network
+Contact:
+
+```text
+security@xgr.network
+```
 
 Do not publish:
 
@@ -314,6 +432,7 @@ Do not publish:
 - keystore passwords,
 - production credentials,
 - private RPC credentials,
+- Interchain validator signing credentials,
 - relayer signing credentials,
 - internal infrastructure secrets.
 
@@ -324,6 +443,7 @@ Do not publish:
 These are the canonical entry points for the public ecosystem.
 
 - Website: https://xgr.network
+- Public Bridge: https://bridge.xgr.network
 - GitHub Organization: https://github.com/xgr-network
 
 ### Developer Entry Points
@@ -336,6 +456,7 @@ These are the canonical entry points for the public ecosystem.
 ### Network Tools
 
 - Documentation Hub: https://xgr.network/docs
+- XGR Bridge: https://bridge.xgr.network
 - Testnet Faucet: https://faucet.xgr.network
 - Explorer: https://explorer.xgr.network
 
