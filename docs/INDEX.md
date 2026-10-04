@@ -1,9 +1,9 @@
 # XGR Documentation Index
 
 **Document ID:** XGR-DOCS-INDEX  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-04  
 **Audience:** Developers, node operators, validators, integrators, auditors, contributors  
-**Implementation status:** Mixed  
+**Implementation status:** Mainnet  
 **Source of truth:** `docs/`
 
 ---
@@ -19,8 +19,8 @@ The documentation is divided into:
 - XDaLa documentation,
 - XRC standards,
 - MCP documentation,
-- user-interface documentation,
-- separately maintained Interchain documentation.
+- XGR Interchain documentation,
+- user-interface documentation.
 
 The current XGRChain documentation baseline is:
 
@@ -310,25 +310,35 @@ https://mcp.testnet.xgr.network/mcp
 
 ## 15. XGR Interchain
 
-XGR Interchain infrastructure is maintained separately from the core XGRChain node because:
+XGR Interchain is the cross-chain infrastructure of the XGR Network.
+
+The public specification set is maintained under:
 
 ```text
-XGRChain consensus
-≠
-Interchain messaging and relayer operation
+docs/interchain/
 ```
 
-The public implementation repository is:
+Start with:
 
-https://github.com/xgr-network/xgr-hyperlane
+- [`interchain/XGR_INTERCHAIN_Overview.md`](interchain/XGR_INTERCHAIN_Overview.md)
+- [`interchain/XGR_INTERCHAIN_Security_Model.md`](interchain/XGR_INTERCHAIN_Security_Model.md)
+- [`interchain/XGR_INTERCHAIN_Asset_Bridge.md`](interchain/XGR_INTERCHAIN_Asset_Bridge.md)
+- [`interchain/XGR_INTERCHAIN_Deployment_Reference.md`](interchain/XGR_INTERCHAIN_Deployment_Reference.md)
 
-Relevant documentation is maintained there:
+These documents define:
 
-- [Interchain repository overview](https://github.com/xgr-network/xgr-hyperlane)
-- [Interchain architecture](https://github.com/xgr-network/xgr-hyperlane/blob/main/docs/architecture.md)
-- [Interchain operations](https://github.com/xgr-network/xgr-hyperlane/blob/main/docs/operations.md)
+- Interchain architecture,
+- the separation between XGRChain consensus and Interchain security,
+- destination-specific validator membership,
+- BLS checkpoint attestations,
+- Interchain quorum,
+- Merkle inclusion verification,
+- relayer trust boundaries,
+- native XGR and wXGR asset semantics,
+- lock/mint and burn/unlock behavior,
+- canonical XGRChain ↔ Base deployment identities.
 
-The first implemented XGR asset route connects:
+The first production asset route connects:
 
 ```text
 XGRChain
@@ -336,9 +346,81 @@ XGRChain
 Base
 ```
 
-using native XGR on XGRChain and a synthetic XGR representation on Base.
+using:
 
-Interchain deployment and operational state must be read from the Interchain repository and current deployment manifests rather than inferred from XGRChain consensus documentation.
+```text
+XGRChain: native XGR
+Base:     wXGR
+```
+
+Forward:
+
+```text
+XGRChain → Base
+lock native XGR
+mint wXGR
+```
+
+Reverse:
+
+```text
+Base → XGRChain
+burn wXGR
+unlock native XGR
+```
+
+Both asset-transfer directions have been validated end-to-end on mainnet.
+
+XGRChain provides native support for the Interchain security model, including native BLS12-381 verification through:
+
+```text
+0x0000000000000000000000000000000000002040
+```
+
+XGR Interchain security remains deliberately separated from weighted-IBFT consensus-critical execution.
+
+Therefore:
+
+```text
+XGRChain consensus
+≠
+XGR Interchain validator quorum
+```
+
+The public Interchain implementation repository is:
+
+https://github.com/xgr-network/xgr-hyperlane
+
+Implementation-specific and operator documentation is maintained there:
+
+- [Interchain repository overview](https://github.com/xgr-network/xgr-hyperlane)
+- [Interchain architecture](https://github.com/xgr-network/xgr-hyperlane/blob/main/docs/architecture.md)
+- [Interchain operations](https://github.com/xgr-network/xgr-hyperlane/blob/main/docs/operations.md)
+
+The Interchain implementation repository contains:
+
+- contracts,
+- deployment manifests,
+- deployment tooling,
+- validator-registry and ISM implementations,
+- native relayer runtime,
+- operational configuration,
+- operator procedures.
+
+Public XGR specifications remain in this repository.
+
+Detailed implementation and operations remain in `xgr-network/xgr-hyperlane`.
+
+Dynamic operational state such as:
+
+- router directional gates,
+- safety-module pause state,
+- current validator-set membership,
+- relayer process state,
+- relayer submission state,
+- RPC health,
+
+must be read from live deployment and runtime state rather than inferred from static documentation.
 
 ---
 
@@ -357,6 +439,16 @@ ui/test-suite/
 
 These documents cover user-facing and operational interfaces rather than chain-consensus behavior.
 
+The public XGR Bridge intentionally presents a simplified user-facing view of XGR ↔ wXGR transfers.
+
+Deep Interchain protocol details belong in:
+
+```text
+docs/interchain/
+```
+
+and the Interchain implementation repository rather than in the normal bridge workflow.
+
 ---
 
 # Source-of-truth boundaries
@@ -373,10 +465,37 @@ Different parts of the XGR stack have different implementation sources.
 | XDaLa engine behavior | XDaLa implementation and corresponding specifications |
 | XRC standards | `xgr-network/XGR/docs/` and referenced contracts |
 | MCP Gateway | `xgr-network/xgr-mcp` |
-| Interchain infrastructure | `xgr-network/xgr-hyperlane` |
+| Public Interchain specifications | `xgr-network/XGR/docs/interchain/` |
+| Interchain contracts and runtime | `xgr-network/xgr-hyperlane` |
+| Interchain deployment manifests | `xgr-network/xgr-hyperlane/deployments/` |
+| Dynamic Interchain availability | Live contract and runtime state |
 | User interfaces | Corresponding UI/application repositories |
 
 Documentation should not silently move authority between these layers.
+
+For Interchain specifically:
+
+```text
+public architecture and specification
+=
+xgr-network/XGR/docs/interchain/
+```
+
+while:
+
+```text
+implementation, deployments and runtime
+=
+xgr-network/xgr-hyperlane
+```
+
+and:
+
+```text
+current operational availability
+=
+live on-chain and runtime state
+```
 
 ---
 
@@ -395,6 +514,8 @@ A new node release does not automatically imply:
 - a new chain ID,
 - a new Interchain deployment,
 - a new XDaLa specification.
+
+Likewise, an Interchain contract, registry, relayer or route update does not automatically imply a new XGRChain node release.
 
 Each component must be evaluated according to its own compatibility and versioning boundary.
 
@@ -419,9 +540,20 @@ Each component must be evaluated according to its own compatibility and versioni
 When implementation changes:
 
 1. update the implementation-specific documentation,
-2. update this index if files are added, removed or renamed,
-3. update public entry-point READMEs where the change affects project positioning or operator guidance,
-4. preserve historical facts only where they remain useful,
-5. avoid leaving obsolete release documentation inside the current protocol-reference set.
+2. update the corresponding public specification when architecture, security or public behavior changes,
+3. update this index if files are added, removed or renamed,
+4. update public entry-point READMEs where the change affects project positioning or operator guidance,
+5. update deployment references when canonical production identities change,
+6. preserve historical facts only where they remain useful,
+7. avoid leaving obsolete release or runtime claims inside the current protocol-reference set.
+
+For Interchain changes, keep the following layers synchronized where applicable:
+
+```text
+xgr-network/XGR/docs/interchain/
+xgr-network/xgr-hyperlane
+current deployment manifests
+public bridge documentation
+```
 
 The documentation index should describe the files and interfaces that actually exist in the public repositories.
