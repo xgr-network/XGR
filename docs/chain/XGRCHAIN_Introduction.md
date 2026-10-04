@@ -1,8 +1,9 @@
 # XGR Chain — Introduction
 
 **Document ID:** XGRCHAIN-INTRO  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-04  
 **Audience:** Developers, node operators, validators, auditors, integrators  
+**Implementation status:** Mainnet  
 **Release baseline:** `xgr-node v3.1.1`  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
@@ -42,7 +43,7 @@ XGRChain provides the execution and settlement layer for:
 - epoch-based validator lifecycle,
 - stake- and uptime-aware voting power,
 - XGR-specific protocol primitives,
-- interchain integration.
+- native Interchain integration.
 
 The public node implementation is:
 
@@ -128,21 +129,22 @@ The current public `v3.1.1` node baseline provides:
 
 | Area | Status |
 | --- | --- |
-| EVM execution | Active |
-| IBFT deterministic finality | Active |
-| Delegated PoS | Active |
-| Stake-weighted voting power | Active |
-| Uptime-weighted PoS accounting | Active |
-| Validator self-staking | Active |
-| Delegated staking | Active |
-| Epoch-based validator lifecycle | Active |
-| Standard Ethereum JSON-RPC | Active |
-| Public PoS monitoring RPC | Active |
-| Genesis/config loading | Active |
-| State Growth Control / Trie Sweeper | Available |
-| Configurable historical-state retention | Available |
-| Native interchain BLS verification primitive | Active |
-| XGRChain ↔ Base interchain route | Implemented and bidirectionally validated |
+| EVM execution | Mainnet |
+| IBFT deterministic finality | Mainnet |
+| Delegated PoS | Mainnet |
+| Stake-weighted voting power | Mainnet |
+| Uptime-weighted PoS accounting | Mainnet |
+| Validator self-staking | Mainnet |
+| Delegated staking | Mainnet |
+| Epoch-based validator lifecycle | Mainnet |
+| Standard Ethereum JSON-RPC | Mainnet |
+| Public PoS monitoring RPC | Mainnet |
+| Genesis/config loading | Mainnet |
+| State Growth Control / Trie Sweeper | Mainnet |
+| Configurable historical-state retention | Mainnet |
+| Native Interchain BLS verification primitive | Mainnet |
+| XGRChain ↔ Base Interchain route | Mainnet |
+| Public bidirectional XGR Bridge | Mainnet |
 
 The node software baseline and higher-level services are versioned independently.
 
@@ -152,9 +154,17 @@ For example:
 xgr-node v3.1.1
 ```
 
-defines the public node baseline, while interchain router, validator and relayer deployments are maintained separately.
+defines the public node baseline, while Interchain routers, validator registries, security modules and relayer runtime are maintained as a separate deployment layer.
 
-Bidirectional route validation does not by itself imply that every relayer direction is continuously enabled or that a public user-facing bridge is open.
+The XGRChain ↔ Base asset route is deployed in both directions, has been validated end-to-end on mainnet and is exposed through the public XGR Bridge.
+
+Public bridge:
+
+```text
+https://bridge.xgr.network
+```
+
+Dynamic operational state such as route gates, pause controls, current validator membership, RPC health and relayer process state remains independent from the static node release baseline.
 
 ---
 
@@ -371,6 +381,13 @@ eth_getPosValidatorsOverview
 eth_getPosValidatorDelegators
 ```
 
+Native Interchain attestation methods include:
+
+```text
+xgr_getInterchainAttestation
+xgr_getInterchainAttestationByCheckpoint
+```
+
 The public RPC interface can therefore serve:
 
 - wallets,
@@ -378,7 +395,8 @@ The public RPC interface can therefore serve:
 - dApps,
 - monitoring systems,
 - staking dashboards,
-- validator tooling.
+- validator tooling,
+- Interchain infrastructure.
 
 Standard Ethereum compatibility, PoS extensions and operator interfaces are documented separately.
 
@@ -424,13 +442,13 @@ Ethereum RPC compatibility does not imply Ethereum mainnet fee economics.
 
 XGRChain extends standard EVM execution with XGR-specific native functionality.
 
-One `v3.1.1` protocol primitive is the native interchain BLS12-381 verifier:
+One `v3.1.1` protocol primitive is the native Interchain BLS12-381 verifier:
 
 ```text
 0x0000000000000000000000000000000000002040
 ```
 
-This precompile verifies native XGR interchain quorum attestations.
+This precompile verifies native XGR Interchain quorum attestations.
 
 Because it is a native precompile:
 
@@ -438,27 +456,36 @@ Because it is a native precompile:
 - execution is implemented directly by the node,
 - it is available as part of the node execution environment.
 
+This provides native execution support for the XGR Interchain security stack.
+
 The precompile does not itself define:
 
 - a bridge route,
 - router deployment,
 - relayer availability,
-- interchain validator membership,
+- Interchain validator membership,
 - destination security policy.
 
-Those belong to the separate interchain layer.
+Those belong to the separate Interchain layer.
 
 ---
 
 ## 15. XGR Interchain
 
-XGR Network maintains interchain infrastructure connecting XGRChain with supported external chains.
+XGR Network maintains XGRChain-native Interchain infrastructure connecting XGRChain with supported external chains.
 
-The first implemented and mainnet-validated XGR asset route connects:
+The first production XGR asset route connects:
 
 ```text
 XGRChain ↔ Base
 ```
+
+Network identities:
+
+| Network | Chain ID | Interchain domain | Asset |
+| --- | ---: | ---: | --- |
+| XGRChain | `1643` | `1643` | Native XGR |
+| Base | `8453` | `8453` | wXGR |
 
 The asset model is:
 
@@ -471,6 +498,7 @@ native XGR
    ▼
 XGR router
    │
+   │ authenticated
    │ cross-chain message
    ▼
                               mint
@@ -490,6 +518,7 @@ wXGR
   ▼
 Base router
   │
+  │ authenticated
   │ cross-chain message
   ▼
                               unlock
@@ -498,31 +527,82 @@ Base router
                             native XGR
 ```
 
-Both directions have been validated end-to-end on mainnet.
+Both directions are deployed and have been validated end-to-end on mainnet.
 
-The interchain layer uses:
+The public bidirectional bridge is available at:
 
-- cross-chain messaging,
-- validator attestations,
-- BLS verification,
-- Merkle proofs,
+```text
+https://bridge.xgr.network
+```
+
+Official Base wXGR contract:
+
+```text
+0x3b83687d77170d42feddfe221629cc21e771e021
+```
+
+The nominal bridge representation is:
+
+```text
+1 XGR ↔ 1 wXGR
+```
+
+before applicable transaction and routing fees.
+
+The Interchain layer uses:
+
+- Hyperlane-compatible cross-chain messaging,
+- destination-specific XGR Interchain validator registries,
+- XGR-native validator attestations,
+- BLS aggregate signatures,
+- Merkle inclusion proofs,
 - destination security modules,
-- relayers,
-- router contracts.
+- native relayers,
+- asset router contracts,
+- explicit operational safety controls.
 
-Current operational availability, route state and relayer configuration are maintained separately from XGRChain consensus documentation.
+XGRChain provides native support for this security model, including the native BLS verification precompile at:
 
-Implementation and deployment documentation:
+```text
+0x0000000000000000000000000000000000002040
+```
+
+The Interchain worker is deliberately separated from weighted-IBFT consensus-critical execution.
+
+Therefore:
+
+```text
+XGRChain consensus
+≠
+XGR Interchain validator quorum
+```
+
+A remote-network or relayer failure must not prevent XGRChain block production, verification or IBFT finality.
+
+Public Interchain specification:
+
+```text
+docs/interchain/XGR_INTERCHAIN_Overview.md
+docs/interchain/XGR_INTERCHAIN_Security_Model.md
+docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md
+docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md
+```
+
+Implementation and deployment tooling:
 
 ```text
 https://github.com/xgr-network/xgr-hyperlane
 ```
 
+Dynamic operational availability remains a live property.
+
+Route gates, pause controls, current validator membership, RPC health and relayer process state must therefore be queried from current deployment and runtime state when operational availability matters.
+
 ---
 
-## 16. Consensus validators vs interchain validators
+## 16. Consensus validators vs Interchain validators
 
-These are different roles.
+These are related but separate roles.
 
 ### XGRChain consensus validator
 
@@ -532,19 +612,36 @@ Participates in:
 - block production,
 - block finality,
 - delegated PoS,
-- consensus voting power.
+- stake- and uptime-weighted consensus voting power.
 
-### Interchain validator
+### XGR Interchain validator
 
 Participates in:
 
+- destination-specific Interchain membership,
 - cross-chain checkpoint attestation,
-- interchain message verification,
-- interchain security policy.
+- BLS aggregate signatures,
+- Interchain quorum.
 
-An interchain validator does not automatically receive XGRChain consensus authority.
+An Interchain validator does not automatically receive additional XGRChain consensus authority.
 
-Likewise, a consensus validator is not automatically part of an interchain validator set.
+Likewise, a consensus validator is not automatically part of every Interchain validator set.
+
+The current native Interchain quorum uses separate quorum semantics from weighted XGRChain IBFT consensus.
+
+Therefore:
+
+```text
+XGRChain consensus voting power
+≠
+Interchain attestation voting weight
+```
+
+Detailed security semantics are documented in:
+
+```text
+docs/interchain/XGR_INTERCHAIN_Security_Model.md
+```
 
 ---
 
@@ -733,7 +830,7 @@ Defines:
 
 Defines systems such as:
 
-- interchain relayers,
+- Interchain relayers,
 - remote-chain RPCs,
 - router deployments,
 - security modules,
@@ -762,12 +859,30 @@ For example:
 
 Likewise:
 
-> an interchain relayer account is not a consensus validator.
+> an Interchain relayer account is not a consensus validator.
+
+The main authority domains include:
+
+```text
+user wallet authority
+XGRChain consensus authority
+XGR Interchain BLS authority
+relayer transaction-submission authority
+contract administration authority
+```
+
+These must not be treated as interchangeable.
 
 Permission boundaries are documented in:
 
 ```text
 XGRCHAIN_Access_Control_and_Permission_Boundaries.md
+```
+
+Interchain-specific authority boundaries are documented in:
+
+```text
+../interchain/XGR_INTERCHAIN_Security_Model.md
 ```
 
 ---
@@ -788,7 +903,9 @@ XGRChain itself provides:
 - staking,
 - protocol primitives.
 
-XDaLa provides separate application/process capabilities.
+XDaLa provides separate application and process capabilities.
+
+XDaLa functionality is deployed on XGRChain mainnet.
 
 A standard public XGRChain node does not need to run the complete XDaLa service stack.
 
@@ -817,7 +934,26 @@ XGRCHAIN_Network_Upgrade_and_Hardfork_Process.md
 XRC-GAS_Gas_Price_Behavior.md
 ```
 
-Interchain architecture and operations are maintained separately in `xgr-network/xgr-hyperlane`.
+Public Interchain specifications are maintained in:
+
+```text
+docs/interchain/
+```
+
+Current Interchain documents include:
+
+```text
+XGR_INTERCHAIN_Overview.md
+XGR_INTERCHAIN_Security_Model.md
+XGR_INTERCHAIN_Asset_Bridge.md
+XGR_INTERCHAIN_Deployment_Reference.md
+```
+
+Implementation-specific Interchain contracts, deployment manifests, relayer runtime and operator documentation are maintained separately in:
+
+```text
+xgr-network/xgr-hyperlane
+```
 
 ---
 
@@ -830,9 +966,19 @@ For network-defining behavior, the source-of-truth order is:
 3. deployed protocol state where applicable,
 4. current technical documentation.
 
+For XGR Interchain, additional implementation and runtime sources are:
+
+```text
+xgr-network/xgr-hyperlane
+live deployed Interchain contracts
+live relayer runtime state
+```
+
 Documentation must describe the actual implementation and network state.
 
 It must not invent protocol behavior that is not supported by the active release or deployment.
+
+Static documentation must not override live operational state when current availability is being evaluated.
 
 ---
 
@@ -852,7 +998,8 @@ This document must be reviewed when any of the following changes:
 - gas or fee behavior,
 - native protocol precompiles,
 - state-retention behavior,
-- interchain architecture,
+- Interchain architecture,
+- public Interchain deployment,
 - node build requirements.
 
 Current documentation baseline:
@@ -868,29 +1015,47 @@ xgr-network/XGR
 genesis/mainnet/genesis.json
 ```
 
+Canonical public Interchain specifications:
+
+```text
+xgr-network/XGR
+docs/interchain/
+```
+
+Canonical Interchain implementation:
+
+```text
+xgr-network/xgr-hyperlane
+```
+
 ---
 
 ## 28. Summary
 
 | Topic | Current XGRChain behavior |
 | --- | --- |
+| Implementation status | Mainnet |
 | Public node | `xgr-node v3.1.1` |
 | Chain ID | `1643` |
 | Native asset | XGR |
-| EVM compatibility | Active |
-| IBFT finality | Active |
-| Delegated PoS | Active |
+| EVM compatibility | Mainnet |
+| IBFT finality | Mainnet |
+| Delegated PoS | Mainnet |
 | PoS activation | block `5446500` |
 | Validator limits | `4–25` |
-| Stake-weighted consensus | Active |
-| Uptime weighting | Active |
+| Stake-weighted consensus | Mainnet |
+| Uptime weighting | Mainnet |
 | Block target | approximately 2 seconds |
-| Standard Ethereum RPC | Active |
-| PoS monitoring RPC | Active |
-| Trie Sweeper | Available |
+| Standard Ethereum RPC | Mainnet |
+| PoS monitoring RPC | Mainnet |
+| Trie Sweeper | Mainnet |
 | Default state retention when enabled | `10,000` blocks |
-| Native interchain BLS precompile | `0x2040` |
-| XGRChain ↔ Base route | Bidirectionally mainnet-validated |
+| Native Interchain BLS precompile | `0x2040` |
+| XGRChain ↔ Base route | Mainnet |
+| Bidirectional asset transfer | Mainnet validated |
+| Public XGR Bridge | Mainnet |
 | Public node dependency on XDaLa | None |
 
 XGRChain is a standalone EVM-compatible Layer-1 with deterministic IBFT finality, delegated PoS, configurable state retention and native protocol support for the XGR Interchain stack.
+
+The current production Interchain route connects native XGR on XGRChain with wXGR on Base through a bidirectional mainnet bridge secured by XGR-native BLS-verified Interchain infrastructure.
