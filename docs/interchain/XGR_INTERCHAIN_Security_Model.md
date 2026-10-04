@@ -5,7 +5,7 @@
 **Audience:** Protocol developers, validator operators, infrastructure operators, integrators, auditors, security reviewers  
 **Release baseline:** `xgr-node v3.1.1`  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
-**Implementation status:** Active in the XGRChain ↔ Base mainnet Interchain deployment  
+**Implementation status:** Mainnet  
 **Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Validator trust, BLS attestations, quorum, message inclusion, destination verification, relayer authority and operational safety boundaries
@@ -730,6 +730,10 @@ operationally permitted
 
 when an explicit pause control is active.
 
+At the current mainnet baseline, the reverse route is publicly enabled and the required safety gate is open.
+
+The pause state remains dynamic and must be verified live when current route availability is material.
+
 ---
 
 ## 26. External-chain confirmation policy
@@ -738,7 +742,13 @@ The reverse route observes an external source chain.
 
 External state must satisfy the configured confirmation policy before XGR Interchain validators attest it.
 
-For Base → XGRChain, the current route uses a confirmation delay before the corresponding checkpoint is considered eligible for attestation.
+For Base → XGRChain, the current route uses:
+
+```text
+12 Base blocks
+```
+
+of confirmation delay before the corresponding checkpoint is considered eligible for attestation.
 
 This separates:
 
@@ -1269,17 +1279,26 @@ Examples include:
 - relayer submission state,
 - relayer process state.
 
-Static documentation cannot prove the current value of dynamic state.
+Static documentation cannot prove the current value of dynamic state indefinitely.
 
 Operational systems must query live state where current availability matters.
+
+At the current mainnet documentation baseline:
+
+```text
+XGRChain → Base = publicly enabled
+Base → XGRChain = publicly enabled
+```
+
+and both native relayer directions are configured for submission.
 
 ---
 
 ## 52. Availability is not security equivalence
 
-The route can be unavailable while its cryptographic architecture remains intact.
+The route can become unavailable while its cryptographic architecture remains intact.
 
-Examples:
+Examples include:
 
 ```text
 relayer stopped
@@ -1334,6 +1353,14 @@ contract exists
 route available
 ```
 
+The production bridge currently exposes both XGRChain ↔ Base directions, while continuing to evaluate live route state separately.
+
+Public bridge:
+
+```text
+https://bridge.xgr.network
+```
+
 ---
 
 ## 54. End-to-end validation
@@ -1351,9 +1378,27 @@ This demonstrates that the configured security path has successfully performed:
 - destination verification,
 - destination asset transition.
 
+Forward validation transferred:
+
+```text
+0.1 XGR
+```
+
+from XGRChain to Base.
+
+Reverse validation transferred:
+
+```text
+0.01 wXGR
+```
+
+from Base back to XGRChain.
+
 End-to-end validation provides strong implementation evidence.
 
-It is not a substitute for ongoing monitoring of dynamic runtime state.
+The production route is currently publicly enabled in both directions.
+
+Validation evidence does not replace ongoing monitoring of dynamic runtime state.
 
 ---
 
@@ -1811,6 +1856,7 @@ Purely cosmetic bridge-UI changes do not require a security-model revision unles
 
 | Security property | Current model |
 | --- | --- |
+| Implementation status | Mainnet |
 | XGRChain consensus | IBFT with delegated PoS |
 | Interchain security | Separate validator-attestation domain |
 | Interchain signature scheme | BLS |
@@ -1827,6 +1873,9 @@ Purely cosmetic bridge-UI changes do not require a security-model revision unles
 | User authority | Source transaction signing |
 | Invalid verification | Fail closed |
 | Consensus / Interchain relationship | Separate security domains |
+| XGRChain → Base | Mainnet / public |
+| Base → XGRChain | Mainnet / public |
+| Public bridge | `https://bridge.xgr.network` |
 
 The central XGR Interchain security principle is:
 
