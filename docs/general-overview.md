@@ -1,14 +1,14 @@
 # XGR & XDaLa — Deterministic Process Execution on EVM-Compatible Infrastructure
 
 **Document ID:** XGR-GENERAL-OVERVIEW  
-**Last updated:** 2026-08-15  
+**Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, partners, technical readers  
-**Implementation status:** Mainnet / active development  
-**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`
+**Implementation status:** Mainnet  
+**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`, `xgr-hyperlane`
 
 > **One-liner**
 >
-> **XGRChain** provides EVM-compatible execution. **XDaLa** adds a deterministic process engine that executes XRC-defined multi-step workflows, integrates external data and contract state, and produces auditable execution evidence.
+> **XGRChain** provides EVM-compatible execution. **XDaLa** adds a deterministic process engine that executes XRC-defined multi-step workflows, integrates external data and contract state, and produces auditable execution evidence. **XGR Interchain** extends the ecosystem across supported external networks through XGR-native BLS-verified cross-chain security.
 
 ---
 
@@ -47,11 +47,14 @@ XDaLa provides a process layer for these workflows while retaining EVM-compatibl
 The core model is:
 
 ```text
-XRC-137 = rule
-XRC-729 = process graph
-XDaLa   = process execution
-XGRChain = blockchain execution and settlement
+XRC-137      = rule
+XRC-729      = process graph
+XDaLa        = process execution
+XGRChain     = blockchain execution and settlement
+XGR Interchain = cross-chain messaging and asset connectivity
 ```
+
+The current production XGR stack is deployed on mainnet.
 
 ---
 
@@ -95,7 +98,7 @@ XDaLa provides an explicit execution model for that process logic.
 
 # 2. What XDaLa is
 
-XDaLa is a process engine integrated with XGRChain.
+XDaLa is a process engine integrated with XGRChain and deployed as part of the XGR mainnet ecosystem.
 
 It executes workflows described through XRC standards.
 
@@ -1289,8 +1292,8 @@ Through MCP, compatible agents can:
 - validate XDaLa artifacts,
 - prepare deployment handoffs,
 - prepare Session Start handoffs,
-- use optional XGR purchase services,
-- use optional Starter Gas.
+- use XGR purchase services,
+- use Starter Gas.
 
 MCP does not replace XDaLa.
 
@@ -1304,7 +1307,165 @@ docs/mcp/
 
 ---
 
-# 17. Network identifiers
+# 17. XGR Interchain
+
+XGR Interchain provides cross-chain connectivity for the XGR ecosystem.
+
+The first production route connects:
+
+```text
+XGRChain ↔ Base
+```
+
+Network identities:
+
+| Network | Chain ID | Interchain domain |
+| --- | ---: | ---: |
+| XGRChain | `1643` | `1643` |
+| Base | `8453` | `8453` |
+
+Asset model:
+
+```text
+XGRChain native XGR
+        ↕
+Base wXGR
+```
+
+Forward:
+
+```text
+native XGR
+    │
+    │ lock
+    ▼
+XGR native router
+    │
+    │ authenticated cross-chain message
+    ▼
+Base wXGR router
+    │
+    │ mint
+    ▼
+wXGR
+```
+
+Reverse:
+
+```text
+wXGR
+    │
+    │ burn
+    ▼
+Base wXGR router
+    │
+    │ authenticated cross-chain message
+    ▼
+XGR native router
+    │
+    │ unlock
+    ▼
+native XGR
+```
+
+Both directions are deployed and have been validated end-to-end on mainnet.
+
+The public bidirectional bridge is available at:
+
+```text
+https://bridge.xgr.network
+```
+
+Official wXGR on Base:
+
+```text
+0x3b83687d77170d42feddfe221629cc21e771e021
+```
+
+The nominal bridge representation is:
+
+```text
+1 XGR ↔ 1 wXGR
+```
+
+before applicable transaction and routing fees.
+
+---
+
+## 17.1 Native Interchain security
+
+XGR Interchain combines:
+
+- Hyperlane-compatible message transport,
+- destination-specific XGR Interchain validator registries,
+- XGR-native checkpoint attestations,
+- BLS aggregate signatures,
+- Merkle inclusion proofs,
+- destination Interchain Security Modules,
+- native relayers.
+
+XGRChain provides native BLS12-381 verification through:
+
+```text
+0x0000000000000000000000000000000000002040
+```
+
+The native Interchain validator quorum is deliberately separated from XGRChain weighted-IBFT consensus.
+
+Therefore:
+
+```text
+XGRChain consensus
+≠
+XGR Interchain validator quorum
+```
+
+The Interchain worker is outside the weighted-IBFT consensus-critical execution path.
+
+External-chain or relayer failure must therefore not become an XGRChain consensus dependency.
+
+---
+
+## 17.2 Relayer trust boundary
+
+The native relayer:
+
+- observes dispatched messages,
+- reconstructs Merkle proofs,
+- retrieves completed validator attestations,
+- pays destination gas,
+- submits destination transactions.
+
+It does not create the validator authorization required for message validity.
+
+A relayer can affect delivery availability.
+
+It cannot forge a valid XGR BLS quorum by itself.
+
+---
+
+## 17.3 Interchain documentation
+
+Public XGR Interchain specifications:
+
+```text
+docs/interchain/XGR_INTERCHAIN_Overview.md
+docs/interchain/XGR_INTERCHAIN_Security_Model.md
+docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md
+docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md
+```
+
+Implementation and operations:
+
+```text
+https://github.com/xgr-network/xgr-hyperlane
+```
+
+The public specification layer and implementation/runtime layer are maintained separately.
+
+---
+
+# 18. Network identifiers
 
 Current XGR network chain IDs are:
 
@@ -1343,7 +1504,7 @@ genesis/mainnet/genesis.json
 
 ---
 
-# 18. Separation of gas models
+# 19. Separation of gas models
 
 XDaLa uses concepts that must not be confused.
 
@@ -1372,9 +1533,23 @@ The detailed cost model is defined in:
 XRC-137_Validation_Gas.md
 ```
 
+Interchain destination transaction gas is a separate operational cost associated with submitting cross-chain delivery transactions.
+
+It must not be confused with either:
+
+```text
+EVM transaction gas consumed by a user transaction
+```
+
+or:
+
+```text
+XDaLa ValidationGas
+```
+
 ---
 
-# 19. Security model
+# 20. Security model
 
 The system separates:
 
@@ -1383,6 +1558,9 @@ process definition authority
 process execution authority
 wallet signing authority
 data access authority
+XGRChain consensus authority
+Interchain validator authority
+relayer submission authority
 ```
 
 These are not interchangeable.
@@ -1392,15 +1570,18 @@ For example:
 - an XRC-729 executor may be allowed to start a process without being allowed to modify the orchestration,
 - a wallet may have sufficient XGR for gas but no workflow authority,
 - an address may have workflow authority but insufficient XGR,
-- a user may receive access to encrypted evidence without receiving ownership of the underlying XRC contract.
+- a user may receive access to encrypted evidence without receiving ownership of the underlying XRC contract,
+- an Interchain relayer does not gain XGRChain consensus authority,
+- an Interchain validator does not gain user-wallet authority,
+- a consensus validator is not automatically an Interchain signer for every destination.
 
-This separation is fundamental to the XDaLa security model.
+This separation is fundamental to the XGR security model.
 
 ---
 
-# 20. Recommended developer path
+# 21. Recommended developer path
 
-For a new integration:
+For a new XDaLa integration:
 
 ```text
 1. Understand XRC-137
@@ -1422,9 +1603,21 @@ For a new integration:
 
 For agent-based integrations, use the XGR MCP knowledge and validation tools before preparing deployment or Session Start handoffs.
 
+For XGR Interchain integration:
+
+```text
+1. Identify source and destination by chain ID
+2. Use the canonical router addresses
+3. Identify official wXGR by Base chain ID + contract address
+4. Respect live route availability
+5. Do not treat the relayer as the security authority
+6. Use the public Interchain specifications for protocol semantics
+7. Use xgr-hyperlane for implementation and deployment details
+```
+
 ---
 
-# 21. Where to go next
+# 22. Where to go next
 
 ## XRC-137
 
@@ -1463,6 +1656,12 @@ xgr_encryptionGrants.md
 docs/chain/
 ```
 
+## XGR Interchain
+
+```text
+docs/interchain/
+```
+
 ## XGR MCP
 
 ```text
@@ -1471,7 +1670,7 @@ docs/mcp/
 
 ---
 
-# 22. Core repositories
+# 23. Core repositories
 
 Public specifications and contracts:
 
@@ -1491,11 +1690,51 @@ XDaLa engine:
 https://github.com/xgr-network/xgrEngine
 ```
 
+XGR Interchain:
+
+```text
+https://github.com/xgr-network/xgr-hyperlane
+```
+
 XGR MCP:
 
 ```text
 https://github.com/xgr-network/xgr-mcp
 ```
+
+---
+
+# 24. Current mainnet stack
+
+| Component | Status |
+| --- | --- |
+| XGRChain | Mainnet |
+| IBFT consensus | Mainnet |
+| Delegated PoS | Mainnet |
+| XDaLa | Mainnet |
+| XRC-137 | Mainnet |
+| XRC-729 | Mainnet |
+| XGR MCP Gateway | Mainnet |
+| Native Interchain BLS verification | Mainnet |
+| XGRChain ↔ Base Interchain route | Mainnet |
+| XGR → Base bridge direction | Mainnet |
+| Base → XGRChain bridge direction | Mainnet |
+| Official wXGR on Base | Mainnet |
+| Public XGR Bridge | Mainnet |
+
+The current XGR ecosystem combines:
+
+```text
+EVM-compatible blockchain execution
++
+deterministic process orchestration
++
+agent-native MCP access
++
+XGR-native Interchain security
+```
+
+on production mainnet infrastructure.
 
 ---
 
@@ -1508,3 +1747,5 @@ define
 → execute
 → verify
 ```
+
+XGR Interchain extends that execution environment across supported networks while preserving explicit security boundaries between consensus, validator authorization, message transport and asset routing.
