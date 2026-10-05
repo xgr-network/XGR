@@ -17,15 +17,17 @@ This document is the practical operations runbook for standalone XGRChain full n
 
 It covers:
 
-- installing `xgr-node v3.1.1`,
-- verifying release artifacts,
-- building from source,
+- installing the official `xgr-node v3.1.1` release binary,
+- verifying the published release artifact,
+- optionally building the same release from source,
 - installing the canonical mainnet genesis,
 - starting full nodes,
 - starting RPC nodes,
 - configuring systemd,
+- understanding role-critical runtime flags,
+- understanding optional runtime flags and their defaults,
 - exposing HTTP and WebSocket JSON-RPC safely,
-- enabling local Prometheus telemetry,
+- enabling Prometheus telemetry,
 - operating the Online State Trie Sweeper,
 - choosing a historical-state retention profile,
 - monitoring node health,
@@ -37,11 +39,11 @@ This document does **not** define the validator lifecycle, delegated PoS onboard
 
 Those protocol and staking topics are documented separately in the Chain consensus and PoS documentation.
 
-This document is intentionally operational.
+The examples in this runbook intentionally use only the flags required for the demonstrated deployment role. Optional tuning flags and software defaults are documented separately instead of being repeated in every command.
 
 ---
 
-## 2. Current release
+## 2. Current production release
 
 Current production baseline:
 
@@ -66,6 +68,22 @@ Published artifact SHA-256:
 ```text
 429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d
 ```
+
+The release also publishes:
+
+```text
+sha256sums.txt
+version.txt
+```
+
+For production deployments, the published and checksum-verified `v3.1.1` release binary is the recommended installation method.
+
+Building from source is provided for:
+
+- independent verification,
+- auditing,
+- development,
+- environments that explicitly require self-built artifacts.
 
 The public node can run standalone.
 
@@ -103,6 +121,8 @@ Mainnet parameters:
 
 Do not edit the published genesis locally for mainnet operation.
 
+A node using an incompatible network-defining configuration is not participating in the same XGRChain mainnet.
+
 ---
 
 ## 4. Suggested filesystem layout
@@ -116,7 +136,7 @@ Do not edit the published genesis locally for mainnet operation.
 /var/log/xgr
 ```
 
-Create user and directories:
+Create a dedicated service user and directories:
 
 ```bash
 sudo useradd \
@@ -135,7 +155,7 @@ sudo install -d -m 0750 -o xgr -g xgr /var/log/xgr
 
 ---
 
-## 5. Install the published `v3.1.1` binary
+## 5. Recommended installation: official `v3.1.1` binary
 
 For Linux AMD64:
 
@@ -145,7 +165,7 @@ curl -fL \
   -o xgrchain
 ```
 
-Verify:
+Verify the artifact:
 
 ```bash
 echo \
@@ -172,11 +192,15 @@ Check:
 /opt/xgr/bin/xgrchain version
 ```
 
-For production installation, prefer the published release artifact or an equivalently reproducible build.
+For normal production operation, prefer this published release artifact over a locally compiled binary.
 
 ---
 
-## 6. Build `v3.1.1` from source
+## 6. Alternative installation: build `v3.1.1` from source
+
+The source-build path is optional.
+
+Use it when independent compilation, auditing or an internally controlled build pipeline is required.
 
 Prerequisites:
 
@@ -197,7 +221,7 @@ go 1.23.4
 toolchain go1.23.11
 ```
 
-Clone:
+Clone and select the release:
 
 ```bash
 git clone https://github.com/xgr-network/xgr-node.git
@@ -226,7 +250,7 @@ and:
 1a4844b311fb856cb8c2303a40fa8aa69b560544
 ```
 
-For a versioned source build use the repository build target:
+Build using the versioned repository target:
 
 ```bash
 make -f scripts/Makefile build
@@ -257,9 +281,25 @@ Install:
 sudo install -m 0755 ./xgrchain /opt/xgr/bin/xgrchain
 ```
 
+Do not document or assume:
+
+```text
+make build
+```
+
+as the repository build command unless a root-level Makefile defining that target is added in a future release.
+
 ---
 
-## 7. Install canonical mainnet genesis
+## 7. Install the canonical mainnet genesis
+
+Canonical source:
+
+```text
+https://github.com/xgr-network/XGR/blob/main/genesis/mainnet/genesis.json
+```
+
+Install directly from the canonical repository:
 
 ```bash
 sudo curl -fsSL \
@@ -267,17 +307,17 @@ sudo curl -fsSL \
   -o /etc/xgr/genesis.json
 ```
 
-Permissions:
+Set permissions:
 
 ```bash
 sudo chown root:root /etc/xgr/genesis.json
 sudo chmod 0644 /etc/xgr/genesis.json
 ```
 
-Do not modify:
+Do not modify network-defining mainnet fields such as:
 
 ```text
-chainID
+chain ID
 fork schedule
 IBFT configuration
 PoS activation
@@ -285,72 +325,85 @@ initial allocation
 protocol addresses
 ```
 
-on a node intended to join mainnet.
+---
+
+## 8. Runtime configuration philosophy
+
+The command examples in this document use only:
+
+1. deployment-path flags,
+2. role-critical interface flags,
+3. role-critical consensus behavior,
+4. explicitly enabled optional features.
+
+Values that already match the software defaults are not repeated merely for completeness.
+
+This avoids accidentally pinning an old default into a long-lived systemd unit after a future software upgrade.
+
+For example, the following `v3.1.1` values are already built-in defaults and do not need to be repeated in a standard RPC command:
+
+```text
+JSON-RPC batch request limit: 20
+JSON-RPC block range limit:   1000
+debug concurrency limit:      32
+WebSocket read limit:         8192 bytes
+log level:                    INFO
+```
 
 ---
 
-## 8. Placeholder conventions
+## 9. Role-critical overrides used in the examples
 
-| Placeholder | Meaning |
-| --- | --- |
-| `<PUBLIC_IP>` | Public IPv4 address |
-| `<NODE_DATA_DIR>` | Full/RPC node data directory |
+Some defaults are intentionally overridden for normal public full-node or RPC infrastructure.
 
-Important distinction:
+| Setting | `v3.1.1` behavior/default | Runbook choice | Reason |
+| --- | --- | --- | --- |
+| P2P bind | localhost on port `1478` | `0.0.0.0:1478` | accept external XGRChain peers |
+| JSON-RPC bind | all interfaces on port `8545` | `127.0.0.1:8545` | do not expose raw node RPC directly |
+| gRPC bind | localhost on port `9632` | `127.0.0.1:9632` | keep operator gRPC private |
+| sealing | `true` | `false` | non-validator nodes must not seal |
 
-Server bind:
-
-```text
---jsonrpc 127.0.0.1:8545
-```
-
-Client URL:
+For non-validator infrastructure, make:
 
 ```text
-http://127.0.0.1:8545
+--seal=false
 ```
 
-Do not use:
+explicit.
 
-```text
-http://127.0.0.1:8545
-```
-
-as a server bind address.
+For production RPC infrastructure, make the loopback JSON-RPC bind explicit even though the software has its own default.
 
 ---
 
-## 9. Start a normal full node
+## 10. Start a normal public full node
 
-A non-validator node must explicitly disable sealing.
+Minimal production example:
 
 ```bash
 sudo -u xgr /opt/xgr/bin/xgrchain server \
   --chain /etc/xgr/genesis.json \
   --data-dir /var/lib/xgr/node \
   --libp2p 0.0.0.0:1478 \
-  --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
-  --seal=false \
-  --log-level INFO \
-  --log-to /var/log/xgr/node.log
+  --seal=false
 ```
 
-Important:
+This starts a normal non-validator XGRChain node with:
 
-```text
---seal=false
-```
+- public P2P,
+- local JSON-RPC,
+- local gRPC,
+- sealing disabled.
 
-should be explicit for non-validator infrastructure.
+No explicit `--nat` flag is required when the host's normal advertised interface addresses are already correct for P2P connectivity.
 
 ---
 
-## 10. Full-node systemd service
+## 11. Full-node systemd service
 
 ```bash
-sudo tee /etc/systemd/system/xgr-node.service >/dev/null <<'EOF'
+sudo tee /etc/systemd/system/xgr-node.service >/dev/null <<'EOF_SERVICE'
 [Unit]
 Description=XGRChain Full Node
 After=network-online.target
@@ -364,17 +417,14 @@ ExecStart=/opt/xgr/bin/xgrchain server \
   --chain /etc/xgr/genesis.json \
   --data-dir /var/lib/xgr/node \
   --libp2p 0.0.0.0:1478 \
-  --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
-  --seal=false \
-  --log-level INFO \
-  --log-to /var/log/xgr/node.log
+  --seal=false
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=1048576
 WorkingDirectory=/var/lib/xgr
-ReadWritePaths=/var/lib/xgr /var/log/xgr
+ReadWritePaths=/var/lib/xgr
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -382,16 +432,10 @@ ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF_SERVICE
 ```
 
-Replace:
-
-```text
-<PUBLIC_IP>
-```
-
-then:
+Enable:
 
 ```bash
 sudo systemctl daemon-reload
@@ -405,47 +449,45 @@ systemctl status xgr-node
 journalctl -u xgr-node -n 100 --no-pager
 ```
 
+The node logs to standard output by default, so systemd/journald can capture the logs without requiring `--log-to`.
+
 ---
 
-## 11. Start an RPC node
+## 12. Start an RPC node
 
-Recommended local node bind:
+The node process itself does not need a different set of consensus flags merely because the infrastructure is used as an RPC service.
+
+Minimal RPC-node example:
 
 ```bash
 sudo -u xgr /opt/xgr/bin/xgrchain server \
   --chain /etc/xgr/genesis.json \
   --data-dir /var/lib/xgr/node \
   --libp2p 0.0.0.0:1478 \
-  --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
-  --prometheus 127.0.0.1:5001 \
-  --seal=false \
-  --json-rpc-batch-request-limit 20 \
-  --json-rpc-block-range-limit 1000 \
-  --concurrent-requests-debug 32 \
-  --websocket-read-limit 8192 \
-  --log-level INFO \
-  --log-to /var/log/xgr/rpc.log
+  --seal=false
 ```
 
-Public exposure should normally be:
+Public service exposure should normally be:
 
 ```text
 Internet
    ↓
-TLS reverse proxy / RPC gateway
+TLS / WSS reverse proxy or RPC gateway
    ↓
 rate limiting / abuse protection
    ↓
 127.0.0.1:8545
 ```
 
+Do not expose the raw node JSON-RPC listener directly to the public Internet unless that is an intentional and separately secured design.
+
 Do not place validator private keys on public RPC infrastructure.
 
 ---
 
-## 12. JSON-RPC HTTP and WebSocket
+## 13. JSON-RPC HTTP and WebSocket
 
 The JSON-RPC listener serves both HTTP JSON-RPC and WebSocket RPC.
 
@@ -467,35 +509,142 @@ and the local WebSocket endpoint is:
 ws://127.0.0.1:8545/ws
 ```
 
-WebSocket subscriptions are therefore available through the same JSON-RPC listener under `/ws`.
+WebSocket subscriptions are available through the same JSON-RPC listener under:
+
+```text
+/ws
+```
 
 For public service, terminate TLS at the gateway and expose provider-specific HTTPS/WSS endpoints from there.
 
-The node supports the CORS runtime option:
+The node also supports:
 
 ```text
 --access-control-allow-origins
 ```
 
-CORS is not a substitute for gateway authentication, rate limiting or abuse protection.
+for CORS behavior.
 
-Public RPC operators should enforce their production policy at the reverse proxy / API gateway layer.
+CORS is not a substitute for:
+
+- gateway authentication,
+- rate limiting,
+- request filtering,
+- abuse protection,
+- network-level access control.
 
 ---
 
-## 13. Prometheus telemetry
+## 14. Operationally relevant optional runtime flags
 
-Prometheus telemetry is optional.
+The following table documents commonly relevant optional settings for full-node and RPC operators.
 
-Example local-only bind:
+It is not intended to replace `xgrchain server --help`.
+
+### Networking
+
+| Flag | `v3.1.1` default | Use |
+| --- | --- | --- |
+| `--nat <PUBLIC_IP>` | not set | Override the P2P address advertised to peers when the externally reachable IPv4 address differs from the host addresses |
+| `--dns <MULTIADDR>` | not set | Advertise a DNS-based P2P address instead of a normal host address |
+| `--max-peers` | `40` | Override total peer capacity |
+| `--max-inbound-peers` | `32` | Override inbound peer capacity |
+| `--max-outbound-peers` | `8` | Override outbound peer capacity |
+
+`--nat` does not configure NAT or port forwarding.
+
+It only tells libp2p which IPv4 address should be advertised to other peers.
+
+Example:
+
+```bash
+--nat 203.0.113.10
+```
+
+With P2P port `1478`, the advertised multiaddress becomes conceptually:
 
 ```text
+/ip4/203.0.113.10/tcp/1478
+```
+
+If the node already has the correct public address on its host interfaces and peers can reach it normally, `--nat` is not required.
+
+### JSON-RPC and WebSocket
+
+| Flag | `v3.1.1` default | Use |
+| --- | ---: | --- |
+| `--json-rpc-batch-request-limit` | `20` | Maximum number of calls accepted in a JSON-RPC batch |
+| `--json-rpc-block-range-limit` | `1000` | Maximum block range for requests using `fromBlock` / `toBlock`, such as `eth_getLogs` |
+| `--concurrent-requests-debug` | `32` | Maximum concurrent debug endpoint requests |
+| `--websocket-read-limit` | `8192` bytes | Maximum WebSocket message size read from a peer |
+| `--access-control-allow-origins` | `*` | Override JSON-RPC CORS origins |
+
+The standard examples do not repeat these flags because they already equal the `v3.1.1` defaults.
+
+The batch and block-range limits can be changed by operators according to their public RPC service policy.
+
+The node CLI documents value `0` as disabling the batch-request limit and block-range limit respectively.
+
+### Monitoring
+
+| Flag | `v3.1.1` default | Use |
+| --- | --- | --- |
+| `--prometheus <ADDR>` | disabled | Enable Prometheus HTTP telemetry listener |
+| `--metrics-interval` | `8s` | Override metrics generation interval |
+
+Recommended local-only example:
+
+```bash
 --prometheus 127.0.0.1:5001
 ```
 
-Keep the telemetry listener private unless there is a deliberate monitoring-network design.
+Keep Prometheus private unless there is a deliberate monitoring-network design.
 
-The metrics listener should not be exposed publicly merely because the JSON-RPC service is public.
+### Logging
+
+| Flag | `v3.1.1` default | Use |
+| --- | --- | --- |
+| `--log-level` | `INFO` | Override log verbosity |
+| `--log-to <PATH>` | stdout | Write node logs to a file instead of standard output |
+
+For systemd deployments, leaving logs on stdout and using journald is a valid production setup.
+
+### State retention
+
+| Flag | `v3.1.1` default | Use |
+| --- | --- | --- |
+| `--trie-sweeper` | `false` | Enable online historical-state trie garbage collection |
+| `--trie-sweeper-retain-blocks` | `10000` | Number of latest canonical state roots retained when sweeper is enabled |
+| `--trie-sweeper-interval` | `6h` | Interval between completed sweeper cycles |
+
+For a bounded-history node using the defaults, only:
+
+```text
+--trie-sweeper
+```
+
+needs to be added.
+
+---
+
+## 15. Prometheus telemetry
+
+Prometheus telemetry is optional.
+
+Example:
+
+```bash
+sudo -u xgr /opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false \
+  --prometheus 127.0.0.1:5001
+```
+
+Keep the telemetry listener private unless there is a deliberate monitoring-network design.
 
 Useful infrastructure monitoring should include at least:
 
@@ -513,7 +662,7 @@ Useful infrastructure monitoring should include at least:
 
 ---
 
-## 14. Basic node checks
+## 16. Basic node checks
 
 Client version:
 
@@ -553,7 +702,7 @@ curl -s http://127.0.0.1:8545 \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_syncing","params":[]}'
 ```
 
-Synced:
+A fully synchronized node normally reports:
 
 ```text
 false
@@ -576,33 +725,36 @@ correct chain ID
 +
 advancing block height
 +
-not syncing
+expected sync state
 +
 useful peer connectivity
 ```
 
 ---
 
-## 15. Production RPC quick reference
+## 17. Production RPC quick reference
 
 | Item | Production baseline |
 | --- | --- |
 | Node release | `xgr-node v3.1.1` |
 | Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Recommended install | official checksum-verified release binary |
 | Chain ID | `1643` / `0x66b` |
 | Native asset | XGR |
-| P2P | `1478/tcp` |
+| Public P2P | `1478/tcp` |
 | Local HTTP JSON-RPC | `http://127.0.0.1:8545/` |
 | Local WebSocket RPC | `ws://127.0.0.1:8545/ws` |
 | Local gRPC | `127.0.0.1:9632` |
 | Optional local Prometheus | `127.0.0.1:5001` |
-| RPC sealing | `--seal=false` |
-| Public RPC exposure | TLS reverse proxy / RPC gateway |
-| Public validator keys on RPC node | Never |
+| RPC sealing | explicit `--seal=false` |
+| Public RPC exposure | TLS/WSS reverse proxy or RPC gateway |
+| Public validator keys on RPC node | never |
 | Archive state | Trie Sweeper disabled |
-| Bounded historical state | Trie Sweeper enabled with explicit retention |
+| Bounded historical state | Trie Sweeper enabled |
+| Default bounded retention | `10000` blocks |
+| Default sweep interval | `6h` |
 
-For a third-party RPC provider, the minimum deployment decision is:
+For a third-party RPC provider, the primary storage-policy decision is:
 
 ```text
 archive RPC
@@ -618,7 +770,7 @@ depending on the historical-state guarantees the provider intends to offer.
 
 ---
 
-## 16. Hardware and capacity planning
+## 18. Hardware and capacity planning
 
 XGR.Network does not publish a fixed CPU, RAM or disk minimum for every production workload.
 
@@ -653,7 +805,7 @@ Fast local SSD/NVMe-class storage is operationally preferable for latency-sensit
 
 # State Growth Control / Trie Pruning
 
-## 17. Online State Trie Sweeper
+## 19. Online State Trie Sweeper
 
 `xgr-node` includes an online state-trie garbage collector called the:
 
@@ -691,7 +843,9 @@ It does not change:
 
 ---
 
-## 18. Trie Sweeper flags
+## 20. Trie Sweeper defaults
+
+Relevant flags:
 
 ```text
 --trie-sweeper
@@ -704,36 +858,39 @@ Defaults:
 | Setting | Default |
 | --- | ---: |
 | Sweeper enabled | `false` |
-| Retention | `10,000` blocks |
-| Interval | `6h` |
+| Retention when enabled | `10,000` blocks |
+| Sweep interval | `6h` |
 
-When enabled:
+When the default retention and interval are desired, operators only need:
 
 ```text
-retain blocks > 0
-interval > 0
+--trie-sweeper
 ```
 
-are required.
+There is no need to repeat:
+
+```text
+--trie-sweeper-retain-blocks 10000
+--trie-sweeper-interval 6h
+```
+
+unless the intent is to pin those values explicitly.
 
 ---
 
-## 19. Bounded-history full-node profile
+## 21. Bounded-history full-node profile
 
-A typical bounded-history configuration:
+Minimal bounded-history example using the software defaults:
 
 ```bash
 sudo -u xgr /opt/xgr/bin/xgrchain server \
   --chain /etc/xgr/genesis.json \
   --data-dir /var/lib/xgr/node \
   --libp2p 0.0.0.0:1478 \
-  --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
   --seal=false \
-  --trie-sweeper \
-  --trie-sweeper-retain-blocks 10000 \
-  --trie-sweeper-interval 6h
+  --trie-sweeper
 ```
 
 At the nominal two-second block target:
@@ -748,18 +905,21 @@ Retention is measured in blocks.
 
 ---
 
-## 20. Longer-history RPC profile
+## 22. Custom longer-history RPC profile
 
-For infrastructure requiring more historical state:
+For infrastructure requiring more historical state, override only the retention value:
 
-```text
+```bash
+--trie-sweeper \
 --trie-sweeper-retain-blocks 100000
 ```
 
-At nominal block timing this corresponds to roughly:
+The sweep interval remains at its `6h` software default unless deliberately overridden.
+
+At nominal block timing:
 
 ```text
-55 hours 33 minutes
+100,000 blocks ≈ 55 hours 33 minutes
 ```
 
 of recent canonical state.
@@ -770,7 +930,7 @@ A larger retention window requires more disk.
 
 ---
 
-## 21. Archive-style profile
+## 23. Archive-style profile
 
 If the node must support arbitrary historical EVM-state queries:
 
@@ -778,7 +938,15 @@ If the node must support arbitrary historical EVM-state queries:
 leave Trie Sweeper disabled
 ```
 
-Do not enable pruning on an archive-style endpoint.
+No additional archive flag is required.
+
+Do not add:
+
+```text
+--trie-sweeper
+```
+
+to an archive-style endpoint.
 
 An archive-style node may be required for historical:
 
@@ -794,11 +962,21 @@ against old block heights.
 
 Block history and state history are different.
 
-An RPC provider should document whether its public endpoint is archive-capable or bounded-history.
+An RPC provider should document whether its public endpoint is:
+
+```text
+archive-capable
+```
+
+or:
+
+```text
+bounded-history
+```
 
 ---
 
-## 22. What the Trie Sweeper deletes
+## 24. What the Trie Sweeper deletes
 
 The sweeper identifies recent canonical state roots and marks state reachable from them.
 
@@ -819,7 +997,7 @@ Therefore an old block may remain queryable while its historical EVM state is no
 
 ---
 
-## 23. First-sweep behavior
+## 25. First-sweep behavior
 
 The first sweep intentionally does not begin immediately at process startup.
 
@@ -843,7 +1021,7 @@ Operators should not interpret the lack of an immediate sweep after process star
 
 ---
 
-## 24. Sweep cycle
+## 26. Sweep cycle
 
 A sweep conceptually performs:
 
@@ -871,7 +1049,7 @@ The final state-root verification is an important integrity check.
 
 ---
 
-## 25. Trie GC work directory
+## 27. Trie GC work directory
 
 Working data is stored below:
 
@@ -879,7 +1057,7 @@ Working data is stored below:
 <data-dir>/trie-gc
 ```
 
-For example:
+For the standard layout:
 
 ```text
 /var/lib/xgr/node/trie-gc
@@ -897,7 +1075,7 @@ It is rebuilt when required and is not canonical blockchain state.
 
 ---
 
-## 26. Trie Sweeper logging
+## 28. Trie Sweeper logging
 
 Initialization logs include values such as:
 
@@ -942,7 +1120,7 @@ after completed sweeps.
 
 ---
 
-## 27. Trie Sweeper monitoring
+## 29. Trie Sweeper monitoring
 
 During and after a sweep monitor:
 
@@ -966,7 +1144,7 @@ This is not automatically abnormal.
 
 ---
 
-## 28. Trie Sweeper and validators
+## 30. Trie Sweeper and validators
 
 The Trie Sweeper is technically consensus-independent and can operate on validator nodes.
 
@@ -986,19 +1164,15 @@ Detailed validator operation is outside the scope of this runbook.
 
 ---
 
-## 29. Disabling pruning
+## 31. Disabling pruning
 
-Remove:
+Stop the node and remove:
 
 ```text
 --trie-sweeper
 ```
 
-or configure:
-
-```yaml
-trie_sweeper: false
-```
+from its runtime configuration.
 
 This stops future sweep cycles.
 
@@ -1006,7 +1180,7 @@ It does **not** restore state that has already been removed.
 
 ---
 
-## 30. Trie-pruning recovery
+## 32. Trie-pruning recovery
 
 If historical state that has already been pruned is required again, disabling the sweeper is not sufficient.
 
@@ -1035,15 +1209,15 @@ XGRCHAIN_State_Storage_and_Retention.md
 
 ---
 
-## 31. Recommended pruning profiles
+## 33. Recommended retention profiles
 
 | Role | Suggested retention approach |
 | --- | --- |
-| General full node | `10,000` blocks is the software default when enabled |
-| Public RPC with some history | Increase retention based on application needs |
-| Archive RPC | Sweeper disabled |
-| Validator | Optional; enable conservatively and monitor I/O |
-| Indexer | Depends on whether indexer needs raw historical state or only blocks/logs |
+| General full node | default `10,000` blocks when sweeper is enabled |
+| Public RPC with some history | increase retention based on application needs |
+| Archive RPC | Trie Sweeper disabled |
+| Validator | optional; enable conservatively and monitor I/O |
+| Indexer | depends on whether the indexer needs raw historical state or only blocks/logs |
 
 There is no universal retention value for every deployment.
 
@@ -1051,12 +1225,19 @@ The correct value depends on historical-state requirements.
 
 ---
 
-## 32. Production RPC systemd example with bounded history
+## 34. Bounded-history RPC systemd example
 
-Example bounded-history RPC node:
+This example intentionally relies on the default:
+
+```text
+10,000 retained blocks
+6h sweep interval
+```
+
+and therefore enables only the sweeper itself.
 
 ```bash
-sudo tee /etc/systemd/system/xgr-rpc.service >/dev/null <<'EOF'
+sudo tee /etc/systemd/system/xgr-rpc.service >/dev/null <<'EOF_SERVICE'
 [Unit]
 Description=XGRChain RPC Node
 After=network-online.target
@@ -1070,25 +1251,15 @@ ExecStart=/opt/xgr/bin/xgrchain server \
   --chain /etc/xgr/genesis.json \
   --data-dir /var/lib/xgr/node \
   --libp2p 0.0.0.0:1478 \
-  --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
-  --prometheus 127.0.0.1:5001 \
   --seal=false \
-  --json-rpc-batch-request-limit 20 \
-  --json-rpc-block-range-limit 1000 \
-  --concurrent-requests-debug 32 \
-  --websocket-read-limit 8192 \
-  --trie-sweeper \
-  --trie-sweeper-retain-blocks 10000 \
-  --trie-sweeper-interval 6h \
-  --log-level INFO \
-  --log-to /var/log/xgr/rpc.log
+  --trie-sweeper
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=1048576
 WorkingDirectory=/var/lib/xgr
-ReadWritePaths=/var/lib/xgr /var/log/xgr
+ReadWritePaths=/var/lib/xgr
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -1096,16 +1267,10 @@ ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF_SERVICE
 ```
 
-Replace:
-
-```text
-<PUBLIC_IP>
-```
-
-then:
+Enable:
 
 ```bash
 sudo systemctl daemon-reload
@@ -1123,13 +1288,23 @@ For an archive RPC service, remove:
 
 ```text
 --trie-sweeper
---trie-sweeper-retain-blocks 10000
---trie-sweeper-interval 6h
+```
+
+For Prometheus, add for example:
+
+```text
+--prometheus 127.0.0.1:5001
+```
+
+For custom historical retention, add for example:
+
+```text
+--trie-sweeper-retain-blocks 100000
 ```
 
 ---
 
-## 33. Production security baseline
+## 35. Production security baseline
 
 Public RPC infrastructure should normally use the following separation:
 
@@ -1148,12 +1323,12 @@ rate limiting / abuse controls
 Recommended boundaries:
 
 - expose P2P only where required for peer connectivity,
-- keep JSON-RPC bound locally or to a controlled private network,
+- keep JSON-RPC bound to loopback or a controlled private network,
 - keep gRPC private,
 - keep Prometheus private,
 - do not place validator keys on public RPC nodes,
 - restrict debug/tracing according to provider policy,
-- enforce request and WebSocket limits at the gateway,
+- enforce request and WebSocket limits at the gateway as needed,
 - monitor peer count and canonical block progression,
 - monitor disk health and free space,
 - restrict SSH to administrative sources,
@@ -1163,7 +1338,7 @@ A public RPC endpoint and a consensus validator are different infrastructure rol
 
 ---
 
-## 34. Troubleshooting
+## 36. Troubleshooting
 
 ### Node does not start
 
@@ -1185,7 +1360,7 @@ Common causes:
 - missing or inaccessible `--data-dir`,
 - filesystem permissions,
 - port already in use,
-- invalid `--nat` address,
+- invalid optional `--nat` address,
 - modified or incompatible genesis,
 - invalid runtime flag value.
 
@@ -1195,11 +1370,17 @@ Check:
 
 ```text
 P2P port 1478
-public IP / NAT advertisement
-cloud firewall
 host firewall
+cloud firewall
+public routing
 bootnode reachability
 net_peerCount
+```
+
+If the host is behind NAT or its automatically advertised address is not externally reachable, consider:
+
+```text
+--nat <PUBLIC_IP>
 ```
 
 The dedicated networking document contains the detailed P2P troubleshooting model:
@@ -1242,13 +1423,11 @@ Rebuild, resynchronize or use an archive-capable source.
 
 ### WebSocket connection fails
 
-Verify:
+Verify locally:
 
 ```text
 ws://127.0.0.1:8545/ws
 ```
-
-locally.
 
 For public WSS access, also verify:
 
@@ -1269,21 +1448,21 @@ and that the monitoring process can reach that private listener.
 
 ---
 
-## 35. Production-readiness checklist
+## 37. Production-readiness checklist
 
 Before considering a standalone XGRChain RPC node production-ready:
 
 - `xgr-node v3.1.1` is installed,
-- release artifact or build provenance is verified,
+- the official release artifact or equivalent build provenance is verified,
 - canonical mainnet genesis is used unchanged,
 - chain ID returns `0x66b`,
 - block height advances,
 - `eth_syncing` reports the expected state,
 - peer connectivity is healthy,
 - `--seal=false` is explicit,
-- HTTP JSON-RPC is reachable locally,
+- HTTP JSON-RPC is intentionally bound,
 - WebSocket RPC is reachable at `/ws`,
-- public RPC is fronted by TLS and gateway controls,
+- public RPC is fronted by TLS/WSS and gateway controls,
 - gRPC is not publicly exposed,
 - Prometheus is private if enabled,
 - archive versus bounded-history behavior is intentional,
@@ -1295,7 +1474,7 @@ Before considering a standalone XGRChain RPC node production-ready:
 
 ---
 
-## 36. Related documentation
+## 38. Related documentation
 
 Use the specialized Chain documents for additional detail:
 
