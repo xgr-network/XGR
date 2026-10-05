@@ -1,1065 +1,1072 @@
-# XGR Chain — Network Upgrade & Hardfork Process
+# XGR Chain — Networking & P2P
 
-**Document ID:** XGRCHAIN-NETWORK-UPGRADE  
-**Last updated:** 2026-10-03  
-**Audience:** Node operators, validators, release managers, protocol developers, infrastructure engineers, auditors  
+**Document ID:** XGRCHAIN-NETWORKING-P2P  
+**Last updated:** 2026-10-05  
+**Audience:** Node operators, validator operators, RPC operators, infrastructure engineers  
 **Release baseline:** `xgr-node v3.1.1`  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
-**Mainnet configuration:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
+**Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
-**Scope:** Production XGRChain software upgrades, protocol activations and hardfork coordination
+**Scope:** Public XGRChain node networking and P2P operation
 
 ---
 
 ## 1. Scope
 
-This document describes the production upgrade model for XGRChain.
+This document describes the P2P networking layer used by XGRChain nodes.
 
 It covers:
 
-- node software releases,
-- operational upgrades,
-- RPC upgrades,
-- storage upgrades,
-- consensus-sensitive execution changes,
-- hardforks,
-- fork activation,
-- validator rollout,
-- configuration changes,
-- staking and PoS upgrades,
-- fee-model changes,
-- native-precompile changes,
-- activation monitoring,
-- rollback boundaries,
-- chain-split prevention,
-- external interchain-service upgrades.
+- libp2p host setup,
+- node identity,
+- network-key handling,
+- bootnodes,
+- peer discovery,
+- routing tables,
+- dial queues,
+- connection limits,
+- inbound/outbound peers,
+- NAT and DNS advertisement,
+- Gossipsub,
+- transaction gossip,
+- node protocol streams,
+- peer events,
+- networking metrics,
+- firewall guidance,
+- bootnode operation,
+- common failure modes,
+- P2P security boundaries.
 
 This document does not define:
 
-- XDaLa application upgrades,
-- XRC specification versioning,
-- individual smart-contract upgrade mechanisms,
-- detailed interchain relayer operation,
-- UI deployment procedures.
+- validator onboarding,
+- staking commands,
+- Ethereum JSON-RPC schemas,
+- PoS endpoint schemas,
+- XDaLa behavior,
+- Interchain relayer operation,
+- XRC standards.
+
+Node startup and service-management procedures belong to the node-operation runbook.
 
 ---
 
-## 2. Current mainnet baseline
+## 2. Networking overview
 
-Current public node release:
+XGRChain uses a libp2p-based networking stack.
 
-    xgr-node v3.1.1
+The networking layer provides:
 
-Release commit:
+| Function | Purpose |
+| --- | --- |
+| Node identity | Stable peer ID derived from the node network key |
+| Transport security | libp2p Noise |
+| Peer discovery | Bootnode and peer-driven discovery |
+| Peer routing | Kademlia-style routing table |
+| Connection management | Inbound/outbound peer limits and dial queue |
+| PubSub | Gossipsub propagation |
+| Transaction gossip | Distribution of TxPool transactions |
+| Protocol streams | Internal node-to-node services |
+| Peer events | Connection-state tracking |
+| Metrics | Connectivity and network-health visibility |
 
-    1a4844b311fb856cb8c2303a40fa8aa69b560544
+Consensus, synchronization, block propagation and transaction propagation depend on healthy P2P connectivity.
 
-Current XGRChain mainnet identity remains:
-
-    chainId = 1643
-
-The current consensus phase is delegated PoS.
-
-Published transition:
-
-| Phase | Type | Validator type | Blocks |
-| --- | --- | --- | --- |
-| Initial | `PoA` | `bls` | `0–5446499` |
-| Current | `PoS` | `bls` | `5446500+` |
-
-PoS configuration:
-
-| Parameter | Value |
-| --- | ---: |
-| Activation block | `5446500` |
-| Deployment block | `5446500` |
-| Minimum validators | `4` |
-| Maximum validators | `25` |
-| Micro epoch | `25` blocks |
-| Macro factor | `40` |
-| Macro epoch | `1000` blocks |
-| Inactivity decay | `9000` bps |
-| Nominal uptime weight | `10000` |
-
-The `v3.1.1` release does not create a new mainnet genesis.
+A node can therefore be process-healthy while being network-unhealthy.
 
 ---
 
-## 3. Upgrade classification
+## 3. Mainnet bootnode
 
-Not every new binary is a hardfork.
+The canonical XGRChain mainnet configuration currently contains one bootnode:
 
-XGRChain upgrades should first be classified by what they can change.
+```text
+/ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck
+```
 
-| Upgrade class | Example | Consensus coordination |
-| --- | --- | --- |
-| Documentation | Documentation only | None |
-| Operational | Logging, metrics, CLI | Normally none |
-| RPC | Read-only API behavior | Usually none |
-| Storage | Trie Sweeper, local retention | None if canonical execution is unchanged |
-| Performance | Networking, database, execution optimization | Depends on deterministic equivalence |
-| External service | Relayer, indexer, monitoring | Not consensus by itself |
-| Execution | Precompile/EVM/state-transition behavior | Potentially consensus-critical |
-| Fee model | Base fee, fee allocation | Consensus-critical |
-| PoS/staking | Validator set, voting power, rewards | Consensus-critical |
-| Hardfork | New block/state validity rules | Coordinated activation required |
+Bootnodes:
 
-The relevant question is:
+- provide initial peer discovery,
+- should use stable peer identities,
+- should remain reachable,
+- should be monitored,
+- do not grant validator authority,
+- do not define validator membership,
+- do not define transaction permissions.
 
-> Can upgraded and non-upgraded consensus nodes produce or accept different canonical state for the same block?
-
-If yes, the change is consensus-sensitive.
+A node can discover XGRChain through a bootnode without being a validator.
 
 ---
 
-## 4. What is a hardfork?
+## 4. libp2p implementation
 
-A hardfork is a protocol change that can cause upgraded and non-upgraded nodes to disagree about valid canonical chain state after an activation boundary.
+The `v3.1.1` networking server creates a libp2p host using:
 
-Examples include changes to:
+- TCP transport,
+- Noise security,
+- a persistent libp2p identity key,
+- configured listen address,
+- optional NAT/DNS address advertisement,
+- Gossipsub,
+- peer-event handling,
+- asynchronous dialing,
+- protocol stream registration.
 
-- transaction validity,
-- EVM execution,
-- gas accounting,
-- native precompiles,
-- block-header validation,
-- state transition,
-- receipt generation,
-- consensus voting,
-- validator-set calculation,
-- staking behavior,
-- fee distribution,
-- protocol system transactions,
-- fork activation rules.
+Default P2P port:
 
-A binary version change alone is not necessarily a hardfork.
+```text
+1478
+```
 
----
+Default network bind:
 
-## 5. Fork activation model
+```text
+127.0.0.1:1478
+```
 
-XGRChain supports block-height-based fork activation.
+This default is suitable for local-only connectivity but is not sufficient for a publicly reachable production P2P node.
 
-Configured EVM forks live under:
+A production node that should accept inbound peers normally uses:
 
-    params.forks
-
-A configured fork is active when:
-
-    currentBlock >= fork.block
-
-All nodes participating in consensus must resolve the same effective protocol rules for the same block height.
+```bash
+--libp2p 0.0.0.0:1478
+```
 
 ---
 
-## 6. Current published EVM fork schedule
+## 5. Node identity
 
-Active from block `0`:
+Each node has a libp2p private network key.
 
-| Fork | Block |
-| --- | ---: |
-| `homestead` | `0` |
-| `byzantium` | `0` |
-| `constantinople` | `0` |
-| `petersburg` | `0` |
-| `istanbul` | `0` |
-| `london` | `0` |
-| `londonfix` | `0` |
-| `EIP150` | `0` |
-| `EIP155` | `0` |
-| `EIP158` | `0` |
-| `quorumcalcalignment` | `0` |
-| `txHashWithType` | `0` |
+That key determines the node's peer ID.
 
-Active from block `1208500`:
+Relationship:
 
-| Fork | Block |
-| --- | ---: |
-| `EIP2930` | `1208500` |
-| `EIP2929` | `1208500` |
-| `EIP3860` | `1208500` |
-| `EIP3651` | `1208500` |
+```text
+network private key
+        ↓
+libp2p identity
+        ↓
+peer ID
+```
 
-Operators joining mainnet must not invent their own fork schedule.
+Example bootnode multiaddr:
 
----
+```text
+/ip4/217.154.225.157/tcp/1478/p2p/16Uiu2HAmGYfGAKCNzuzZPPauKk7FpqMk192hEmiQsqYTXvrga4Ck
+```
 
-## 7. PoS activation
+The final `/p2p/...` component identifies the peer.
 
-The PoS transition is configured through:
+If the network key changes:
 
-    params.engine.ibft.types
+```text
+peer ID changes
+```
 
-rather than through a normal EVM fork entry.
-
-Mainnet:
-
-    PoA: blocks 0–5446499
-    PoS: blocks 5446500+
-
-IBFT remains the deterministic-finality mechanism after PoS activation.
-
-PoS changes:
-
-- validator participation,
-- staking,
-- delegation,
-- voting power,
-- validator-set evolution,
-- epoch accounting.
+For infrastructure whose multiaddr is published, changing the network key can therefore invalidate existing discovery references.
 
 ---
 
-## 8. `feePoolSplit` alignment
+## 6. Network key versus validator key
 
-`xgr-node v3.1.1` requires the effective `feePoolSplit` activation to match the first PoS fork.
+The network identity key and validator signing material are separate.
 
-For mainnet:
+| Key | Purpose |
+| --- | --- |
+| Network key | libp2p peer identity |
+| Validator key | IBFT consensus signing |
+| Account key | Normal account/transaction signing |
+| Relayer key | External-service transaction submission |
 
-    first PoS block = 5446500
-
-Therefore:
-
-    feePoolSplit = 5446500
-
-If an explicit `feePoolSplit` configuration disagrees with the first PoS block, node initialization fails.
-
-This prevents inconsistent PoS fee-accounting activation.
-
----
-
-## 9. Native precompiles and upgrade risk
-
-Native precompiles are implemented directly by the node execution engine.
-
-They are therefore different from ordinary deployed smart contracts.
-
-For example, `v3.1.1` registers the native XGR interchain BLS12-381 verifier at:
-
-    0x0000000000000000000000000000000000002040
-
-A change that:
-
-- adds a precompile,
-- removes a precompile,
-- changes its input validation,
-- changes gas accounting,
-- changes its return value,
-- changes cryptographic verification behavior,
-
-can be consensus-sensitive.
-
-If validators execute the same transaction differently because they run different precompile implementations, they can derive different state-transition results.
-
-Therefore:
-
-> Native execution primitives must be treated with the same release discipline as other consensus-relevant EVM behavior.
-
----
-
-## 10. External interchain services are a separate upgrade domain
-
-The XGR Interchain backend contains components outside `xgr-node`.
-
-Examples include:
-
-- relayers,
-- remote-chain routers,
-- checkpoint generation,
-- validator-attestation services,
-- deployment tooling,
-- operational monitoring.
-
-A relayer software update does not automatically change XGRChain consensus.
+Possession of one does not imply authority associated with another.
 
 For example:
 
-    relayer retry logic
-    log rotation
-    snapshot compaction
-    health checks
-
-are service-level concerns.
-
-However, changing an on-chain router or security module can affect the Interchain protocol even though it does not change XGRChain block consensus.
-
-Therefore there are two separate questions:
-
-    Does this change XGRChain consensus?
+```text
+libp2p peer
+≠
+consensus validator
+```
 
 and:
 
-    Does this change Interchain security or asset behavior?
-
-Both can be operationally critical, but they are different upgrade classes.
-
----
-
-## 11. Trie Sweeper upgrades are local storage upgrades
-
-The Online State Trie Sweeper is node-local storage functionality.
-
-Configuration includes:
-
-    --trie-sweeper
-    --trie-sweeper-retain-blocks
-    --trie-sweeper-interval
-
-Changing:
-
-- whether pruning is enabled,
-- the local retention window,
-- the sweep interval,
-
-does not change canonical XGRChain state.
-
-Two nodes may therefore use different retention policies while following the same chain.
-
-Trie pruning does affect:
-
-- disk usage,
-- LevelDB compaction,
-- historical-state availability,
-- historical RPC capability.
-
-It does not affect:
-
-- chain ID,
-- validator set,
-- block validity,
-- current canonical state root,
-- consensus quorum.
-
-State-retention policy changes do not require a hardfork.
+```text
+Interchain relayer
+≠
+consensus validator
+```
 
 ---
 
-## 12. What requires consensus coordination?
+## 7. Network-key handling
 
-Consensus coordination is required for any change that can affect:
+Operational rules:
 
-| Area | Examples |
+- do not delete production bootnode network keys casually,
+- preserve stable identities where published multiaddrs depend on them,
+- do not reuse one data directory for multiple simultaneous nodes,
+- restrict filesystem access,
+- back up persistent network identities where operationally required,
+- keep validator signing material under a separate and stricter security boundary.
+
+---
+
+## 8. Discovery startup requirements
+
+Discovery is enabled by default.
+
+The `v3.1.1` network implementation defines:
+
+```text
+MinimumBootNodes = 1
+```
+
+When discovery is enabled and no bootnodes are configured, startup fails.
+
+Relevant errors include:
+
+```text
+no bootnodes specified
+```
+
+and:
+
+```text
+minimum 1 bootnode is required
+```
+
+This requirement applies to discovery-enabled startup.
+
+---
+
+## 9. Disabling discovery
+
+Discovery can be disabled with:
+
+```bash
+--no-discover
+```
+
+In this mode:
+
+- automatic peer discovery is disabled,
+- bootnode-driven discovery is skipped,
+- manually controlled/static connectivity becomes more important.
+
+For ordinary XGRChain mainnet operation, discovery should normally remain enabled.
+
+---
+
+## 10. Peer discovery
+
+The discovery service uses a Kademlia-style routing table.
+
+Verified `v3.1.1` values:
+
+| Parameter | Value |
+| --- | ---: |
+| Maximum requested peers per discovery query | `16` |
+| Normal peer discovery interval | `5s` |
+| Bootnode discovery interval | `60s` |
+| Minimum peer connection target | `1` |
+| Routing-table bucket size | `20` |
+
+Conceptual flow:
+
+```text
+configured bootnodes
+        ↓
+initial peer connectivity
+        ↓
+peer discovery queries
+        ↓
+peer store
+        ↓
+routing table
+        ↓
+dial queue
+        ↓
+additional peer connections
+```
+
+Discovery continues throughout node operation.
+
+---
+
+## 11. Routing table
+
+The discovery service maintains a Kademlia-style routing table.
+
+Current bucket size:
+
+```text
+20
+```
+
+The routing table helps the node:
+
+- track known connected peers,
+- select peers for discovery,
+- return nearby peers,
+- remove disconnected or failed peers,
+- build connectivity over time.
+
+Routing-table contents are node-local operational state.
+
+They are not consensus state.
+
+---
+
+## 12. Peer store
+
+The libp2p peer store retains identity and address information required for connection attempts.
+
+A peer can be:
+
+- known,
+- present in the routing table,
+- queued for dialing,
+- actively connected,
+- disconnected.
+
+These states are not equivalent.
+
+For example:
+
+```text
+known peer ≠ connected peer
+```
+
+Monitoring should therefore focus on live connections rather than only discovered peer records.
+
+---
+
+## 13. Dial queue
+
+The networking server uses an asynchronous dial queue.
+
+Peers can enter connection workflows through:
+
+- bootnode discovery,
+- regular discovery,
+- routing-table activity,
+- manual peer operations,
+- minimum-peer recovery behavior.
+
+Connection attempts can fail because of:
+
+- unreachable addresses,
+- firewall rules,
+- incorrect NAT advertisement,
+- remote node downtime,
+- connection limits,
+- network timeouts,
+- incompatible protocol behavior.
+
+Occasional failed dials are normal.
+
+Persistent repeated failures require investigation.
+
+---
+
+## 14. Connection limits
+
+Current `v3.1.1` defaults:
+
+| Setting | Default |
+| --- | ---: |
+| Maximum peers | `40` |
+| Maximum inbound peers | `32` |
+| Maximum outbound peers | `8` |
+
+Default composition:
+
+```text
+32 inbound
+ 8 outbound
+40 total
+```
+
+Relevant runtime controls:
+
+```text
+--max-peers
+--max-inbound-peers
+--max-outbound-peers
+```
+
+These are node-local networking limits.
+
+They do not alter XGRChain consensus rules.
+
+---
+
+## 15. Peer-limit guidance
+
+### Validator
+
+Prioritize:
+
+- stable connectivity,
+- sufficient outbound recovery paths,
+- predictable resource use.
+
+The defaults are a reasonable baseline unless monitoring demonstrates a need for different limits.
+
+### Full node
+
+Defaults are generally sufficient for ordinary synchronization and propagation.
+
+### Public RPC node
+
+Peer limits and application RPC load are separate concerns.
+
+High HTTP/JSON-RPC traffic does not automatically imply that additional P2P peers are required.
+
+### Bootnode
+
+Bootnodes can require different capacity planning because of discovery load, but peer limits should still be tuned from observed resource usage.
+
+---
+
+## 16. Inbound versus outbound connections
+
+| Direction | Meaning |
 | --- | --- |
-| Transaction validation | chain ID, nonce, fee validation |
-| EVM execution | opcode/precompile behavior |
-| State transition | balances, storage, system transactions |
-| Block validity | headers, roots, gas, extra data |
-| Consensus | proposal, seal, quorum behavior |
-| Validator set | activation, removal, ordering |
-| Voting power | stake weighting, uptime weighting |
-| PoS | epoch behavior, staking lifecycle |
-| Fees | base fee, allocation, rewards |
-| Fork schedule | activation blocks |
-| Protocol execution | native system addresses or precompiles |
+| Inbound | Remote peer dialed this node |
+| Outbound | This node dialed the remote peer |
 
-A consensus-affecting binary must not be rolled out casually.
+Outbound capacity is important for:
+
+- bootstrapping,
+- recovery,
+- active discovery.
+
+Inbound connectivity is useful evidence that public advertisement and firewall configuration are functioning.
+
+A node can synchronize using outbound connectivity without accepting public inbound peers.
 
 ---
 
-## 13. Changes that normally do not require a hardfork
+## 17. Bind address
 
-Examples:
+The bind address determines where the local process listens.
 
-- logging,
+Example:
+
+```bash
+--libp2p 0.0.0.0:1478
+```
+
+Default:
+
+```text
+127.0.0.1:1478
+```
+
+A node using only the localhost default cannot normally accept connections from external peers.
+
+---
+
+## 18. NAT advertisement
+
+The `--nat` option lets a node advertise a public IPv4 address distinct from its local bind address.
+
+Example:
+
+```bash
+--libp2p 0.0.0.0:1478 \
+  --nat 203.0.113.10
+```
+
+The advertised address uses the configured P2P port.
+
+It must actually be reachable from the public network.
+
+---
+
+## 19. DNS advertisement
+
+The node can alternatively advertise a DNS multiaddr through:
+
+```text
+--dns
+```
+
+DNS and NAT advertisement are alternative address-factory paths in the current implementation.
+
+Use a stable, externally resolvable DNS name.
+
+---
+
+## 20. Bind versus advertised address
+
+These concepts are distinct.
+
+| Function | Configuration |
+| --- | --- |
+| Where the process listens | `--libp2p` |
+| Public IPv4 advertised to peers | `--nat` |
+| DNS multiaddr advertised to peers | `--dns` |
+
+A common failure mode is:
+
+```text
+listen correctly
+    +
+advertise incorrectly
+```
+
+The node can then appear in discovery while still being unreachable.
+
+---
+
+## 21. Transport security
+
+XGRChain P2P uses libp2p Noise.
+
+Noise provides encrypted and authenticated transport between libp2p peers.
+
+It does not itself grant:
+
+- validator authority,
+- staking authority,
+- application authorization,
+- contract permissions,
+- transaction validity.
+
+Transport authentication and protocol authorization are separate layers.
+
+---
+
+## 22. Gossipsub
+
+The node uses libp2p Gossipsub.
+
+Verified `v3.1.1` queue settings:
+
+| Setting | Value |
+| --- | ---: |
+| Peer outbound queue | `1024` |
+| Validation queue | `1024` |
+
+The implementation explicitly notes that messages can be dropped when these queues are saturated.
+
+Sustained queue pressure can therefore degrade propagation.
+
+---
+
+## 23. Transaction propagation
+
+Typical transaction flow:
+
+```text
+RPC submission
+      ↓
+local transaction validation
+      ↓
+TxPool admission
+      ↓
+P2P propagation
+      ↓
+peer TxPool validation
+```
+
+P2P propagation does not make an invalid transaction valid.
+
+Each receiving node validates the transaction independently and can reject it according to chain rules and its local TxPool policy.
+
+---
+
+## 24. Block and consensus propagation
+
+The P2P layer transports information required for:
+
+- block synchronization,
+- proposal propagation,
+- consensus messaging,
+- canonical-head progression.
+
+Poor connectivity can manifest as:
+
+- increased block intervals,
+- repeated IBFT round changes,
+- missed validator participation,
+- stale nodes,
+- delayed transaction inclusion.
+
+Healthy P2P connectivity is necessary for consensus liveness.
+
+It does not itself grant consensus authority.
+
+---
+
+## 25. Internal protocol streams
+
+XGRChain networking supports protocol-specific libp2p streams.
+
+The discovery subsystem, for example, creates protocol streams to query peers.
+
+These are internal node-to-node interfaces.
+
+They are not public JSON-RPC APIs.
+
+Operators normally observe them through:
+
+- connectivity,
+- logs,
 - metrics,
-- documentation,
-- CLI help,
-- monitoring,
-- local storage retention,
-- trie garbage collection,
-- read-only non-consensus RPC additions,
-- reverse-proxy configuration,
-- systemd configuration,
-- external relayer monitoring,
-- indexer UI changes.
-
-These changes still require testing.
-
-A bug in a supposedly non-consensus refactor can still become consensus-relevant if it changes deterministic execution.
+- node diagnostics.
 
 ---
 
-## 14. Published chain configuration versus local runtime
+## 26. Peer events
 
-Published chain configuration includes:
+The node emits internal network events including:
 
-- chain ID,
-- genesis,
-- consensus schedule,
-- fork schedule,
-- validator genesis data,
-- epoch parameters,
-- protocol addresses.
+```text
+PeerConnected
+PeerDisconnected
+```
 
-Local runtime configuration includes:
+Failed connections are also handled by discovery cleanup.
 
-- bind addresses,
-- data directory,
-- metrics,
-- logging,
-- peer limits,
-- RPC exposure,
-- sealing,
-- trie retention.
+On successful connection, the peer can be added to the routing table.
 
-External-service configuration includes:
+On disconnect or failed connection, the discovery service removes the peer from the routing table.
 
-- Interchain relayers,
-- remote RPC endpoints,
-- relayer accounts,
-- service state,
-- health checks.
-
-These must not be treated as one configuration layer.
+Connection churn is therefore reflected in discovery state.
 
 ---
 
-## 15. Bootnode updates
+## 27. P2P versus consensus authority
 
-Bootnodes assist peer discovery.
+A P2P connection grants communication capability only.
 
-Changing a bootnode does not change:
+It does not imply:
 
-- chain ID,
-- block validity,
-- transaction validity,
-- validator voting power.
+- validator membership,
+- staking status,
+- voting power,
+- proposer eligibility.
 
-Therefore bootnode-list maintenance is a networking/discovery change, not a consensus hardfork.
+Conceptually:
 
-Operators should still use the published network entry points unless an official network update specifies replacements.
+```text
+XGRChain P2P
+      ↓
+communication capability
 
----
+delegated PoS + IBFT
+      ↓
+consensus authority
+```
 
-## 16. Activation models
-
-There are several valid upgrade models.
-
-### Binary-only compatible upgrade
-
-Used when:
-
-- canonical execution is unchanged,
-- consensus is unchanged,
-- chain configuration remains unchanged.
-
-Procedure:
-
-    install binary
-    restart node
-    verify version
-    verify sync
-
-### Scheduled protocol activation
-
-Used when a future activation block is already known.
-
-Procedure:
-
-    release compatible binary
-    upgrade validators
-    verify readiness
-    reach activation block
-    monitor
-
-### Configuration-backed activation
-
-Used when a new published fork schedule or consensus configuration is required.
-
-All consensus nodes must use the same effective network-defining configuration before activation.
-
-### External-service upgrade
-
-Used for systems such as Interchain relayers.
-
-This normally has its own deployment and rollback process independent of XGRChain consensus activation.
+These layers must remain separate.
 
 ---
 
-## 17. Activation-block selection
+## 28. P2P versus XGR Interchain
 
-For a future hardfork, the activation block should:
+XGR Interchain infrastructure is separate from XGRChain P2P.
 
-- be explicitly specified,
-- be sufficiently far in the future,
-- allow validator rollout,
-- allow RPC/indexer rollout,
-- allow staging/testnet validation,
-- avoid known maintenance windows,
-- provide incident-response margin.
+Interchain components interact with XGRChain through mechanisms such as:
 
-Use an exact block number.
+- JSON-RPC,
+- deployed contracts,
+- logs and events,
+- checkpoint and attestation data,
+- signed destination transactions.
 
-Do not rely on a wall-clock statement such as:
+An Interchain relayer does not need to become an XGRChain libp2p peer merely because it transports messages between chains.
 
-    activate Tuesday afternoon
+Therefore:
 
-Consensus activates by deterministic chain state, not human calendar interpretation.
+```text
+XGRChain P2P
+≠
+Interchain relayer transport
+```
 
----
+and:
 
-## 18. Release artifacts
+```text
+XGRChain consensus validator
+≠
+Interchain validator
+```
 
-A production XGRChain release should provide:
-
-- immutable release tag,
-- source commit,
-- binary artifact where supported,
-- checksum file,
-- version artifact,
-- release notes,
-- compatibility statement,
-- operator instructions.
-
-The `v3.1.1` release provides a Linux AMD64 binary and checksum/version artifacts.
-
-Operators should verify downloaded binaries before replacing a production executable.
+The systems can depend on the same canonical XGRChain data while having separate networking, keys and security policies.
 
 ---
 
-## 19. Release-readiness validation
+## 29. Mainnet node startup examples
 
-For consensus-sensitive releases, validate:
+### Full node
 
-- unit tests,
-- integration tests,
-- E2E tests,
-- deterministic execution,
-- proposal verification,
-- block import,
-- validator quorum,
-- fork boundary,
-- state-root agreement,
-- transaction receipts,
-- fee behavior,
-- staking behavior,
-- synchronization.
+```bash
+/opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/node \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=false
+```
 
-For native precompile changes additionally validate:
+### Validator
 
-- valid input,
-- invalid input,
-- malformed input,
-- cryptographic failure,
-- deterministic return data,
-- deterministic gas behavior.
+```bash
+/opt/xgr/bin/xgrchain server \
+  --chain /etc/xgr/genesis.json \
+  --data-dir /var/lib/xgr/validator \
+  --libp2p 0.0.0.0:1478 \
+  --nat <PUBLIC_IP> \
+  --jsonrpc 127.0.0.1:8545 \
+  --grpc-address 127.0.0.1:9632 \
+  --seal=true
+```
+
+The actual production service configuration should additionally include logging, monitoring and storage settings appropriate to the node role.
 
 ---
 
-## 20. Compatibility vectors
+## 30. Firewall guidance
 
-Consensus-sensitive code should be tested with deterministic vectors where possible.
+Typical interfaces:
 
-Vectors should ensure independent nodes agree on:
+| Interface | Typical port | Recommended exposure |
+| --- | ---: | --- |
+| P2P | `1478` | Public/controlled |
+| JSON-RPC | `8545` | Private or reverse-proxied |
+| gRPC | `9632` | Private |
+| Metrics | deployment-specific | Monitoring network |
+| SSH | `22` or custom | Administrative sources only |
 
-- transaction decoding,
-- execution result,
+Validator baseline:
+
+```text
+1478/tcp → peer traffic
+8545/tcp → private/local only
+9632/tcp → private/local only
+metrics  → monitoring only
+SSH      → administration only
+```
+
+Do not expose a validator's full management plane merely because P2P must be reachable.
+
+---
+
+## 31. Cloud and host firewalls
+
+Operators should account for both:
+
+```text
+cloud firewall / security group
+```
+
+and:
+
+```text
+host firewall
+```
+
+Opening only one layer may still leave the node unreachable.
+
+When diagnosing reachability, verify:
+
+- public IP,
+- advertised IP/DNS,
+- cloud firewall,
+- host firewall,
+- local listen address,
+- active process,
+- NAT/port forwarding where applicable.
+
+---
+
+## 32. Bootnode operation
+
+A production bootnode should maintain:
+
+- stable network private key,
+- stable peer ID,
+- stable public address,
+- stable P2P port,
+- correct chain configuration,
+- healthy process supervision,
+- network monitoring.
+
+A bootnode does not require validator signing material merely because it is a bootnode.
+
+Avoid combining public RPC load with a critical bootnode unless intentionally designed and capacity-tested.
+
+---
+
+## 33. Bootnode configuration changes
+
+Changing the published bootnode list affects discovery defaults.
+
+It does not change:
+
 - state transition,
-- receipt data,
-- protocol primitives.
+- block validity,
+- validator voting power,
+- chain ID.
 
-Compatibility testing is particularly important when:
+Therefore bootnode maintenance is not a consensus hardfork.
 
-- changing EVM execution,
-- introducing precompiles,
-- modifying transaction validation,
-- changing fee calculations.
+However, changing a published bootnode peer ID requires updating documentation/configuration so new nodes can discover a valid peer.
 
 ---
 
-## 21. Validator rollout
+## 34. Network monitoring
 
-Validators are the highest-priority upgrade group for consensus-sensitive releases.
+Useful signals include:
 
-Before activation they should verify:
+| Signal | Meaning |
+| --- | --- |
+| Total peer count | Overall connectivity |
+| Inbound peer count | Public reachability |
+| Outbound peer count | Active connectivity/recovery |
+| Bootnode connectivity | Discovery bootstrap health |
+| Dial failures | Reachability problems |
+| Disconnect rate | Connection instability |
+| Block progression | Combined P2P/sync health |
+| Round changes | Potential validator-network problem |
+| Tx propagation delay | P2P or TxPool pressure |
 
-- exact binary version,
-- release commit,
-- canonical chain configuration,
-- validator signing key,
-- current head,
-- peer connectivity,
-- validator-set membership,
-- service health,
-- sufficient disk space.
-
-For a scheduled hardfork, the desired state is:
-
-    all consensus validators upgraded before activation
+No single metric proves network health.
 
 ---
 
-## 22. Mixed-version operation
+## 35. Basic RPC connectivity check
 
-Mixed node versions can be safe only while they produce identical consensus results.
+Connected peer count:
 
-For a consensus-changing release:
+```bash
+curl -s -X POST http://127.0.0.1:8545 \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"net_peerCount","params":[]}'
+```
 
-    before activation:
-    mixed versions may be acceptable if rules are identical
+Also check:
 
-    after activation:
-    old versions may become incompatible
+```text
+eth_blockNumber
+```
 
-For execution changes without an explicit activation gate, operators must be especially careful.
-
-If new functionality can be invoked immediately, consensus validators need compatible execution behavior before applications rely on it.
-
----
-
-## 23. Public RPC and indexer rollout
-
-RPC/indexer infrastructure should normally follow validator rollout closely.
-
-Verify:
-
-- node version,
-- sync state,
-- current head,
-- peer count,
-- receipt behavior,
-- log indexing,
-- gas RPC behavior,
-- historical-state policy,
-- explorer compatibility.
-
-An outdated RPC node can remain online yet return stale data.
+A non-zero peer count with a frozen block height can still indicate a synchronization or consensus problem.
 
 ---
 
-## 24. Trie-pruned RPC compatibility
-
-Trie pruning deserves a separate operational check during upgrades.
-
-After upgrading a pruned RPC node verify:
-
-- current state queries succeed,
-- canonical head progresses,
-- sweeper remains healthy,
-- historical RPC expectations match configured retention.
-
-Do not interpret failure of an old historical `eth_call` on a deliberately pruned node as a consensus failure.
-
-It can simply mean that the required historical state has been reclaimed.
-
----
-
-## 25. Chain-split risk
-
-A chain split can occur if consensus nodes disagree about deterministic protocol behavior.
-
-Examples:
-
-- different fork activation heights,
-- different EVM rules,
-- different native precompile implementation,
-- different validator-set calculation,
-- different voting-power calculation,
-- different fee calculation,
-- inconsistent configuration,
-- non-deterministic execution.
-
-Prevention requires:
-
-- deterministic implementation,
-- release discipline,
-- identical network-defining configuration,
-- validator coordination,
-- activation tests,
-- head/hash monitoring.
-
----
-
-## 26. Rollback before activation
-
-Before a scheduled protocol activation, rollback can be possible if:
-
-- the new rules have not yet activated,
-- old software remains compatible with the current chain,
-- validators coordinate the rollback,
-- no incompatible canonical blocks have been finalized.
-
-Rollback instructions should be release-specific.
-
----
-
-## 27. Rollback after activation
-
-After consensus-changing behavior has been used on canonical mainnet, arbitrary downgrade is unsafe.
-
-Examples:
-
-- new fork has activated,
-- new precompile has affected execution,
-- new staking rules have changed state,
-- new fee rules have changed balances.
-
-In such cases, reverting behavior normally requires another coordinated protocol upgrade.
-
-Do not simply replace the binary with an older version without explicit compatibility analysis.
-
----
-
-## 28. Storage-feature rollback
-
-Storage features have a different rollback boundary.
-
-Disabling:
-
-    --trie-sweeper
-
-prevents future pruning.
-
-It does **not** restore historical trie data already deleted.
-
-If previously removed historical state is required again, an operator may need to:
-
-- rebuild,
-- resynchronize,
-- restore from an appropriate backup,
-- use an archive-compatible node.
-
-This is an operational recovery issue, not a chain rollback.
-
----
-
-## 29. Interchain-service rollback
-
-Relayer or Interchain-service deployments can often be stopped independently of XGRChain consensus.
-
-Examples:
-
-    stop relayer
-    disable submission
-    restore previous service binary
-
-However, operators must first consider:
-
-- pending cross-chain messages,
-- already submitted transactions,
-- route state,
-- locked/minted assets,
-- checkpoint state.
-
-An external-service rollback must not be confused with reverting finalized XGRChain transactions.
-
-Finalized chain state remains finalized.
-
----
-
-## 30. Activation monitoring
-
-For consensus-sensitive upgrades monitor:
-
-- block number,
-- block interval,
-- head hash across trusted nodes,
-- peer count,
-- validator participation,
-- round changes,
-- proposer failures,
-- block-import failures,
-- state-root mismatch,
-- receipt-root mismatch,
-- signer errors,
-- CPU,
-- memory,
-- disk,
-- RPC health.
-
-For PoS additionally monitor:
-
-- validator set,
-- active stake,
-- effective voting power,
-- epoch state,
-- uptime weighting.
-
----
-
-## 31. Incident classification
-
-### No new blocks
+## 36. Failure: zero peers
 
 Possible causes:
 
-- insufficient consensus power,
-- validator disagreement,
-- proposer failure,
-- incompatible binaries.
+- bootnode unreachable,
+- incorrect chain configuration,
+- P2P port blocked,
+- incorrect `--nat`,
+- incorrect `--dns`,
+- discovery disabled,
+- no outbound capacity,
+- host firewall,
+- cloud firewall,
+- local bind misconfiguration.
 
-### Some nodes advance, others stop
+Check:
 
-Likely causes:
-
-- version mismatch,
-- execution divergence,
-- configuration mismatch.
-
-### Same height, different head hashes
-
-Potential consensus split.
-
-Escalate immediately.
-
-### Validators healthy but RPC stale
-
-Likely infrastructure or RPC-node problem rather than validator consensus.
-
-### Interchain transfer failure while chain progresses
-
-Likely Interchain-contract, validator, relayer or remote-chain problem rather than XGRChain consensus.
+```text
+process
+--libp2p
+--nat
+--dns
+bootnode
+net_peerCount
+firewall
+```
 
 ---
 
-## 32. Post-upgrade validation
+## 37. Failure: discovered but unreachable
 
-After any node release, verify:
+Typical symptom:
 
-    binary version
-    chain ID
-    block progression
-    peer count
-    head hash
-    logs
+```text
+peer appears in discovery
+but dial repeatedly fails
+```
 
-For validators additionally verify:
+Likely cause:
 
-    validator membership
-    sealing
-    consensus participation
-    voting power
-    epoch status
+```text
+advertised address is not reachable
+```
 
-For RPC nodes verify:
+Check:
 
-    eth_chainId
-    eth_blockNumber
-    eth_syncing
-    net_peerCount
-    eth_call
-    eth_estimateGas
-    eth_getTransactionReceipt
-
-For trie-pruned nodes also verify sweeper health.
+- advertised IP,
+- P2P port,
+- NAT,
+- firewall,
+- DNS resolution.
 
 ---
 
-## 33. Configuration replacement rules
+## 38. Failure: slow synchronization
 
-### Same chain config, new binary
+Possible causes:
 
-Keep the canonical chain file unchanged.
+- too few useful peers,
+- unstable peers,
+- network latency,
+- disk I/O bottleneck,
+- CPU saturation,
+- simultaneous heavy RPC workloads,
+- state database pressure.
 
-Replace only the binary and restart.
+Networking is only one possible cause.
 
-### New scheduled protocol rules
-
-Use the officially published compatible binary and configuration.
-
-Do not locally modify activation heights.
-
-### Local runtime change
-
-Changes such as:
-
-    log level
-    RPC binding
-    metrics
-    trie retention
-
-do not require replacing mainnet genesis.
-
-### External-service change
-
-Relayer configuration should be changed in the Interchain service configuration, not by editing XGRChain genesis.
+Operators should correlate peer health with storage and resource metrics.
 
 ---
 
-## 34. PoS upgrade rules
+## 39. Failure: validator misses blocks
 
-Changes to PoS can affect:
+Possible causes include:
 
-- validator eligibility,
-- staking,
-- delegation,
-- validator ordering,
-- voting power,
-- uptime weighting,
-- quorum,
-- rewards,
-- epochs.
+- P2P instability,
+- signer problems,
+- validator not active,
+- insufficient voting power,
+- synchronization lag,
+- repeated round changes,
+- CPU/disk overload.
 
-Such changes should be considered consensus-sensitive unless proven otherwise.
+A healthy peer count does not guarantee validator health.
 
-A PoS upgrade must define:
+Check both:
 
-- affected behavior,
-- required node version,
-- activation boundary,
-- expected validator-set behavior,
-- migration assumptions,
-- validation procedure.
+```text
+P2P state
+```
 
----
+and:
 
-## 35. Fee-model upgrade rules
-
-Changes affecting:
-
-- base fee,
-- minimum fee,
-- transaction fee validation,
-- validator allocation,
-- FeePool,
-- burn destination,
-- rewards,
-
-can alter state transition.
-
-They therefore require consensus-safe rollout.
-
-Wallet-facing RPC behavior should also be tested whenever fee policy changes.
+```text
+PoS / consensus state
+```
 
 ---
 
-## 36. RPC-only upgrade rules
+## 40. Failure: one node has a stale head
 
-A genuinely read-only RPC change normally does not require a hardfork.
+Check:
 
-Examples:
+- peer count,
+- sync state,
+- head number,
+- head hash,
+- node version,
+- chain configuration,
+- block import logs.
 
-- new monitoring method,
-- additional response field,
-- improved error reporting.
-
-However, client compatibility still matters.
-
-Document:
-
-- method name,
-- parameters,
-- response fields,
-- errors,
-- public/private exposure.
-
-An RPC that generates or submits protocol actions may require stronger classification.
+A stale node should not be used as the sole reference for network state.
 
 ---
 
-## 37. Release communication
+## 41. Security guidance
 
-Every operator-facing production release should identify:
+Recommended practices:
 
-| Field | Required |
+- isolate validators from public RPC workloads,
+- restrict JSON-RPC and gRPC on validators,
+- expose only required P2P ports,
+- maintain host and cloud firewalls,
+- restrict SSH,
+- preserve stable bootnode identities,
+- monitor connection churn,
+- monitor unexpected peer-count collapse,
+- avoid exposing debug/tracing publicly,
+- separate validator keys from network keys,
+- separate relayer keys from validator keys,
+- do not reuse production data directories.
+
+---
+
+## 42. Relation to trie pruning
+
+Trie pruning is local storage behavior.
+
+It does not change P2P identity or peer discovery.
+
+However, heavy Trie Sweeper disk activity can indirectly affect node responsiveness if the host is resource-constrained.
+
+Operators running the Trie Sweeper should therefore monitor:
+
+- disk I/O,
+- block progression,
+- peer stability,
+- CPU,
+- sweep duration.
+
+A local storage bottleneck can manifest as degraded network or consensus participation even though the P2P protocol itself is functioning correctly.
+
+---
+
+## 43. Current `v3.1.1` networking baseline
+
+| Topic | Value / behavior |
 | --- | --- |
-| Release version | Yes |
-| Commit | Yes |
-| Required operator action | Yes |
-| Consensus impact | Yes |
-| Config change | Yes/No |
-| Activation block | If applicable |
-| Validator requirement | If applicable |
-| RPC impact | If applicable |
-| Storage impact | If applicable |
-| Rollback boundary | Yes |
-| Verification steps | Yes |
-
-Avoid ambiguous statements such as:
-
-    upgrade soon
-
-Use exact release identifiers.
-
----
-
-## 38. Operator checklist
-
-Before upgrading:
-
-- read release notes,
-- identify upgrade class,
-- verify binary/checksum,
-- back up service configuration,
-- protect validator keys,
-- verify disk space,
-- verify peers,
-- verify current head.
-
-During upgrade:
-
-- stop service cleanly,
-- replace binary,
-- change configuration only if required,
-- restart,
-- verify version,
-- verify chain ID,
-- verify synchronization,
-- inspect logs.
-
-After upgrade:
-
-- verify head progression,
-- compare head hash,
-- verify peers,
-- verify validator status if applicable,
-- verify RPC if applicable,
-- verify Trie Sweeper if enabled,
-- monitor for repeated errors.
+| Node baseline | `xgr-node v3.1.1` |
+| P2P implementation | libp2p |
+| Transport security | Noise |
+| Default port | `1478` |
+| Default bind | `127.0.0.1:1478` |
+| Typical public bind | `0.0.0.0:1478` |
+| Mainnet bootnodes | `1` |
+| Discovery default | Enabled |
+| Disable discovery | `--no-discover` |
+| Minimum bootnodes with discovery | `1` |
+| Maximum peers | `40` |
+| Maximum inbound peers | `32` |
+| Maximum outbound peers | `8` |
+| Discovery request maximum | `16` peers |
+| Peer discovery interval | `5s` |
+| Bootnode discovery interval | `60s` |
+| Kademlia bucket size | `20` |
+| Minimum-peer target | `1` |
+| Gossipsub peer outbound queue | `1024` |
+| Gossipsub validation queue | `1024` |
+| P2P validator authority | None by itself |
+| Interchain relayer transport | Separate from XGRChain P2P |
 
 ---
 
-## 39. Current `v3.1.1` baseline summary
+## 44. Design principle
 
-| Area | Current status |
-| --- | --- |
-| Node release | `v3.1.1` |
-| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
-| Mainnet chain ID | `1643` |
-| Genesis replacement required | No |
-| Consensus | IBFT |
-| Current validator model | Delegated PoS |
-| PoS activation | `5446500` |
-| Validator limits | `4–25` |
-| Macro epoch | `1000` blocks |
-| Trie Sweeper | Local node feature |
-| Trie-retention changes | No hardfork |
-| Native precompile changes | Potentially consensus-sensitive |
-| Interchain BLS precompile | `0x2040` |
-| Relayer upgrades | External-service upgrade |
-| Bridge/router upgrades | Interchain protocol upgrade |
-| XGRChain ↔ Base route | Operationally separate from chain consensus |
+XGRChain networking should be understood as the communication substrate for the blockchain node.
 
----
+It provides:
 
-## 40. Design principle
+```text
+connectivity
+discovery
+propagation
+```
 
-XGRChain upgrades should be classified by their actual effect rather than by version number.
+It does not independently provide:
 
-The critical separation is:
+```text
+validator authority
+staking authority
+smart-contract authority
+Interchain authority
+```
 
-    node software
-           │
-           ├── local-only behavior
-           │
-           ├── consensus execution behavior
-           │
-           └── RPC behavior
+Those permissions belong to separate protocol or service layers.
 
-    chain configuration
-           │
-           └── network-defining protocol state
-
-    external services
-           │
-           └── Interchain / indexing / operational infrastructure
-
-A production upgrade process must identify which boundary is being changed before rollout begins.
-
-Consensus-affecting behavior requires validator coordination.
-
-Local storage behavior does not.
-
-External Interchain services have their own operational and security lifecycle.
-
-Keeping those boundaries explicit reduces unnecessary hardforks while protecting XGRChain against accidental consensus divergence.
+For production operation, healthy P2P connectivity is essential to synchronization and consensus liveness, but it must remain cleanly separated from consensus identity and external service credentials.
