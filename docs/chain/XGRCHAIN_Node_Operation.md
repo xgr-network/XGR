@@ -1,19 +1,19 @@
-# XGR Chain — Node Operation & Validator Runbook
+# XGR Chain — Node Operation & RPC Runbook
 
 **Document ID:** XGRCHAIN-NODE-OPERATION  
-**Last updated:** 2026-10-03  
-**Audience:** Node operators, validator operators, RPC operators, infrastructure engineers  
+**Last updated:** 2026-10-05  
+**Audience:** Node operators, RPC operators, infrastructure engineers  
 **Release baseline:** `xgr-node v3.1.1`  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
-**Operating mode:** Standalone public XGRChain node
+**Operating mode:** Standalone public XGRChain full node / RPC infrastructure
 
 ---
 
 ## 1. Purpose
 
-This document is the practical operations runbook for XGRChain.
+This document is the practical operations runbook for standalone XGRChain full nodes and RPC infrastructure.
 
 It covers:
 
@@ -24,25 +24,20 @@ It covers:
 - starting full nodes,
 - starting RPC nodes,
 - configuring systemd,
+- exposing HTTP and WebSocket JSON-RPC safely,
+- enabling local Prometheus telemetry,
 - operating the Online State Trie Sweeper,
 - choosing a historical-state retention profile,
-- monitoring and recovering from storage problems,
-- preparing validator infrastructure,
-- generating validator keys,
-- joining delegated PoS,
-- configuring delegation,
-- activating/deactivating validators,
-- staking,
-- unstaking,
-- withdrawing,
-- optional interchain-validator participation,
-- health checks,
-- security,
+- monitoring node health,
+- recovering from storage problems,
+- production RPC security,
 - troubleshooting.
 
-This document is intentionally operational.
+This document does **not** define the validator lifecycle, delegated PoS onboarding, staking, delegation, activation/deactivation, unstaking or withdrawal procedures.
 
-Protocol details belong in the specialized Chain documentation.
+Those protocol and staking topics are documented separately in the Chain consensus and PoS documentation.
+
+This document is intentionally operational.
 
 ---
 
@@ -117,7 +112,6 @@ Do not edit the published genesis locally for mainnet operation.
 /etc/xgr/genesis.json
 
 /var/lib/xgr/node
-/var/lib/xgr/validator
 
 /var/log/xgr
 ```
@@ -136,7 +130,6 @@ sudo install -d -m 0755 /etc/xgr
 
 sudo install -d -m 0750 -o xgr -g xgr /var/lib/xgr
 sudo install -d -m 0700 -o xgr -g xgr /var/lib/xgr/node
-sudo install -d -m 0700 -o xgr -g xgr /var/lib/xgr/validator
 sudo install -d -m 0750 -o xgr -g xgr /var/log/xgr
 ```
 
@@ -301,10 +294,7 @@ on a node intended to join mainnet.
 | Placeholder | Meaning |
 | --- | --- |
 | `<PUBLIC_IP>` | Public IPv4 address |
-| `<VALIDATOR_ADDRESS>` | Validator ECDSA address |
-| `<NODE_DATA_DIR>` | Normal/full node data directory |
-| `<VALIDATOR_DATA_DIR>` | Validator data directory |
-| `<STAKE_XGR>` | Amount in whole XGR units |
+| `<NODE_DATA_DIR>` | Full/RPC node data directory |
 
 Important distinction:
 
@@ -317,7 +307,7 @@ Server bind:
 Client URL:
 
 ```text
---jsonrpc http://127.0.0.1:8545
+http://127.0.0.1:8545
 ```
 
 Do not use:
@@ -429,6 +419,7 @@ sudo -u xgr /opt/xgr/bin/xgrchain server \
   --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
+  --prometheus 127.0.0.1:5001 \
   --seal=false \
   --json-rpc-batch-request-limit 20 \
   --json-rpc-block-range-limit 1000 \
@@ -443,9 +434,9 @@ Public exposure should normally be:
 ```text
 Internet
    ↓
-TLS reverse proxy / gateway
+TLS reverse proxy / RPC gateway
    ↓
-rate limiting
+rate limiting / abuse protection
    ↓
 127.0.0.1:8545
 ```
@@ -454,7 +445,75 @@ Do not place validator private keys on public RPC infrastructure.
 
 ---
 
-## 12. Basic node checks
+## 12. JSON-RPC HTTP and WebSocket
+
+The JSON-RPC listener serves both HTTP JSON-RPC and WebSocket RPC.
+
+With:
+
+```text
+--jsonrpc 127.0.0.1:8545
+```
+
+the local HTTP endpoint is:
+
+```text
+http://127.0.0.1:8545/
+```
+
+and the local WebSocket endpoint is:
+
+```text
+ws://127.0.0.1:8545/ws
+```
+
+WebSocket subscriptions are therefore available through the same JSON-RPC listener under `/ws`.
+
+For public service, terminate TLS at the gateway and expose provider-specific HTTPS/WSS endpoints from there.
+
+The node supports the CORS runtime option:
+
+```text
+--access-control-allow-origins
+```
+
+CORS is not a substitute for gateway authentication, rate limiting or abuse protection.
+
+Public RPC operators should enforce their production policy at the reverse proxy / API gateway layer.
+
+---
+
+## 13. Prometheus telemetry
+
+Prometheus telemetry is optional.
+
+Example local-only bind:
+
+```text
+--prometheus 127.0.0.1:5001
+```
+
+Keep the telemetry listener private unless there is a deliberate monitoring-network design.
+
+The metrics listener should not be exposed publicly merely because the JSON-RPC service is public.
+
+Useful infrastructure monitoring should include at least:
+
+- process availability,
+- canonical block progression,
+- peer count,
+- synchronization state,
+- request volume,
+- JSON-RPC errors,
+- CPU,
+- memory,
+- disk latency,
+- disk throughput,
+- free disk space.
+
+---
+
+## 14. Basic node checks
 
 Client version:
 
@@ -508,11 +567,93 @@ curl -s http://127.0.0.1:8545 \
   --data '{"jsonrpc":"2.0","id":1,"method":"net_peerCount","params":[]}'
 ```
 
+A healthy process alone is not sufficient.
+
+Production health checks should confirm:
+
+```text
+correct chain ID
++
+advancing block height
++
+not syncing
++
+useful peer connectivity
+```
+
+---
+
+## 15. Production RPC quick reference
+
+| Item | Production baseline |
+| --- | --- |
+| Node release | `xgr-node v3.1.1` |
+| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Chain ID | `1643` / `0x66b` |
+| Native asset | XGR |
+| P2P | `1478/tcp` |
+| Local HTTP JSON-RPC | `http://127.0.0.1:8545/` |
+| Local WebSocket RPC | `ws://127.0.0.1:8545/ws` |
+| Local gRPC | `127.0.0.1:9632` |
+| Optional local Prometheus | `127.0.0.1:5001` |
+| RPC sealing | `--seal=false` |
+| Public RPC exposure | TLS reverse proxy / RPC gateway |
+| Public validator keys on RPC node | Never |
+| Archive state | Trie Sweeper disabled |
+| Bounded historical state | Trie Sweeper enabled with explicit retention |
+
+For a third-party RPC provider, the minimum deployment decision is:
+
+```text
+archive RPC
+```
+
+or:
+
+```text
+bounded-history RPC
+```
+
+depending on the historical-state guarantees the provider intends to offer.
+
+---
+
+## 16. Hardware and capacity planning
+
+XGR.Network does not publish a fixed CPU, RAM or disk minimum for every production workload.
+
+Capacity depends on:
+
+- archive versus bounded-history operation,
+- RPC traffic,
+- batch-request volume,
+- historical-state usage,
+- tracing/debug workload,
+- peer topology,
+- disk performance,
+- expected growth.
+
+Operators should size infrastructure from observed production metrics rather than treating an arbitrary static machine size as a protocol requirement.
+
+For production RPC infrastructure, monitor:
+
+- CPU saturation,
+- memory pressure,
+- disk latency,
+- disk throughput,
+- LevelDB behavior,
+- free disk capacity,
+- synchronization lag,
+- request latency,
+- request error rate.
+
+Fast local SSD/NVMe-class storage is operationally preferable for latency-sensitive high-volume infrastructure, but no universal hardware minimum is defined by this document.
+
 ---
 
 # State Growth Control / Trie Pruning
 
-## 13. Online State Trie Sweeper
+## 17. Online State Trie Sweeper
 
 `xgr-node` includes an online state-trie garbage collector called the:
 
@@ -550,7 +691,7 @@ It does not change:
 
 ---
 
-## 14. Trie Sweeper flags
+## 18. Trie Sweeper flags
 
 ```text
 --trie-sweeper
@@ -577,7 +718,7 @@ are required.
 
 ---
 
-## 15. Bounded-history full-node profile
+## 19. Bounded-history full-node profile
 
 A typical bounded-history configuration:
 
@@ -607,7 +748,7 @@ Retention is measured in blocks.
 
 ---
 
-## 16. Longer-history RPC profile
+## 20. Longer-history RPC profile
 
 For infrastructure requiring more historical state:
 
@@ -629,12 +770,12 @@ A larger retention window requires more disk.
 
 ---
 
-## 17. Archive-style profile
+## 21. Archive-style profile
 
 If the node must support arbitrary historical EVM-state queries:
 
 ```text
-leave trie sweeper disabled
+leave Trie Sweeper disabled
 ```
 
 Do not enable pruning on an archive-style endpoint.
@@ -653,9 +794,11 @@ against old block heights.
 
 Block history and state history are different.
 
+An RPC provider should document whether its public endpoint is archive-capable or bounded-history.
+
 ---
 
-## 18. What the Trie Sweeper deletes
+## 22. What the Trie Sweeper deletes
 
 The sweeper identifies recent canonical state roots and marks state reachable from them.
 
@@ -676,7 +819,7 @@ Therefore an old block may remain queryable while its historical EVM state is no
 
 ---
 
-## 19. First-sweep behavior
+## 23. First-sweep behavior
 
 The first sweep intentionally does not begin immediately at process startup.
 
@@ -700,7 +843,7 @@ Operators should not interpret the lack of an immediate sweep after process star
 
 ---
 
-## 20. Sweep cycle
+## 24. Sweep cycle
 
 A sweep conceptually performs:
 
@@ -728,7 +871,7 @@ The final state-root verification is an important integrity check.
 
 ---
 
-## 21. Trie GC work directory
+## 25. Trie GC work directory
 
 Working data is stored below:
 
@@ -754,7 +897,7 @@ It is rebuilt when required and is not canonical blockchain state.
 
 ---
 
-## 22. Trie Sweeper logging
+## 26. Trie Sweeper logging
 
 Initialization logs include values such as:
 
@@ -799,7 +942,7 @@ after completed sweeps.
 
 ---
 
-## 23. Trie Sweeper monitoring
+## 27. Trie Sweeper monitoring
 
 During and after a sweep monitor:
 
@@ -823,7 +966,7 @@ This is not automatically abnormal.
 
 ---
 
-## 24. Trie Sweeper and validators
+## 28. Trie Sweeper and validators
 
 The Trie Sweeper is technically consensus-independent and can operate on validator nodes.
 
@@ -839,9 +982,11 @@ If enabling the sweeper on a validator:
 
 An RPC/full node is generally a safer place to evaluate pruning behavior before applying an aggressive retention profile to consensus infrastructure.
 
+Detailed validator operation is outside the scope of this runbook.
+
 ---
 
-## 25. Disabling pruning
+## 29. Disabling pruning
 
 Remove:
 
@@ -861,7 +1006,7 @@ It does **not** restore state that has already been removed.
 
 ---
 
-## 26. Trie-pruning recovery
+## 30. Trie-pruning recovery
 
 If historical state that has already been pruned is required again, disabling the sweeper is not sufficient.
 
@@ -877,7 +1022,7 @@ Do not assume deleted trie state will automatically reappear.
 If a sweep reports an integrity problem:
 
 1. preserve logs,
-2. stop using the node as an authoritative RPC/validator source,
+2. stop using the node as an authoritative RPC source,
 3. verify disk and database health,
 4. compare canonical head with trusted nodes,
 5. rebuild or resynchronize if state integrity cannot be established.
@@ -890,7 +1035,7 @@ XGRCHAIN_State_Storage_and_Retention.md
 
 ---
 
-## 27. Recommended pruning profiles
+## 31. Recommended pruning profiles
 
 | Role | Suggested retention approach |
 | --- | --- |
@@ -906,14 +1051,14 @@ The correct value depends on historical-state requirements.
 
 ---
 
-## 28. systemd example with Trie Sweeper
+## 32. Production RPC systemd example with bounded history
 
-Example bounded-history full node:
+Example bounded-history RPC node:
 
 ```bash
-sudo tee /etc/systemd/system/xgr-node.service >/dev/null <<'EOF'
+sudo tee /etc/systemd/system/xgr-rpc.service >/dev/null <<'EOF'
 [Unit]
-Description=XGRChain Full Node
+Description=XGRChain RPC Node
 After=network-online.target
 Wants=network-online.target
 
@@ -928,6 +1073,258 @@ ExecStart=/opt/xgr/bin/xgrchain server \
   --nat <PUBLIC_IP> \
   --jsonrpc 127.0.0.1:8545 \
   --grpc-address 127.0.0.1:9632 \
+  --prometheus 127.0.0.1:5001 \
   --seal=false \
+  --json-rpc-batch-request-limit 20 \
+  --json-rpc-block-range-limit 1000 \
+  --concurrent-requests-debug 32 \
+  --websocket-read-limit 8192 \
   --trie-sweeper \
- 
+  --trie-sweeper-retain-blocks 10000 \
+  --trie-sweeper-interval 6h \
+  --log-level INFO \
+  --log-to /var/log/xgr/rpc.log
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=1048576
+WorkingDirectory=/var/lib/xgr
+ReadWritePaths=/var/lib/xgr /var/log/xgr
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Replace:
+
+```text
+<PUBLIC_IP>
+```
+
+then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now xgr-rpc
+```
+
+Check:
+
+```bash
+systemctl status xgr-rpc
+journalctl -u xgr-rpc -n 100 --no-pager
+```
+
+For an archive RPC service, remove:
+
+```text
+--trie-sweeper
+--trie-sweeper-retain-blocks 10000
+--trie-sweeper-interval 6h
+```
+
+---
+
+## 33. Production security baseline
+
+Public RPC infrastructure should normally use the following separation:
+
+```text
+public Internet
+      ↓
+TLS / WSS termination
+      ↓
+RPC gateway / reverse proxy
+      ↓
+rate limiting / abuse controls
+      ↓
+127.0.0.1:8545
+```
+
+Recommended boundaries:
+
+- expose P2P only where required for peer connectivity,
+- keep JSON-RPC bound locally or to a controlled private network,
+- keep gRPC private,
+- keep Prometheus private,
+- do not place validator keys on public RPC nodes,
+- restrict debug/tracing according to provider policy,
+- enforce request and WebSocket limits at the gateway,
+- monitor peer count and canonical block progression,
+- monitor disk health and free space,
+- restrict SSH to administrative sources,
+- run the node under a dedicated unprivileged service account.
+
+A public RPC endpoint and a consensus validator are different infrastructure roles.
+
+---
+
+## 34. Troubleshooting
+
+### Node does not start
+
+Check:
+
+```bash
+journalctl -u xgr-node -n 200 --no-pager
+```
+
+or, for the RPC service:
+
+```bash
+journalctl -u xgr-rpc -n 200 --no-pager
+```
+
+Common causes:
+
+- wrong `--chain` path,
+- missing or inaccessible `--data-dir`,
+- filesystem permissions,
+- port already in use,
+- invalid `--nat` address,
+- modified or incompatible genesis,
+- invalid runtime flag value.
+
+### Node has no useful peers
+
+Check:
+
+```text
+P2P port 1478
+public IP / NAT advertisement
+cloud firewall
+host firewall
+bootnode reachability
+net_peerCount
+```
+
+The dedicated networking document contains the detailed P2P troubleshooting model:
+
+```text
+XGRCHAIN_Networking_P2P.md
+```
+
+### RPC responds but block height is stale
+
+Check:
+
+- `eth_blockNumber`,
+- `eth_syncing`,
+- `net_peerCount`,
+- local node logs,
+- CPU and disk pressure,
+- chain configuration,
+- comparison with another trusted XGRChain node.
+
+A responsive HTTP server does not prove that the node is following the current canonical head.
+
+### Historical state query fails
+
+Determine whether the endpoint is:
+
+```text
+archive
+```
+
+or:
+
+```text
+bounded-history
+```
+
+If the required historical state was already removed by the Trie Sweeper, disabling pruning does not restore it.
+
+Rebuild, resynchronize or use an archive-capable source.
+
+### WebSocket connection fails
+
+Verify:
+
+```text
+ws://127.0.0.1:8545/ws
+```
+
+locally.
+
+For public WSS access, also verify:
+
+- reverse-proxy WebSocket upgrade handling,
+- TLS configuration,
+- gateway timeout policy,
+- provider-side connection limits.
+
+### Prometheus is unavailable
+
+Verify that the node was started with an explicit telemetry bind such as:
+
+```text
+--prometheus 127.0.0.1:5001
+```
+
+and that the monitoring process can reach that private listener.
+
+---
+
+## 35. Production-readiness checklist
+
+Before considering a standalone XGRChain RPC node production-ready:
+
+- `xgr-node v3.1.1` is installed,
+- release artifact or build provenance is verified,
+- canonical mainnet genesis is used unchanged,
+- chain ID returns `0x66b`,
+- block height advances,
+- `eth_syncing` reports the expected state,
+- peer connectivity is healthy,
+- `--seal=false` is explicit,
+- HTTP JSON-RPC is reachable locally,
+- WebSocket RPC is reachable at `/ws`,
+- public RPC is fronted by TLS and gateway controls,
+- gRPC is not publicly exposed,
+- Prometheus is private if enabled,
+- archive versus bounded-history behavior is intentional,
+- Trie Sweeper retention is documented if enabled,
+- disk capacity and disk latency are monitored,
+- logs are monitored,
+- service restart behavior is configured,
+- no validator signing keys are present on public RPC infrastructure.
+
+---
+
+## 36. Related documentation
+
+Use the specialized Chain documents for additional detail:
+
+```text
+XGRCHAIN_Networking_P2P.md
+XGRCHAIN_Ethereum_JSON_RPC_Reference.md
+XGRCHAIN_Node_Operator_RPC_Reference.md
+XGRCHAIN_State_Storage_and_Retention.md
+XGRCHAIN_Access_Control_and_Permission_Boundaries.md
+XGRCHAIN_Network_Upgrade_and_Hardfork_Process.md
+XGRCHAIN_Consensus_IBFT.md
+XGRCHAIN_Staking_PoS_Model.md
+XGRCHAIN_Staking_PoS_Endpoint_Reference.md
+```
+
+For a third-party RPC operator, the primary operational path is:
+
+```text
+Node Operation & RPC Runbook
+        ↓
+Networking & P2P
+        ↓
+Ethereum JSON-RPC Reference
+        ↓
+Node Operator RPC Reference
+        ↓
+State Storage & Retention
+        ↓
+Access Control
+```
+
+This runbook is sufficient to deploy and operate a standalone XGRChain `v3.1.1` full/RPC node without validator participation.
