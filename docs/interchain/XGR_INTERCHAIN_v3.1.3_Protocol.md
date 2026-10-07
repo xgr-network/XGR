@@ -501,13 +501,27 @@ RPC exposure does not execute governance.
 
 ## 16. Governance contract verification requirement
 
-The source-chain ILN Registry must not trust the relayer or caller when applying a governance quorum.
+The source-chain ILN Registry must not trust the relayer, operator, validator or other caller when applying a governance quorum.
 
-It must verify that the quorum is authorized by the validator set assigned to the route's destination.
+The caller is only an executor that transports an already-completed quorum from read-only XGR RPC into the source-chain contract.
 
-The destination validator registry remains the sole writable membership authority.
+Route governance is authorized by the canonical XGR Interchain ValidatorRegistryV2 deployed on the same chain as the ILN Registry whose state is being mutated.
 
-If source-chain governance verification requires destination validator-set information, that information must be consumed through cryptographically anchored proof, snapshot or commitment semantics that do not create a second independent writable membership registry.
+For example:
+
+```text
+Base ILN Registry
+    ↓
+verifies quorum against
+    ↓
+Base ValidatorRegistryV2
+```
+
+The ILN Registry therefore verifies the signed governance payload, setId, signer bitmap and aggregate BLS signature directly against the local destination-scoped Interchain membership contract.
+
+No remote validator-set mirror, trusted operator permission or second membership authority is required.
+
+Transfer authorization remains destination-specific to the transfer destination. Route-governance authorization is local to the chain whose canonical route state is being changed.
 
 The concrete contract implementation must preserve this authority boundary.
 
