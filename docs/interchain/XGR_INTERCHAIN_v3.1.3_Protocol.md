@@ -673,3 +673,120 @@ The defining v3.1.3 rule is:
 
 > XGRChain produces security decisions and quorum evidence; smart contracts enforce route and asset behavior; the relayer only transports already-authorized evidence.
 
+
+
+---
+
+## 23. Multi-asset deployment and repository model
+
+v3.1.3 is designed so that chain-level security infrastructure is deployed once per physical chain and reused across many assets and routes.
+
+The following components are chain-shared and MUST NOT be redeployed for every token unless a deliberate protocol upgrade requires a new generation:
+
+```text
+Hyperlane Mailbox / Core
+MerkleTreeHook
+BLS verifier
+XGRInterchainValidatorRegistryV2
+XGRILNRegistry
+generic XGRILNInterchainISMV2
+```
+
+The normal incremental deployment unit for a new asset is therefore:
+
+```text
+asset-specific Warp Router / Token Adapter
++
+route-specific ILNGateway
++
+routeId registration in the shared ILN Registry
+```
+
+A new token onboarding MUST NOT require a fresh validator registry, BLS verifier or generic destination ISM merely because the asset is new.
+
+### 23.1 Configuration versus deployment state
+
+Repository configuration SHOULD distinguish desired configuration from observed deployment state.
+
+Recommended logical structure:
+
+```text
+config/
+├─ chains/
+│  ├─ xgrchain.json
+│  ├─ base.json
+│  └─ ...
+└─ assets/
+   ├─ XGR/
+   │  ├─ asset.json
+   │  └─ routes.json
+   └─ <ASSET>/
+      ├─ asset.json
+      └─ routes.json
+
+deployments/
+└─ <network>/
+   ├─ infrastructure/
+   │  ├─ xgrchain.json
+   │  ├─ base.json
+   │  └─ ...
+   └─ assets/
+      ├─ XGR.json
+      └─ <ASSET>.json
+```
+
+`asset.json` SHOULD describe stable asset identity and semantics, including `assetId`, name, symbol, decimals, canonical chain, canonical token and synthetic representation metadata.
+
+`routes.json` SHOULD describe desired route topology, including source chain, destination chain and route identity.
+
+Generated deployment records SHOULD contain observed contract addresses, deployment transactions, route IDs and other chain-specific state. Generated addresses MUST NOT be treated as hand-maintained desired configuration.
+
+### 23.2 Asset onboarding automation
+
+The intended operational model is an idempotent deployment orchestrator:
+
+```text
+deploy-asset(asset, network)
+    ↓
+load chain-shared infrastructure
+    ↓
+verify existing contracts and canonical addresses
+    ↓
+deploy only missing asset-specific routers/adapters
+    ↓
+deploy only missing route gateways
+    ↓
+derive/check deterministic route IDs
+    ↓
+write deployment records
+    ↓
+produce governance proposals
+    ↓
+activate only after validator quorum
+```
+
+Running the same deployment command again SHOULD detect already-correct infrastructure and skip redundant deployments.
+
+Automation MUST fail closed on configuration mismatches. Existing contracts may only be reused after their code, immutable bindings and required administrative controls have been verified against expected configuration.
+
+### 23.3 Existing asset reuse
+
+For an already deployed asset representation, a protocol upgrade SHOULD prefer reusing the existing token/router when doing so preserves supply, liquidity and address continuity without weakening security.
+
+Security contracts may be replaced while asset contracts remain in place, provided the existing asset/router supports the required security-module transition and the cutover is explicitly verified.
+
+This separation is intentional:
+
+```text
+asset continuity
+!=
+security-contract continuity
+```
+
+A legacy ISM, registry or aggregation module MAY remain deployed historically but MUST NOT remain authoritative after the route has been migrated to the new canonical v3.1.3 security path.
+
+### 23.4 Productization boundary
+
+The same manifest model is intended to support later self-service onboarding and white-label bridge tooling.
+
+Partner-editable configuration may include branding and supported route selection, but security-critical values such as contract addresses, validator membership, canonical route IDs, security thresholds and mint/burn authority MUST remain derived from or verified against canonical deployment state.
