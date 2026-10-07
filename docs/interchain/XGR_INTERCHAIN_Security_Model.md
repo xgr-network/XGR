@@ -40,6 +40,14 @@ Asset-routing behavior is documented separately in:
 docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md
 ```
 
+The normative v3.1.3 multi-route extension of this security model is defined in:
+
+```text
+docs/interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md
+```
+
+The v3.1.3 specification preserves the untrusted-relayer and destination-scoped membership principles defined here while adding canonical `routeId`, dedicated `authorizedMessageId`, route-scoped governance nonce and fee-bound checkpoint semantics.
+
 Canonical deployed addresses are documented in:
 
 ```text
