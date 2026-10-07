@@ -324,6 +324,7 @@ Start with:
 - [`interchain/XGR_INTERCHAIN_Security_Model.md`](interchain/XGR_INTERCHAIN_Security_Model.md)
 - [`interchain/XGR_INTERCHAIN_Asset_Bridge.md`](interchain/XGR_INTERCHAIN_Asset_Bridge.md)
 - [`interchain/XGR_INTERCHAIN_Deployment_Reference.md`](interchain/XGR_INTERCHAIN_Deployment_Reference.md)
+- [`interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md`](interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md)
 
 These documents define:
 
@@ -336,7 +337,9 @@ These documents define:
 - relayer trust boundaries,
 - native XGR and wXGR asset semantics,
 - lock/mint and burn/unlock behavior,
-- canonical XGRChain ↔ Base deployment identities.
+- canonical XGRChain ↔ Base deployment identities,
+- v3.1.3 canonical route identity, route-specific governance and dedicated-message authorization,
+- shared destination security contracts versus route-specific Gateway/Router contracts.
 
 The first production asset route connects:
 
