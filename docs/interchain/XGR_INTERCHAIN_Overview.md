@@ -32,6 +32,14 @@ It explains:
 
 Detailed security mechanics, deployed contract addresses and operational procedures are documented separately.
 
+The normative multi-route architecture introduced for XGR Interchain v3.1.3 is defined separately in:
+
+```text
+docs/interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md
+```
+
+That document defines the route-addressable security model, dedicated-message authorization, route-scoped governance, untrusted relayer boundary and shared-vs-route-specific contract architecture. The production deployment described in this overview remains the v3.1.1 mainnet baseline until v3.1.3 contracts are deployed and validated.
+
 ---
 
 ## 2. What is XGR Interchain?
