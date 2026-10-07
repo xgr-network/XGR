@@ -600,15 +600,26 @@ Availability failure must never be converted into authorization.
 
 ---
 
-## 21. v3.1.1 compatibility and migration
+## 21. Clean v3.1.3 deployment boundary
 
-The deployed XGRChain ↔ Base v3.1.1 route remains a valid production system until explicitly migrated.
+v3.1.3 uses a clean contract generation and does not require backward-compatible security semantics inside the new contracts.
 
-v3.1.3 introduces an incompatible route-addressable security payload and therefore requires v3.1.3-compatible contracts for routes that use the new security model.
+On destinations such as Base, the v3.1.3 security stack is deployed as a new generation built around:
 
-Existing v3.1.1 ISMs do not understand the v3.1.3 `routeId` and dedicated-message payload and must not be treated as v3.1.3 security endpoints.
+```text
+XGRInterchainValidatorRegistryV2-compatible membership
+shared BLS verifier
+shared ILN Registry
+generic ILN ISM
+route-specific ILN Gateways
+route-specific Warp Routers / Token Adapters
+```
 
-Migration must occur only after:
+Legacy v3.1.1 contract layouts, checkpoint domains and ISM metadata formats are not carried into the v3.1.3 contract interfaces.
+
+The v3.1.1 deployment remains relevant only as historical production evidence and as the currently active route until cutover.
+
+A v3.1.3 production cutover must occur only after:
 
 1. v3.1.3 node tests pass;
 2. v3.1.3 contracts pass unit and integration tests;
