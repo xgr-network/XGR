@@ -1,6 +1,6 @@
 # XGR Documentation Index
 
-**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; **xgr-interchain has been retired**.
+**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; **xgr-hyperlane has been retired**.
 
 **Document ID:** XGR-DOCS-INDEX  
 **Last updated:** 2026-10-04  
@@ -317,6 +317,7 @@ The **current** implementation is [xgr-interchain](https://github.com/xgr-networ
 | Document | Scope |
 | --- | --- |
 | [v3.2.3 complete reference](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md) | Architecture, contract model, trust assumptions, ERC-20/native token routes, fees and source/destination flow |
+| [Relayer and independent delivery reference](interchain/XGR_INTERCHAIN_Relayer_Reference.md) | Current proof observer, unsigned recovery, legacy transports, managed executor shutdown and operator incidents |
 | [v3.2.3 operational guide](interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) | User-owned direct transfer, unsigned delivery and Merkle recovery |
 | [Node v3.2.3 operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md) | CLI, JSON-RPC, validator config, P2P, quorum, backups and incidents |
 | [Current implementation and receipts](https://github.com/xgr-network/xgr-interchain) | Auditable Solidity sources, actual deployments, fee adapter, frontend and indexer |
