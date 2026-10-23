@@ -1,6 +1,6 @@
 # XGR Documentation Index
 
-**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; **xgr-hyperlane has been retired**.
+**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The original v3.1.x Interchain pages below are retained as historical snapshots; **xgr-hyperlane has been retired**. The `docs/chain/` feature references retain their explicitly documented v3.1.1 semantics; the current v3.2.3 node release changes the Interchain subsystem and must not be taken as a blanket revision of PoS/IBFT/EVM/gas behavior.
 
 **Document ID:** XGR-DOCS-INDEX  
 **Last updated:** 2026-10-04  
