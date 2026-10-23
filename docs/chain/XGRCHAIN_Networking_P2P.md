@@ -3,16 +3,13 @@
 **Document ID:** XGRCHAIN-NETWORKING-P2P  
 **Last updated:** 2026-10-05  
 **Audience:** Node operators, validator operators, RPC operators, infrastructure engineers  
-**Release baseline:** `xgr-node v3.2.3`  
-**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain node networking and P2P operation
 
 ---
-
-> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
-
 
 ## 1. Scope
 
@@ -103,7 +100,7 @@ A node can discover XGRChain through a bootnode without being a validator.
 
 ## 4. libp2p implementation
 
-The `v3.2.3` networking server creates a libp2p host using:
+The `v3.1.1` networking server creates a libp2p host using:
 
 - TCP transport,
 - Noise security,
@@ -219,7 +216,7 @@ Operational rules:
 
 Discovery is enabled by default.
 
-The `v3.2.3` network implementation defines:
+The `v3.1.1` network implementation defines:
 
 ```text
 MinimumBootNodes = 1
@@ -265,7 +262,7 @@ For ordinary XGRChain mainnet operation, discovery should normally remain enable
 
 The discovery service uses a Kademlia-style routing table.
 
-Verified `v3.2.3` values:
+Verified `v3.1.1` values:
 
 | Parameter | Value |
 | --- | ---: |
@@ -375,7 +372,7 @@ Persistent repeated failures require investigation.
 
 ## 14. Connection limits
 
-Current `v3.2.3` defaults:
+Current `v3.1.1` defaults:
 
 | Setting | Default |
 | --- | ---: |
@@ -547,7 +544,7 @@ Transport authentication and protocol authorization are separate layers.
 
 The node uses libp2p Gossipsub.
 
-Verified `v3.2.3` queue settings:
+Verified `v3.1.1` queue settings:
 
 | Setting | Value |
 | --- | ---: |
@@ -1020,11 +1017,11 @@ A local storage bottleneck can manifest as degraded network or consensus partici
 
 ---
 
-## 43. Current `v3.2.3` networking baseline
+## 43. Current `v3.1.1` networking baseline
 
 | Topic | Value / behavior |
 | --- | --- |
-| Node baseline | `xgr-node v3.2.3` |
+| Node baseline | `xgr-node v3.1.1` |
 | P2P implementation | libp2p |
 | Transport security | Noise |
 | Default port | `1478` |

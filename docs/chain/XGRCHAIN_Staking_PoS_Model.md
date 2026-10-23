@@ -3,16 +3,13 @@
 **Document ID:** XGRCHAIN-STAKING-POS-MODEL  
 **Last updated:** 2026-10-03  
 **Audience:** Validators, delegators, staking UI developers, explorer developers, auditors, node operators  
-**Release baseline:** `xgr-node v3.2.3`  
-**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Chain-level delegated PoS, staking, voting-power and epoch-economics model
 
 ---
-
-> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
-
 
 ## 1. Scope
 
@@ -148,7 +145,7 @@ It is not merely explorer metadata.
 
 ## 5. Staking constants
 
-`StakingV2.sol` in `v3.2.3` defines:
+`StakingV2.sol` in `v3.1.1` defines:
 
 | Constant | Value |
 | --- | ---: |
@@ -229,7 +226,7 @@ while still being below the normal consensus eligibility threshold.
 
 ## 8. Epoch-effective stake
 
-`v3.2.3` explicitly defines an epoch-effective total-stake calculation.
+`v3.1.1` explicitly defines an epoch-effective total-stake calculation.
 
 Implementation:
 
@@ -297,7 +294,7 @@ This prevents intra-epoch state changes from retroactively changing the already-
 
 ## 11. Consensus voting stake
 
-`v3.2.3` distinguishes validator eligibility stake from the stake basis used for a validator already selected into the consensus set.
+`v3.1.1` distinguishes validator eligibility stake from the stake basis used for a validator already selected into the consensus set.
 
 Implementation:
 
@@ -356,7 +353,7 @@ Rules:
 - key is stored in validator state,
 - pool metadata mirrors the BLS key.
 
-For BLS validator selection, `v3.2.3` attempts to decode the BLS public key.
+For BLS validator selection, `v3.1.1` attempts to decode the BLS public key.
 
 Invalid BLS keys exclude the validator from BLS consensus selection.
 
@@ -701,7 +698,7 @@ Its parent is:
 
 which is still PoA.
 
-`v3.2.3` enables stake-weighted voting only when the **parent block is already PoS-active**.
+`v3.1.1` enables stake-weighted voting only when the **parent block is already PoS-active**.
 
 Therefore:
 
@@ -752,7 +749,7 @@ If:
 - uptime weight > 0,
 - nominal weight > 0,
 
-but integer division would produce zero, `v3.2.3` preserves a minimum power of:
+but integer division would produce zero, `v3.1.1` preserves a minimum power of:
 
     1
 
@@ -1079,7 +1076,7 @@ Therefore:
 
 ## 45. Slash rate
 
-Current `v3.2.3` default:
+Current `v3.1.1` default:
 
     20 bps
 
@@ -1109,7 +1106,7 @@ Therefore emergency validator fallback does not expose validators to normal epoc
 
 ## 47. Slash destination
 
-Current `v3.2.3` slash destination resolves to:
+Current `v3.1.1` slash destination resolves to:
 
     0x0000000000000000000000000000000000000666
 
@@ -1261,7 +1258,7 @@ A delegation should not be shown as contributing to the current epoch merely bec
 
 ## 55. Mainnet summary
 
-| Topic | `v3.2.3` mainnet behavior |
+| Topic | `v3.1.1` mainnet behavior |
 | --- | --- |
 | PoS activation | `5446500` / `0x531b64` |
 | Finality protocol | IBFT |

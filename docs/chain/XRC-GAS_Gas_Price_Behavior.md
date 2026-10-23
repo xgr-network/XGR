@@ -3,16 +3,13 @@
 **Document ID:** XRC-GAS-BEHAVIOR  
 **Last updated:** 2026-10-03  
 **Audience:** Wallet developers, dApp developers, explorer developers, node operators, auditors  
-**Release baseline:** `xgr-node v3.2.3`  
-**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
+**Release baseline:** `xgr-node v3.1.1`  
+**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain gas pricing, transaction fees, fee accounting and PoS FeePool behavior
 
 ---
-
-> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
-
 
 ## 1. Purpose
 
@@ -51,7 +48,7 @@ Applications must use XGRChain's actual RPC and receipt behavior rather than ass
 Current node baseline:
 
 ```text
-xgr-node v3.2.3
+xgr-node v3.1.1
 ```
 
 Mainnet:
@@ -158,7 +155,7 @@ XGRChain uses a custom base-fee policy designed to provide:
 
 ## 6. Static fallback parameters
 
-`v3.2.3` defines:
+`v3.1.1` defines:
 
 | Constant | Value |
 | --- | ---: |
@@ -440,7 +437,7 @@ This avoids division by zero.
 
 ## 14. `eth_gasPrice`
 
-Current `v3.2.3` behavior:
+Current `v3.1.1` behavior:
 
 ```text
 eth_gasPrice =
@@ -857,7 +854,7 @@ It is not a network-wide consensus gas-price parameter.
 
 ## 31. `eth_gasPrice` does not include `--price-limit`
 
-Current `v3.2.3` `eth_gasPrice` logic does not incorporate the local TxPool:
+Current `v3.1.1` `eth_gasPrice` logic does not incorporate the local TxPool:
 
 ```text
 --price-limit
