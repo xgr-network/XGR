@@ -1,6 +1,6 @@
 # XGR Network
 
-**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). `xgr-interchain` is retired; the current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.2.3`.
+**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). `xgr-hyperlane` is retired; the current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.2.3`.
 
 XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on deterministic on-chain process execution rather than simple value transfer.
 
@@ -67,6 +67,7 @@ The current XGR Interchain protocol joins supported EVM networks through **XGRCh
 - **Node/validator runtime:** [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3).
 - **Protocol reference:** [current architecture, routes, token models, validation, security, contracts and operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md).
 - **Validator operations:** [CLI, RPC, full Merkle replica, quorum and health reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md).
+- **Relayer and independent delivery:** [complete audited relayer/proof observer and recovery manual](docs/interchain/XGR_INTERCHAIN_Relayer_Reference.md).
 - **Direct noncommercial transfers:** [user-signed ILNGateway and destination Mailbox calls without XITA fee adapter or managed relayer](docs/interchain/XGR_INTERCHAIN_v3.2.3_Operations.md).
 
 Each source ILNGateway collects the native protocol validator fee, invokes an asset-specific guarded router (native collateral / ERC-20 collateral / synthetic), allocates the fee to a per-route FeeVault and dispatches a canonical Mailbox message. Validators independently reconstruct the confirmed Merkle root and message inclusion, validate source fee allocation and aggregate 2/3 BLS signatures. The destination ISM authorizes the original message; any gas-paying executor may submit `Mailbox.process`. The optional commercial XITAExecutionGateway and gas sponsor are separate from protocol validity.
