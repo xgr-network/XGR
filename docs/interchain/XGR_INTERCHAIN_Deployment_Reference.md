@@ -3,14 +3,16 @@
 **Document ID:** XGR-INTERCHAIN-DEPLOYMENT-REFERENCE  
 **Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, infrastructure operators, validator operators, auditors, wallet and exchange integrators  
-**Release baseline:** `xgr-node v3.1.1`  
+**Original documentation baseline:** `xgr-node v3.1.1` (historical)  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Implementation status:** Mainnet  
-**Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
+**Current implementation:** `xgr-network/xgr-interchain`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Canonical public network identities, deployed Interchain contracts, asset routers, validator registries, security modules and route relationships for the XGRChain ↔ Base mainnet deployment
 
 ---
+
+> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
 
 ## 1. Purpose
 
@@ -1439,7 +1441,7 @@ They do not request or force new validator signatures.
 The current native relayer implementation is maintained in:
 
 ```text
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 ```
 
 Runtime path:
@@ -1607,7 +1609,7 @@ Base
 Implementation repository:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 Canonical public implementation branch:
@@ -1634,7 +1636,7 @@ The repository contains:
 Machine-readable deployment inventories are maintained under:
 
 ```text
-xgr-network/xgr-hyperlane/deployments/
+xgr-network/xgr-interchain/deployments/
 ```
 
 Current canonical route manifests include:
@@ -1955,7 +1957,7 @@ docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md
 Detailed implementation, deployment and operator documentation:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 Relevant repository documentation includes:

@@ -16,7 +16,7 @@ XGRChain is the EVM-compatible execution and settlement layer of the XGR ecosyst
 
 Current public chain baseline:
 
-- **xgr-node:** `v3.1.1`
+- **xgr-node:** `v3.2.3`
 - **Chain ID:** `1643`
 - **Native asset:** XGR
 - **Mainnet:** live
@@ -58,6 +58,9 @@ XDaLa is deployed on XGRChain mainnet.
 ---
 
 ## Interchain
+
+**Current implementation (October 2026):** [XGR Interchain v3.2.3 operations, direct independent transfer and recovery](docs/interchain/XGR_INTERCHAIN_v3.2.3_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
+
 
 XGR Network maintains XGRChain-native Interchain infrastructure for cross-chain XGR transfers.
 
@@ -108,7 +111,7 @@ Both directions are deployed and have been validated end-to-end on mainnet.
 
 The public bidirectional bridge is available at:
 
-https://bridge.xgr.network
+https://xita.xgr.network
 
 The official Base wXGR contract is:
 
@@ -185,7 +188,7 @@ These documents define:
 
 Implementation, deployment manifests and operator tooling are maintained in:
 
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 
 Detailed implementation and operations documentation is maintained separately from the XGRChain node implementation.
 
@@ -267,7 +270,7 @@ The `docs/chain/` section contains the public technical documentation for XGRCha
 - access-control boundaries,
 - network upgrades and hardfork procedures.
 
-The current Chain documentation targets `xgr-node v3.1.1` unless explicitly marked as historical.
+The current Chain documentation targets `xgr-node v3.2.3` unless explicitly marked as historical.
 
 ### XGR Interchain
 
@@ -284,7 +287,7 @@ The `docs/interchain/` section contains the public technical specification for X
 Implementation-specific deployment and operator material remains in:
 
 ```text
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 ```
 
 ### XDaLa Specifications
@@ -360,7 +363,7 @@ This repository is intended for:
 ## Project Status
 
 - **XGRChain:** Mainnet
-- **Current public node release:** `v3.1.1`
+- **Current public node release:** `v3.2.3`
 - **Consensus:** Mainnet — IBFT finality with delegated PoS validator participation
 - **State Growth Control:** Mainnet — Online State Trie Sweeper available for configurable historical-state retention and reclamation of unreachable trie/code data
 - **XDaLa:** Mainnet
@@ -385,7 +388,7 @@ XGR components use independent but coordinated versioning.
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 This version applies to the public node and the Chain documentation describing that node baseline.
@@ -443,20 +446,20 @@ Do not publish:
 These are the canonical entry points for the public ecosystem.
 
 - Website: https://xgr.network
-- Public Bridge: https://bridge.xgr.network
+- Public Bridge: https://xita.xgr.network
 - GitHub Organization: https://github.com/xgr-network
 
 ### Developer Entry Points
 
 - Specs & Standards: https://github.com/xgr-network/XGR
 - Node implementation: https://github.com/xgr-network/xgr-node
-- Interchain implementation: https://github.com/xgr-network/xgr-hyperlane
+- Interchain implementation: https://github.com/xgr-network/xgr-interchain
 - MCP implementation: https://github.com/xgr-network/xgr-mcp
 
 ### Network Tools
 
 - Documentation Hub: https://xgr.network/docs
-- XGR Bridge: https://bridge.xgr.network
+- XGR Bridge: https://xita.xgr.network
 - Testnet Faucet: https://faucet.xgr.network
 - Explorer: https://explorer.xgr.network
 
