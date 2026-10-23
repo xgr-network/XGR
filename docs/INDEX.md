@@ -25,7 +25,7 @@ The documentation is divided into:
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 unless an individual document explicitly states otherwise.
@@ -199,7 +199,7 @@ XRC-GAS_Gas_Price_Behavior.md
 The current Chain documentation targets:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 and the corresponding release commit:
@@ -310,6 +310,9 @@ https://mcp.testnet.xgr.network/mcp
 
 ## 15. XGR Interchain
 
+**Current implementation (October 2026):** [XGR Interchain v3.2.3 operations, direct independent transfer and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
+
+
 XGR Interchain is the cross-chain infrastructure of the XGR Network.
 
 The public specification set is maintained under:
@@ -392,13 +395,13 @@ XGR Interchain validator quorum
 
 The public Interchain implementation repository is:
 
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 
 Implementation-specific and operator documentation is maintained there:
 
-- [Interchain repository overview](https://github.com/xgr-network/xgr-hyperlane)
-- [Interchain architecture](https://github.com/xgr-network/xgr-hyperlane/blob/main/docs/architecture.md)
-- [Interchain operations](https://github.com/xgr-network/xgr-hyperlane/blob/main/docs/operations.md)
+- [Interchain repository overview](https://github.com/xgr-network/xgr-interchain)
+- [Interchain architecture](https://github.com/xgr-network/xgr-interchain/blob/main/docs/architecture.md)
+- [Interchain operations](https://github.com/xgr-network/xgr-interchain/blob/main/docs/operations.md)
 
 The Interchain implementation repository contains:
 
@@ -412,7 +415,7 @@ The Interchain implementation repository contains:
 
 Public XGR specifications remain in this repository.
 
-Detailed implementation and operations remain in `xgr-network/xgr-hyperlane`.
+Detailed implementation and operations remain in `xgr-network/xgr-interchain`.
 
 Dynamic operational state such as:
 
@@ -469,8 +472,8 @@ Different parts of the XGR stack have different implementation sources.
 | XRC standards | `xgr-network/XGR/docs/` and referenced contracts |
 | MCP Gateway | `xgr-network/xgr-mcp` |
 | Public Interchain specifications | `xgr-network/XGR/docs/interchain/` |
-| Interchain contracts and runtime | `xgr-network/xgr-hyperlane` |
-| Interchain deployment manifests | `xgr-network/xgr-hyperlane/deployments/` |
+| Interchain contracts and runtime | `xgr-network/xgr-interchain` |
+| Interchain deployment manifests | `xgr-network/xgr-interchain/deployments/` |
 | Dynamic Interchain availability | Live contract and runtime state |
 | User interfaces | Corresponding UI/application repositories |
 
@@ -489,7 +492,7 @@ while:
 ```text
 implementation, deployments and runtime
 =
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 ```
 
 and:
@@ -507,7 +510,7 @@ live on-chain and runtime state
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 A new node release does not automatically imply:
@@ -531,7 +534,7 @@ Each component must be evaluated according to its own compatibility and versioni
 - GitHub Organization: https://github.com/xgr-network
 - Specifications: https://github.com/xgr-network/XGR
 - XGRChain node: https://github.com/xgr-network/xgr-node
-- Interchain: https://github.com/xgr-network/xgr-hyperlane
+- Interchain: https://github.com/xgr-network/xgr-interchain
 - MCP: https://github.com/xgr-network/xgr-mcp
 - Explorer: https://explorer.xgr.network
 - Testnet Faucet: https://faucet.xgr.network
@@ -554,7 +557,7 @@ For Interchain changes, keep the following layers synchronized where applicable:
 
 ```text
 xgr-network/XGR/docs/interchain/
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 current deployment manifests
 public bridge documentation
 ```

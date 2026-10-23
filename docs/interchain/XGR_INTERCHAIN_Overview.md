@@ -3,14 +3,16 @@
 **Document ID:** XGR-INTERCHAIN-OVERVIEW  
 **Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, node operators, validator operators, auditors, infrastructure reviewers  
-**Release baseline:** `xgr-node v3.1.1`  
+**Original documentation baseline:** `xgr-node v3.1.1` (historical)  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Implementation status:** XGRChain ↔ Base mainnet deployment active; both asset-transfer directions validated end-to-end on mainnet  
-**Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
+**Current implementation:** `xgr-network/xgr-interchain`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Public architecture and security overview of XGR Interchain and the XGRChain ↔ Base XGR asset route
 
 ---
+
+> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
 
 ## 1. Purpose
 
@@ -1130,9 +1132,9 @@ Different parts of XGR Interchain have different authoritative sources.
 | --- | --- |
 | XGRChain native Interchain functionality | `xgr-network/xgr-node` |
 | Public XGR Interchain documentation | `xgr-network/XGR/docs/interchain/` |
-| Interchain contracts and deployment tooling | `xgr-network/xgr-hyperlane` |
-| Deployment manifests | `xgr-network/xgr-hyperlane/deployments/` |
-| Relayer runtime | `xgr-network/xgr-hyperlane/runtime/` |
+| Interchain contracts and deployment tooling | `xgr-network/xgr-interchain` |
+| Deployment manifests | `xgr-network/xgr-interchain/deployments/` |
+| Relayer runtime | `xgr-network/xgr-interchain/runtime/` |
 | Dynamic route state | Live contract and runtime state |
 | User-facing bridge | XGR Network bridge application |
 
@@ -1158,7 +1160,7 @@ The `xgr-network/XGR` repository documents:
 
 ### Interchain repository
 
-The `xgr-network/xgr-hyperlane` repository documents:
+The `xgr-network/xgr-interchain` repository documents:
 
 - implementation details,
 - contracts,
@@ -1250,7 +1252,7 @@ https://github.com/xgr-network/xgr-node
 XGR Interchain implementation:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 Public XGR specifications and documentation:

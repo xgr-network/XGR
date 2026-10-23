@@ -3,14 +3,16 @@
 **Document ID:** XGR-INTERCHAIN-ASSET-BRIDGE  
 **Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, wallet developers, exchange integrators, infrastructure operators, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
+**Original documentation baseline:** `xgr-node v3.1.1` (historical)  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Implementation status:** Mainnet  
-**Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
+**Current implementation:** `xgr-network/xgr-interchain`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Native XGR and wXGR asset model, lock/mint and burn/unlock semantics, transfer lifecycle, supply relationship and integration requirements
 
 ---
+
+> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
 
 ## 1. Purpose
 
@@ -1973,7 +1975,7 @@ Each route must be separately:
 | Area | Primary source |
 | --- | --- |
 | Native XGR behavior | XGRChain node and canonical chain state |
-| XGR Interchain asset contracts | `xgr-network/xgr-hyperlane` |
+| XGR Interchain asset contracts | `xgr-network/xgr-interchain` |
 | Official deployment addresses | Interchain deployment manifests and live chain state |
 | Public asset-bridge specification | `xgr-network/XGR/docs/interchain/` |
 | Dynamic route availability | Live on-chain and runtime state |
@@ -2014,7 +2016,7 @@ docs/chain/XGRCHAIN_Introduction.md
 XGR Interchain implementation:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 ---

@@ -5,10 +5,12 @@
 **Audience:** Protocol developers, contract developers, validator operators, relayer operators, integrators, auditors  
 **Protocol status:** Normative v3.1.3 architecture  
 **Node implementation:** `xgr-network/xgrchain`, branch `PoS_3`  
-**Contract implementation:** `xgr-network/xgr-hyperlane`  
+**Contract implementation:** `xgr-network/xgr-interchain`  
 **Production note:** The currently deployed XGRChain ↔ Base bridge remains the v3.1.1 production baseline until the v3.1.3 contract stack is deployed and validated end-to-end.
 
 ---
+
+> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
 
 ## 1. Purpose
 

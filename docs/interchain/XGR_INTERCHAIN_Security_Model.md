@@ -3,14 +3,16 @@
 **Document ID:** XGR-INTERCHAIN-SECURITY  
 **Last updated:** 2026-10-04  
 **Audience:** Protocol developers, validator operators, infrastructure operators, integrators, auditors, security reviewers  
-**Release baseline:** `xgr-node v3.1.1`  
+**Original documentation baseline:** `xgr-node v3.1.1` (historical)  
 **Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
 **Implementation status:** Mainnet  
-**Interchain implementation:** `xgr-network/xgr-hyperlane`, branch `main`  
+**Current implementation:** `xgr-network/xgr-interchain`, branch `main`  
 **XGRChain implementation:** `xgr-network/xgr-node`  
 **Scope:** Validator trust, BLS attestations, quorum, message inclusion, destination verification, relayer authority and operational safety boundaries
 
 ---
+
+> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
 
 ## 1. Purpose
 
@@ -1788,9 +1790,9 @@ V2 additionally supports requirements such as historical validator-set verificat
 | --- | --- |
 | XGRChain consensus security | `xgr-network/xgr-node` and XGRChain consensus documentation |
 | Native BLS precompile | `xgr-network/xgr-node` |
-| Interchain validator contracts | `xgr-network/xgr-hyperlane` |
+| Interchain validator contracts | `xgr-network/xgr-interchain` |
 | Deployment addresses | Interchain deployment manifests and live chain state |
-| Relayer implementation | `xgr-network/xgr-hyperlane/runtime/` |
+| Relayer implementation | `xgr-network/xgr-interchain/runtime/` |
 | Dynamic pause / gate state | Live on-chain state |
 | Public security documentation | `xgr-network/XGR/docs/interchain/` |
 
@@ -1833,7 +1835,7 @@ docs/chain/XGRCHAIN_Access_Control_and_Permission_Boundaries.md
 XGR Interchain implementation:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 ---
