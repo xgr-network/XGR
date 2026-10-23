@@ -1,5 +1,7 @@
 # XGR Network
 
+**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). `xgr-hyperlane` is retired; the current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.2.3`.
+
 XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on deterministic on-chain process execution rather than simple value transfer.
 
 The core technology is XDaLa, a validation-to-execution engine that extends transactions into auditable multi-step workflows by combining on-chain rules, external data sources and smart contract execution.

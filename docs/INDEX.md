@@ -1,5 +1,7 @@
 # XGR Documentation Index
 
+**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; **xgr-hyperlane has been retired**.
+
 **Document ID:** XGR-DOCS-INDEX  
 **Last updated:** 2026-10-04  
 **Audience:** Developers, node operators, validators, integrators, auditors, contributors  
