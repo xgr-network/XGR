@@ -1,12 +1,13 @@
 # XGR Interchain / XITA — complete v3.2.3 technical reference
 
-**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-hyperlane`. Do not deploy, install or follow legacy routing procedures from that repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
+**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-hyperlane`. Do not deploy, install or follow legacy routing procedures from that predecessor repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
 
 ## Documentation map
 
 | Audience | Authoritative reference |
 | --- | --- |
 | Protocol integrators and auditors | This reference; [XITA v3.1.5 contract specification](https://github.com/xgr-network/xgr-interchain/blob/main/docs/XITA_SPEC_V315.md) for frozen contract interfaces |
+| Relayer/proof operators | [Relayer, unsigned proof observer, wallet-signed delivery, legacy services and incident runbook](./XGR_INTERCHAIN_Relayer_Reference.md) |
 | Validator node operators | [XGR-Node v3.2.3 operator, CLI, RPC and recovery](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md) |
 | Independent transfer users | [Direct ILN source/destination recovery without commercial fee adapter or relayer](./XGR_INTERCHAIN_v3.2.3_Operations.md) |
 | Contract integrators | [ILNGateway](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/ILNGateway.sol), [Factory/Registry](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNRegistryV315.sol), [FeeVault](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNFeeVault.sol), [ISM](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNInterchainISMV2.sol) |
@@ -129,4 +130,4 @@ Changes to node consensus/StateTx/EVM require appropriate tagged node release, i
 - If source Hook history is missing from **all** replicas and reliable backups, the on-chain Merkle root alone cannot invert into the missing ordered hashes.
 - Validators are not required to fund third-party destination gas; any account may act as an untrusted executor once proof is available.
 - No single RPC should be accepted as an unquestioned authority; verify chain ID, deployment binding, receipt, root/count and destination `process` simulation.
-- `xgr-hyperlane` and the historic `bridge.xgr.network` references are **legacy**; do not use them for current onboarding/deployments.
+- `xgr-interchain` and the historic `bridge.xgr.network` references are **legacy**; do not use them for current onboarding/deployments.

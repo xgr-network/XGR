@@ -4,7 +4,7 @@
 **Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, partners, technical readers  
 **Implementation status:** Mainnet  
-**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`, `xgr-hyperlane`
+**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`, `xgr-interchain`
 
 > **One-liner**
 >
@@ -1373,7 +1373,7 @@ Both directions are deployed and have been validated end-to-end on mainnet.
 The public bidirectional bridge is available at:
 
 ```text
-https://bridge.xgr.network
+https://xita.xgr.network
 ```
 
 Official wXGR on Base:
@@ -1458,7 +1458,7 @@ docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md
 Implementation and operations:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 The public specification layer and implementation/runtime layer are maintained separately.
@@ -1612,7 +1612,7 @@ For XGR Interchain integration:
 4. Respect live route availability
 5. Do not treat the relayer as the security authority
 6. Use the public Interchain specifications for protocol semantics
-7. Use xgr-hyperlane for implementation and deployment details
+7. Use xgr-interchain for implementation and deployment details
 ```
 
 ---
@@ -1693,7 +1693,7 @@ https://github.com/xgr-network/xgrEngine
 XGR Interchain:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 XGR MCP:

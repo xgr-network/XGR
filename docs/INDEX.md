@@ -1,6 +1,6 @@
 # XGR Documentation Index
 
-**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; **xgr-hyperlane has been retired**.
+**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The original v3.1.x Interchain pages below are retained as historical snapshots; **xgr-hyperlane has been retired**. The `docs/chain/` feature references retain their explicitly documented v3.1.1 semantics; the current v3.2.3 node release changes the Interchain subsystem and must not be taken as a blanket revision of PoS/IBFT/EVM/gas behavior.
 
 **Document ID:** XGR-DOCS-INDEX  
 **Last updated:** 2026-10-04  
@@ -310,125 +310,21 @@ https://mcp.testnet.xgr.network/mcp
 
 # Interchain
 
-## 15. XGR Interchain
+## 15. XGR Interchain — current documentation
 
-**Current implementation (October 2026):** [XGR Interchain v3.2.3 operations, direct independent transfer and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
+The **current** implementation is [xgr-interchain](https://github.com/xgr-network/xgr-interchain); the retired `xgr-hyperlane` implementation must not be used for active deployments. XGR validator-runtime baseline: [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3).
 
+| Document | Scope |
+| --- | --- |
+| [v3.2.3 complete reference](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md) | Architecture, contract model, trust assumptions, ERC-20/native token routes, fees and source/destination flow |
+| [Relayer and independent delivery reference](interchain/XGR_INTERCHAIN_Relayer_Reference.md) | Current proof observer, unsigned recovery, legacy transports, managed executor shutdown and operator incidents |
+| [v3.2.3 operational guide](interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) | User-owned direct transfer, unsigned delivery and Merkle recovery |
+| [Node v3.2.3 operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md) | CLI, JSON-RPC, validator config, P2P, quorum, backups and incidents |
+| [Current implementation and receipts](https://github.com/xgr-network/xgr-interchain) | Auditable Solidity sources, actual deployments, fee adapter, frontend and indexer |
 
-XGR Interchain is the cross-chain infrastructure of the XGR Network.
+The four large original references ([overview](interchain/XGR_INTERCHAIN_Overview.md), [asset bridge](interchain/XGR_INTERCHAIN_Asset_Bridge.md), [security](interchain/XGR_INTERCHAIN_Security_Model.md), [deployment](interchain/XGR_INTERCHAIN_Deployment_Reference.md)) are **historical single-route v3.1.1 snapshots** and are not current guides. [v3.1.3 specification](interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md) is likewise historical, including its obsolete route-specific governance model. These files must be explicitly labeled archival and may not be used for signing current transfers.
 
-The public specification set is maintained under:
-
-```text
-docs/interchain/
-```
-
-Start with:
-
-- [`interchain/XGR_INTERCHAIN_Overview.md`](interchain/XGR_INTERCHAIN_Overview.md)
-- [`interchain/XGR_INTERCHAIN_Security_Model.md`](interchain/XGR_INTERCHAIN_Security_Model.md)
-- [`interchain/XGR_INTERCHAIN_Asset_Bridge.md`](interchain/XGR_INTERCHAIN_Asset_Bridge.md)
-- [`interchain/XGR_INTERCHAIN_Deployment_Reference.md`](interchain/XGR_INTERCHAIN_Deployment_Reference.md)
-- [`interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md`](interchain/XGR_INTERCHAIN_v3.1.3_Protocol.md)
-
-These documents define:
-
-- Interchain architecture,
-- the separation between XGRChain consensus and Interchain security,
-- destination-specific validator membership,
-- BLS checkpoint attestations,
-- Interchain quorum,
-- Merkle inclusion verification,
-- relayer trust boundaries,
-- native XGR and wXGR asset semantics,
-- lock/mint and burn/unlock behavior,
-- canonical XGRChain ↔ Base deployment identities,
-- v3.1.3 canonical route identity, route-specific governance and dedicated-message authorization,
-- shared destination security contracts versus route-specific Gateway/Router contracts.
-
-The first production asset route connects:
-
-```text
-XGRChain
-    ↕
-Base
-```
-
-using:
-
-```text
-XGRChain: native XGR
-Base:     wXGR
-```
-
-Forward:
-
-```text
-XGRChain → Base
-lock native XGR
-mint wXGR
-```
-
-Reverse:
-
-```text
-Base → XGRChain
-burn wXGR
-unlock native XGR
-```
-
-Both asset-transfer directions have been validated end-to-end on mainnet.
-
-XGRChain provides native support for the Interchain security model, including native BLS12-381 verification through:
-
-```text
-0x0000000000000000000000000000000000002040
-```
-
-XGR Interchain security remains deliberately separated from weighted-IBFT consensus-critical execution.
-
-Therefore:
-
-```text
-XGRChain consensus
-≠
-XGR Interchain validator quorum
-```
-
-The public Interchain implementation repository is:
-
-https://github.com/xgr-network/xgr-interchain
-
-Implementation-specific and operator documentation is maintained there:
-
-- [Interchain repository overview](https://github.com/xgr-network/xgr-interchain)
-- [Interchain architecture](https://github.com/xgr-network/xgr-interchain/blob/main/docs/architecture.md)
-- [Interchain operations](https://github.com/xgr-network/xgr-interchain/blob/main/docs/operations.md)
-
-The Interchain implementation repository contains:
-
-- contracts,
-- deployment manifests,
-- deployment tooling,
-- validator-registry and ISM implementations,
-- native relayer runtime,
-- operational configuration,
-- operator procedures.
-
-Public XGR specifications remain in this repository.
-
-Detailed implementation and operations remain in `xgr-network/xgr-interchain`.
-
-Dynamic operational state such as:
-
-- router directional gates,
-- safety-module pause state,
-- current validator-set membership,
-- relayer process state,
-- relayer submission state,
-- RPC health,
-
-must be read from live deployment and runtime state rather than inferred from static documentation.
+**Current rules:** permissionless route registration, chain-wide source fee governance, obligatory XGRChain hub for spoke transfers, destination-current-set BLS + Merkle security, no company wallet signature for user assets, no requirement for XITA relayer/commercial fee gateway.
 
 ---
 
