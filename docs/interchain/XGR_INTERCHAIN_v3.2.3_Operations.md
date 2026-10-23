@@ -1,5 +1,7 @@
 # XGR Interchain — current runtime and independent transfer operations
 
+> **Relayer architecture:** [Code-verified relayer, proof observer, disabled managed worker, independent destination delivery and on-call handbook](./XGR_INTERCHAIN_Relayer_Reference.md).
+
 > **Full documentation set:** [XGR Interchain v3.2.3 reference](./XGR_INTERCHAIN_v3.2.3_Reference.md), [node v3.2.3 CLI and RPC operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md). The old `xgr-interchain` repository is retired.
 
 **Reviewed:** 2026-10-23  
