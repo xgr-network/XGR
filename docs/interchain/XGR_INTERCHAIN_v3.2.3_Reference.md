@@ -1,6 +1,6 @@
 # XGR Interchain / XITA — complete v3.2.3 technical reference
 
-**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-hyperlane`. Do not deploy, install or follow legacy routing procedures from that repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
+**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-interchain`. Do not deploy, install or follow legacy routing procedures from that repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
 
 ## Documentation map
 
@@ -129,4 +129,4 @@ Changes to node consensus/StateTx/EVM require appropriate tagged node release, i
 - If source Hook history is missing from **all** replicas and reliable backups, the on-chain Merkle root alone cannot invert into the missing ordered hashes.
 - Validators are not required to fund third-party destination gas; any account may act as an untrusted executor once proof is available.
 - No single RPC should be accepted as an unquestioned authority; verify chain ID, deployment binding, receipt, root/count and destination `process` simulation.
-- `xgr-hyperlane` and the historic `bridge.xgr.network` references are **legacy**; do not use them for current onboarding/deployments.
+- `xgr-interchain` and the historic `bridge.xgr.network` references are **legacy**; do not use them for current onboarding/deployments.

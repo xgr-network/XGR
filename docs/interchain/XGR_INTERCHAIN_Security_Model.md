@@ -1,5 +1,8 @@
 # XGR Interchain — Security Model
 
+
+> **ARCHIVED HISTORICAL DESIGN — DO NOT USE FOR CURRENT DEPLOYMENTS.** This text preserves a pre-v3.2.3 design/operational snapshot (v3.1.1 or v3.1.3). Its contract addresses, route governance, RPC usage, UI endpoints and deployment status are not authoritative for live operations. Current code: [xgr-interchain](https://github.com/xgr-network/xgr-interchain); node: [v3.2.3](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3); definitive [protocol reference](./XGR_INTERCHAIN_v3.2.3_Reference.md), [node CLI/RPC](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md) and [direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md). Historical version identifiers in this document deliberately remain unchanged.
+
 **Document ID:** XGR-INTERCHAIN-SECURITY  
 **Last updated:** 2026-10-04  
 **Audience:** Protocol developers, validator operators, infrastructure operators, integrators, auditors, security reviewers  
@@ -1368,7 +1371,7 @@ The production bridge currently exposes both XGRChain ↔ Base directions, while
 Public bridge:
 
 ```text
-https://bridge.xgr.network
+https://xita.xgr.network
 ```
 
 ---
@@ -1885,7 +1888,7 @@ Purely cosmetic bridge-UI changes do not require a security-model revision unles
 | Consensus / Interchain relationship | Separate security domains |
 | XGRChain → Base | Mainnet / public |
 | Base → XGRChain | Mainnet / public |
-| Public bridge | `https://bridge.xgr.network` |
+| Public bridge | `https://xita.xgr.network` |
 
 The central XGR Interchain security principle is:
 

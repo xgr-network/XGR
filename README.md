@@ -1,6 +1,6 @@
 # XGR Network
 
-**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). `xgr-hyperlane` is retired; the current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.2.3`.
+**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). `xgr-interchain` is retired; the current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.2.3`.
 
 XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on deterministic on-chain process execution rather than simple value transfer.
 
@@ -59,142 +59,21 @@ XDaLa is deployed on XGRChain mainnet.
 
 ---
 
-## Interchain
+## XGR Interchain / XITA
 
-**Current implementation (October 2026):** [XGR Interchain v3.2.3 operations, direct independent transfer and recovery](docs/interchain/XGR_INTERCHAIN_v3.2.3_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
+The current XGR Interchain protocol joins supported EVM networks through **XGRChain (1643)**. Base (8453) and Arbitrum (42161) have individually configured deployment infrastructure. Transfers between spokes traverse **two wallet-authorized hops** through XGRChain. There is no direct spoke-to-spoke shortcut.
 
+- **Code and deployments:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain), the current repository. The predecessor `xgr-hyperlane` has been retired.
+- **Node/validator runtime:** [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3).
+- **Protocol reference:** [current architecture, routes, token models, validation, security, contracts and operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md).
+- **Validator operations:** [CLI, RPC, full Merkle replica, quorum and health reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md).
+- **Direct noncommercial transfers:** [user-signed ILNGateway and destination Mailbox calls without XITA fee adapter or managed relayer](docs/interchain/XGR_INTERCHAIN_v3.2.3_Operations.md).
 
-XGR Network maintains XGRChain-native Interchain infrastructure for cross-chain XGR transfers.
+Each source ILNGateway collects the native protocol validator fee, invokes an asset-specific guarded router (native collateral / ERC-20 collateral / synthetic), allocates the fee to a per-route FeeVault and dispatches a canonical Mailbox message. Validators independently reconstruct the confirmed Merkle root and message inclusion, validate source fee allocation and aggregate 2/3 BLS signatures. The destination ISM authorizes the original message; any gas-paying executor may submit `Mailbox.process`. The optional commercial XITAExecutionGateway and gas sponsor are separate from protocol validity.
 
-The first production XGR asset route connects:
+**Do not use obsolete deployment addresses from the v3.1.1 bridge documentation.** Current chain and token routers and route receipts live under [xgr-interchain deployments](https://github.com/xgr-network/xgr-interchain/tree/main/deployments). The XGR asset representation on Base is recorded in `deployments/assets/a7/XGR/representations.json`; verify live bytecode and registry before funding.
 
-- **XGRChain** — chain/domain `1643`
-- **Base** — chain/domain `8453`
-
-The route preserves native XGR on XGRChain and represents bridged XGR as wrapped XGR / wXGR on Base.
-
-### XGRChain → Base
-
-```text
-native XGR
-    │
-    │ lock
-    ▼
-XGR native router
-    │
-    │ authenticated cross-chain message
-    ▼
-Base synthetic router
-    │
-    │ mint
-    ▼
-wXGR
-```
-
-### Base → XGRChain
-
-```text
-wXGR
-    │
-    │ burn
-    ▼
-Base synthetic router
-    │
-    │ authenticated cross-chain message
-    ▼
-XGR native router
-    │
-    │ unlock
-    ▼
-native XGR
-```
-
-Both directions are deployed and have been validated end-to-end on mainnet.
-
-The public bidirectional bridge is available at:
-
-https://xita.xgr.network
-
-The official Base wXGR contract is:
-
-```text
-0x3b83687d77170d42feddfe221629cc21e771e021
-```
-
-The nominal bridge representation is:
-
-```text
-1 XGR ↔ 1 wXGR
-```
-
-before applicable transaction and routing fees.
-
-XGRChain provides native support for the Interchain security model, including native BLS12-381 verification through the execution precompile:
-
-```text
-0x0000000000000000000000000000000000002040
-```
-
-XGR Interchain uses:
-
-- Hyperlane-compatible message transport,
-- XGR-native validator attestations,
-- BLS aggregate signatures,
-- destination-specific validator registries,
-- Merkle inclusion proofs,
-- destination Interchain Security Modules,
-- native relayers,
-- explicit route and safety controls.
-
-XGRChain consensus and XGR Interchain security are deliberately separate security domains:
-
-```text
-XGRChain consensus
-≠
-XGR Interchain validator quorum
-```
-
-The native Interchain worker is outside the weighted-IBFT consensus-critical path.
-
-A remote-chain or relayer failure therefore does not become an XGRChain consensus dependency.
-
-The relayer transports already authorized proof material and pays destination transaction gas.
-
-It is not the trust anchor for transfer validity and cannot create a valid XGR Interchain BLS quorum by itself.
-
-### Public Interchain documentation
-
-The public specification set is maintained under:
-
-```text
-docs/interchain/
-```
-
-Start with:
-
-- [`docs/interchain/XGR_INTERCHAIN_Overview.md`](docs/interchain/XGR_INTERCHAIN_Overview.md)
-- [`docs/interchain/XGR_INTERCHAIN_Security_Model.md`](docs/interchain/XGR_INTERCHAIN_Security_Model.md)
-- [`docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md`](docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md)
-- [`docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md`](docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md)
-
-These documents define:
-
-- architecture and system boundaries,
-- validator membership and quorum,
-- BLS attestations,
-- Merkle proof verification,
-- relayer trust boundaries,
-- native XGR and wXGR asset semantics,
-- lock/mint and burn/unlock behavior,
-- canonical production deployment identities.
-
-Implementation, deployment manifests and operator tooling are maintained in:
-
-https://github.com/xgr-network/xgr-interchain
-
-Detailed implementation and operations documentation is maintained separately from the XGRChain node implementation.
-
-Dynamic operational state such as route gates, pause controls, current validator membership, RPC health and relayer process state must be read from live deployment and runtime state.
+XITA's website is [xita.xgr.network](https://xita.xgr.network). Website availability is not evidence of a completed or safe source/destination transaction. Native gas, wallet authorizations, current on-chain route bindings and validator quorum must all be checked independently.
 
 ---
 
