@@ -1,6 +1,6 @@
 # XGR Interchain / XITA — complete v3.2.3 technical reference
 
-**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-interchain`. Do not deploy, install or follow legacy routing procedures from that repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
+**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-hyperlane`. Do not deploy, install or follow legacy routing procedures from that predecessor repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
 
 ## Documentation map
 
