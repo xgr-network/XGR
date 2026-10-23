@@ -1,5 +1,7 @@
 # XGR Interchain — current runtime and independent transfer operations
 
+> **Full documentation set:** [XGR Interchain v3.2.3 reference](./XGR_INTERCHAIN_v3.2.3_Reference.md), [node v3.2.3 CLI and RPC operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md). The old `xgr-hyperlane` repository is retired.
+
 **Reviewed:** 2026-10-23  
 **Node baseline:** [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3)  
 **Canonical implementation:** [xgr-network/xgr-interchain](https://github.com/xgr-network/xgr-interchain)  
