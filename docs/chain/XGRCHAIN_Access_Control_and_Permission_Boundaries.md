@@ -3,13 +3,16 @@
 **Document ID:** XGRCHAIN-ACCESS-CONTROL  
 **Last updated:** 2026-10-03  
 **Audience:** Node operators, validator operators, RPC operators, protocol developers, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, path `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain access-control and permission boundaries
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Scope
 
@@ -169,7 +172,7 @@ The node exposes several possible RPC surfaces.
 | gRPC operator services | Node management and diagnostics | Internal only |
 | Metrics | Monitoring | Internal only |
 
-Public XGR PoS methods available in the `v3.1.1` node baseline include:
+Public XGR PoS methods available in the `v3.2.3` node baseline include:
 
 ```text
 eth_getPosValidatorsOverview
@@ -209,7 +212,7 @@ CORS is a browser access-control mechanism.
 
 It does not protect a node from direct non-browser clients.
 
-The `v3.1.1` node configuration exposes CORS-related settings including:
+The `v3.2.3` node configuration exposes CORS-related settings including:
 
 ```text
 cors_allowed_origins
@@ -265,7 +268,7 @@ Relevant runtime control:
 --concurrent-requests-debug
 ```
 
-Default in `xgr-node v3.1.1`:
+Default in `xgr-node v3.2.3`:
 
 ```text
 32
@@ -348,7 +351,7 @@ It is normal EVM-compatible transaction validation combined with XGRChain-specif
 
 ## 10. Chain-parameter address-list fields
 
-The public `xgr-node v3.1.1` chain-parameter schema contains optional address-list configuration fields:
+The public `xgr-node v3.2.3` chain-parameter schema contains optional address-list configuration fields:
 
 ```text
 contractDeployerAllowList
@@ -553,7 +556,7 @@ Recommended controls:
 - health monitoring,
 - node separation from validators.
 
-Relevant `xgr-node v3.1.1` default runtime limits:
+Relevant `xgr-node v3.2.3` default runtime limits:
 
 | Setting | Default |
 | --- | ---: |

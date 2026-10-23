@@ -3,17 +3,20 @@
 **Document ID:** XGRCHAIN-STAKING-POS-RPC  
 **Last updated:** 2026-10-03  
 **Audience:** RPC integrators, explorer developers, dashboard developers, validator operators, backend developers, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Implementation source:** `xgr-network/xgr-node`, `jsonrpc/eth_pos_overview.go`  
 **Mainnet genesis source:** `xgr-network/XGR`, `genesis/mainnet/genesis.json`  
 **Scope:** Public XGR-specific PoS monitoring JSON-RPC
 
 ---
 
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
+
 ## 1. Scope
 
-This document describes the XGR-specific staking and PoS JSON-RPC methods implemented on the `Eth` endpoint in `xgr-node v3.1.1`.
+This document describes the XGR-specific staking and PoS JSON-RPC methods implemented on the `Eth` endpoint in `xgr-node v3.2.3`.
 
 The two supported PoS data methods are:
 
@@ -92,7 +95,7 @@ For mainnet:
 | `eth_getPosValidatorDelegators` | `GetPosValidatorDelegators` | Active | Delegation and pool information for one validator |
 | `eth_getBeaconTimeStatus` | `GetBeaconTimeStatus` | Deprecated | Legacy compatibility status only |
 
-No other method should be documented as part of the supported `v3.1.1` PoS monitoring API without implementation verification.
+No other method should be documented as part of the supported `v3.2.3` PoS monitoring API without implementation verification.
 
 ---
 
@@ -247,7 +250,7 @@ Current epoch end while still in progress:
 
 ## 9. Top-level response
 
-Current `v3.1.1` response type:
+Current `v3.2.3` response type:
 
     posOverviewResponse
 
@@ -289,7 +292,7 @@ Fields:
 
 ---
 
-## 10. Fixed exactness values in `v3.1.1`
+## 10. Fixed exactness values in `v3.2.3`
 
 Current implementation sets:
 
@@ -568,7 +571,7 @@ The validator response struct still defines:
     reportedEpochRewardCommission
     reportedEpochRewardDelegatorsNet
 
-Current `v3.1.1` overview code does not assign these fields.
+Current `v3.2.3` overview code does not assign these fields.
 
 Tests explicitly expect:
 
@@ -759,7 +762,7 @@ The delegator struct defines:
 
     reportedEpochReward
 
-but current `v3.1.1` code does not assign it.
+but current `v3.2.3` code does not assign it.
 
 The corresponding test expects the value to remain nil.
 
@@ -797,7 +800,7 @@ The `Eth` endpoint still exports:
 
     eth_getBeaconTimeStatus
 
-but `v3.1.1` explicitly marks it as:
+but `v3.2.3` explicitly marks it as:
 
     Deprecated legacy endpoint
 
@@ -1151,7 +1154,7 @@ Clients should:
 
 ## 50. Summary
 
-| Topic | `v3.1.1` behavior |
+| Topic | `v3.2.3` behavior |
 | --- | --- |
 | PoS overview | `eth_getPosValidatorsOverview` |
 | Delegator detail | `eth_getPosValidatorDelegators` |

@@ -3,14 +3,17 @@
 **Document ID:** XGRCHAIN-STATE-STORAGE-RETENTION  
 **Last updated:** 2026-10-03  
 **Audience:** Node operators, validator operators, RPC operators, infrastructure engineers, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Feature introduced:** `xgr-node v2.1.0`  
 **Feature:** State Growth Control — Online State Trie Sweeper  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Local immutable-trie storage, historical-state retention, online pruning and recovery
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Purpose
 
@@ -33,7 +36,7 @@ v2.1.0
 and remains part of the current:
 
 ```text
-v3.1.1
+v3.2.3
 ```
 
 production node.
@@ -494,7 +497,7 @@ Within each range, scanning occurs in bounded chunks.
 
 ## 18. Internal batching defaults
 
-Current `v3.1.1` internal defaults:
+Current `v3.2.3` internal defaults:
 
 | Internal setting | Value |
 | --- | ---: |
@@ -712,7 +715,7 @@ Current defaults:
 | Retained canonical blocks | `10,000` |
 | Interval | `6h` |
 
-The defaults are defined directly by the `v3.1.1` server configuration.
+The defaults are defined directly by the `v3.2.3` server configuration.
 
 ---
 
@@ -1252,10 +1255,10 @@ xgr-node v2.1.0
 Current verified baseline:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
-The original introduction remains historical; the current implementation reference should use `v3.1.1`.
+The original introduction remains historical; the current implementation reference should use `v3.2.3`.
 
 ---
 
@@ -1282,7 +1285,7 @@ Changing local retention does not require validator-wide coordination.
 ## 53. Operator checklist before enabling
 
 - Run a release that supports the Trie Sweeper.
-- For this documentation baseline, use `v3.1.1`.
+- For this documentation baseline, use `v3.2.3`.
 - Confirm a persistent data directory.
 - Confirm adequate free disk space.
 - Determine required historical-state window.
@@ -1316,7 +1319,7 @@ Verify:
 
 ## 55. Production defaults summary
 
-| Parameter | `v3.1.1` |
+| Parameter | `v3.2.3` |
 | --- | --- |
 | Sweeper enabled by default | No |
 | Default retention | `10,000` blocks |

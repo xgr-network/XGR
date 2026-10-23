@@ -3,13 +3,16 @@
 **Document ID:** XGRCHAIN-SPEC  
 **Last updated:** 2026-10-03  
 **Audience:** Protocol integrators, node operators, auditors, infrastructure engineers  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, path `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Chain-level protocol and network specification only
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Scope
 
@@ -73,7 +76,7 @@ Detailed interchain architecture and operations are documented separately.
 | Transaction replay protection | EIP-155 chain ID |
 | Consensus finality | IBFT deterministic finality |
 | Validator participation from block `5446500` | Delegated PoS |
-| Public node release baseline | `xgr-node v3.1.1` |
+| Public node release baseline | `xgr-node v3.2.3` |
 
 Transactions must be signed for:
 
@@ -91,11 +94,11 @@ The public node implementation is:
 
 Current public release baseline:
 
-    v3.1.1
+    v3.2.3
 
 Release commit:
 
-    1a4844b311fb856cb8c2303a40fa8aa69b560544
+    6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066
 
 The public release baseline provides:
 
@@ -119,7 +122,7 @@ The public release baseline provides:
 - native protocol precompiles,
 - local node operation primitives.
 
-The public `v3.1.1` build remains buildable without access to private XGR repositories.
+The public `v3.2.3` build remains buildable without access to private XGR repositories.
 
 Private or proprietary XGR application modules are not required for normal public node operation.
 
@@ -349,7 +352,7 @@ A block is only valid if validators can independently reproduce and verify the s
 
 ### 12.1 Native protocol precompiles
 
-The `v3.1.1` public node baseline contains XGR-specific native precompiles in addition to standard EVM precompiles.
+The `v3.2.3` public node baseline contains XGR-specific native precompiles in addition to standard EVM precompiles.
 
 One protocol-relevant precompile is:
 
@@ -472,7 +475,7 @@ These activations provide important Berlin-/Shanghai-era execution behavior requ
 
 ## 17. FeePoolSplit alignment
 
-`feePoolSplit` is a supported fork constant in `xgr-node v3.1.1`.
+`feePoolSplit` is a supported fork constant in `xgr-node v3.2.3`.
 
 The node aligns `feePoolSplit` with the first PoS IBFT fork.
 
@@ -715,7 +718,7 @@ Detailed XGR fee-distribution semantics are documented separately.
 
 ## 27. Minimum base fee and fee-policy constants
 
-The public `xgr-node v3.1.1` implementation includes the following XGR-specific fee constants:
+The public `xgr-node v3.2.3` implementation includes the following XGR-specific fee constants:
 
 | Constant | Value | Meaning |
 | --- | ---: | --- |
@@ -1000,8 +1003,8 @@ This document therefore distinguishes between protocol capability and deployed h
 | Network name | `xgrchain` |
 | Chain ID | `1643` |
 | Chain ID hex | `0x66b` |
-| Public node baseline | `xgr-node v3.1.1` |
-| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Public node baseline | `xgr-node v3.2.3` |
+| Release commit | `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066` |
 | Execution model | EVM-compatible with XGR-specific protocol extensions |
 | Standard RPC | `eth_*`, `net_*`, `web3_*` |
 | Native asset | XGR |

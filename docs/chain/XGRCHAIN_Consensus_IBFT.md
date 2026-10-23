@@ -3,14 +3,17 @@
 **Document ID:** XGRCHAIN-IBFT-CONSENSUS  
 **Last updated:** 2026-10-03  
 **Audience:** Protocol developers, node operators, validator operators, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Implementation status:** XGRChain mainnet with delegated PoS and stake-weighted consensus active  
 **Mainnet configuration:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** XGRChain consensus and validator-finality behavior
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Purpose
 
@@ -85,7 +88,7 @@ Validator-count limits:
 | `minValidatorCount` | `4` |
 | `maxValidatorCount` | `25` |
 
-The current `v3.1.1` release continues to use this published consensus configuration.
+The current `v3.2.3` release continues to use this published consensus configuration.
 
 ---
 
@@ -775,7 +778,7 @@ They should use standard block, transaction and receipt interfaces unless implem
 
 ## 27. Consensus BLS vs interchain BLS
 
-`xgr-node v3.1.1` also contains the native interchain BLS12-381 verification precompile:
+`xgr-node v3.2.3` also contains the native interchain BLS12-381 verification precompile:
 
 ```text
 0x0000000000000000000000000000000000002040
@@ -1325,7 +1328,7 @@ Mainnet consensus values to verify:
 
 | Topic | Current XGRChain mainnet behavior |
 | --- | --- |
-| Public node baseline | `xgr-node v3.1.1` |
+| Public node baseline | `xgr-node v3.2.3` |
 | Consensus protocol | IBFT |
 | Finality | Deterministic |
 | Consensus validator cryptography | BLS |

@@ -4,13 +4,16 @@
 **Last updated:** 2026-10-04  
 **Audience:** Developers, node operators, validators, auditors, integrators  
 **Implementation status:** Mainnet  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain protocol and node overview
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. What is XGRChain?
 
@@ -54,14 +57,14 @@ https://github.com/xgr-network/xgr-node
 Current public node baseline:
 
 ```text
-v3.1.1
+v3.2.3
 ```
 
 ---
 
 ## 2. Public standalone node
 
-`xgr-node v3.1.1` builds and operates as a standalone public XGRChain node.
+`xgr-node v3.2.3` builds and operates as a standalone public XGRChain node.
 
 Normal chain operation does not require:
 
@@ -77,7 +80,7 @@ A standard public build can be produced from the tagged release:
 git clone https://github.com/xgr-network/xgr-node.git
 cd xgr-node
 git fetch --all --tags
-git checkout v3.1.1
+git checkout v3.2.3
 make -f scripts/Makefile build
 ```
 
@@ -125,7 +128,7 @@ Operators joining mainnet must use the canonical published chain configuration.
 
 ## 4. Current public baseline
 
-The current public `v3.1.1` node baseline provides:
+The current public `v3.2.3` node baseline provides:
 
 | Area | Status |
 | --- | --- |
@@ -151,7 +154,7 @@ The node software baseline and higher-level services are versioned independently
 For example:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 defines the public node baseline, while Interchain routers, validator registries, security modules and relayer runtime are maintained as a separate deployment layer.
@@ -161,7 +164,7 @@ The XGRChain ↔ Base asset route is deployed in both directions, has been valid
 Public bridge:
 
 ```text
-https://bridge.xgr.network
+https://xita.xgr.network
 ```
 
 Dynamic operational state such as route gates, pause controls, current validator membership, RPC health and relayer process state remains independent from the static node release baseline.
@@ -442,7 +445,7 @@ Ethereum RPC compatibility does not imply Ethereum mainnet fee economics.
 
 XGRChain extends standard EVM execution with XGR-specific native functionality.
 
-One `v3.1.1` protocol primitive is the native Interchain BLS12-381 verifier:
+One `v3.2.3` protocol primitive is the native Interchain BLS12-381 verifier:
 
 ```text
 0x0000000000000000000000000000000000002040
@@ -532,7 +535,7 @@ Both directions are deployed and have been validated end-to-end on mainnet.
 The public bidirectional bridge is available at:
 
 ```text
-https://bridge.xgr.network
+https://xita.xgr.network
 ```
 
 Official Base wXGR contract:
@@ -591,7 +594,7 @@ docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md
 Implementation and deployment tooling:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 Dynamic operational availability remains a live property.
@@ -662,7 +665,7 @@ the node includes State Growth Control through the Online State Trie Sweeper.
 This feature remains available in:
 
 ```text
-v3.1.1
+v3.2.3
 ```
 
 ---
@@ -952,7 +955,7 @@ XGR_INTERCHAIN_Deployment_Reference.md
 Implementation-specific Interchain contracts, deployment manifests, relayer runtime and operator documentation are maintained separately in:
 
 ```text
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 ```
 
 ---
@@ -969,7 +972,7 @@ For network-defining behavior, the source-of-truth order is:
 For XGR Interchain, additional implementation and runtime sources are:
 
 ```text
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 live deployed Interchain contracts
 live relayer runtime state
 ```
@@ -1005,7 +1008,7 @@ This document must be reviewed when any of the following changes:
 Current documentation baseline:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 Canonical network configuration:
@@ -1025,7 +1028,7 @@ docs/interchain/
 Canonical Interchain implementation:
 
 ```text
-xgr-network/xgr-hyperlane
+xgr-network/xgr-interchain
 ```
 
 ---
@@ -1035,7 +1038,7 @@ xgr-network/xgr-hyperlane
 | Topic | Current XGRChain behavior |
 | --- | --- |
 | Implementation status | Mainnet |
-| Public node | `xgr-node v3.1.1` |
+| Public node | `xgr-node v3.2.3` |
 | Chain ID | `1643` |
 | Native asset | XGR |
 | EVM compatibility | Mainnet |
@@ -1059,3 +1062,10 @@ xgr-network/xgr-hyperlane
 XGRChain is a standalone EVM-compatible Layer-1 with deterministic IBFT finality, delegated PoS, configurable state retention and native protocol support for the XGR Interchain stack.
 
 The current production Interchain route connects native XGR on XGRChain with wXGR on Base through a bidirectional mainnet bridge secured by XGR-native BLS-verified Interchain infrastructure.
+
+
+---
+
+## Interchain platform as of v3.2.3
+
+The XGRChain hub (chain/domain 1643) is used for separate authenticated hops between Base (8453), Arbitrum (42161) and other explicitly deployed/configured EVM chains. The current `xgr-interchain` implementation provides per-chain registries, public permissionless ILNGateways, guarded native/collateral/synthetic Warp Routers, per-route FeeVaults, destination BLS/Merkle ISMs, optional company fee adapter and private gas-sponsoring service. `xgr-node v3.2.3` provides independently checked Merkle replicas, quorum aggregation and public proof RPC. Validator authorization is **separate** from block-consensus votes. A historical standalone Base/XGR bridge is not the full routing model. See [current architecture](../interchain/XGR_INTERCHAIN_Overview.md).

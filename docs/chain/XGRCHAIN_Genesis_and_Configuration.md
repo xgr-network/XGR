@@ -3,13 +3,16 @@
 **Document ID:** XGRCHAIN-GENESIS-CONFIG  
 **Last updated:** 2026-10-03  
 **Audience:** Node operators, protocol developers, auditors, infrastructure engineers  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Genesis and network-defining XGRChain configuration
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Purpose
 
@@ -83,7 +86,7 @@ Changing consensus-critical genesis values creates a different chain or an incom
 The current public node release is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 This does **not** mean that XGRChain uses a new mainnet genesis.
@@ -97,7 +100,7 @@ genesis/mainnet/genesis.json
 The distinction is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
     = software implementation baseline
 
 genesis/mainnet/genesis.json
@@ -422,7 +425,7 @@ feePoolSplit
 
 inside `params.forks`.
 
-However, `xgr-node v3.1.1` aligns the effective `FeePoolSplit` fork with the first PoS fork.
+However, `xgr-node v3.2.3` aligns the effective `FeePoolSplit` fork with the first PoS fork.
 
 For mainnet:
 
@@ -618,7 +621,7 @@ Some XGR protocol behavior is implemented as native node precompiles.
 
 These are not necessarily represented as genesis accounts containing EVM bytecode.
 
-For example, `v3.1.1` registers the native interchain BLS12-381 verifier at:
+For example, `v3.2.3` registers the native interchain BLS12-381 verifier at:
 
 ```text
 0x0000000000000000000000000000000000002040
@@ -881,8 +884,8 @@ Operators must distinguish consensus changes from operational changes before dep
 
 | Category | Current value |
 | --- | --- |
-| Node baseline | `xgr-node v3.1.1` |
-| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Node baseline | `xgr-node v3.2.3` |
+| Release commit | `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066` |
 | Network | `xgrchain` |
 | Chain ID | `1643` |
 | Native asset | XGR |

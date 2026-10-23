@@ -3,13 +3,16 @@
 **Document ID:** XGRCHAIN-NETWORK-UPGRADE  
 **Last updated:** 2026-10-03  
 **Audience:** Node operators, validators, release managers, protocol developers, infrastructure engineers, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Mainnet configuration:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Production XGRChain software upgrades, protocol activations and hardfork coordination
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Scope
 
@@ -49,13 +52,13 @@ This document does not define:
 Current public node release:
 
 ```text id="ijrkei"
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 Release commit:
 
 ```text id="i4r8yd"
-1a4844b311fb856cb8c2303a40fa8aa69b560544
+6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066
 ```
 
 Current XGRChain mainnet identity remains:
@@ -87,7 +90,7 @@ PoS configuration:
 | Inactivity decay | `9000` bps |
 | Nominal uptime weight | `10000` |
 
-The `v3.1.1` release does not create a new mainnet genesis.
+The `v3.2.3` release does not create a new mainnet genesis.
 
 ---
 
@@ -226,7 +229,7 @@ PoS changes:
 
 ## 8. `feePoolSplit` alignment
 
-`xgr-node v3.1.1` requires the effective `feePoolSplit` activation to match the first PoS fork.
+`xgr-node v3.2.3` requires the effective `feePoolSplit` activation to match the first PoS fork.
 
 For mainnet:
 
@@ -252,7 +255,7 @@ Native precompiles are implemented directly by the node execution engine.
 
 They are therefore different from ordinary deployed smart contracts.
 
-For example, `v3.1.1` registers the native XGR interchain BLS12-381 verifier at:
+For example, `v3.2.3` registers the native XGR interchain BLS12-381 verifier at:
 
 ```text id="0ipp0x"
 0x0000000000000000000000000000000000002040
@@ -545,7 +548,7 @@ A production XGRChain release should provide:
 - compatibility statement,
 - operator instructions.
 
-The `v3.1.1` release provides a Linux AMD64 binary and checksum/version artifacts.
+The `v3.2.3` release provides a Linux AMD64 binary and checksum/version artifacts.
 
 Operators should verify downloaded binaries before replacing a production executable.
 
@@ -1061,12 +1064,12 @@ After upgrade:
 
 ---
 
-## 39. Current `v3.1.1` baseline summary
+## 39. Current `v3.2.3` baseline summary
 
 | Area | Current status |
 | --- | --- |
-| Node release | `v3.1.1` |
-| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Node release | `v3.2.3` |
+| Release commit | `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066` |
 | Mainnet chain ID | `1643` |
 | Genesis replacement required | No |
 | Consensus | IBFT |

@@ -3,12 +3,15 @@
 **Document ID:** XGRCHAIN-NODE-OPERATION  
 **Last updated:** 2026-10-05  
 **Audience:** Node operators, RPC operators, infrastructure engineers  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.2.3`  
+**Release commit:** `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`
 
 ---
+
+> **Reference baseline (2026-10-23):** The active public node release is [`xgr-node v3.2.3`](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3), commit `6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066`. XGRChain chain configuration, EVM/PoS and consensus protocol are distinct from XITA's [`xgr-interchain`](https://github.com/xgr-network/xgr-interchain) public Interchain stack. ILN operation/CLI/RPC are documented in [Interchain Operations](../interchain/XGR_INTERCHAIN_v3.2.3_Operations.md) and the [v3.2.3 reference](../interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). Older historical release statements are not current deployment advice.
+
 
 ## 1. Purpose
 
@@ -16,7 +19,7 @@ This document is the practical operations runbook for standalone XGRChain full n
 
 It covers:
 
-- installing the official `xgr-node v3.1.1` release binary,
+- installing the official `xgr-node v3.2.3` release binary,
 - verifying the published artifact,
 - optionally building the same release from source,
 - installing the canonical mainnet genesis,
@@ -44,25 +47,25 @@ The examples in this runbook intentionally use only the flags required for the d
 Current production baseline:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.2.3
 ```
 
 Release commit:
 
 ```text
-1a4844b311fb856cb8c2303a40fa8aa69b560544
+6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066
 ```
 
 Published Linux AMD64 artifact:
 
 ```text
-xgrchain-v3.1.1-linux-amd64
+xgrchain-v3.2.3-linux-amd64
 ```
 
 Published artifact SHA-256:
 
 ```text
-429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d
+7b1b7cd3fac11046e7b00430e33f3ae403a72ae920ebc482a24df4f5b511a4a7
 ```
 
 The release also publishes:
@@ -72,7 +75,7 @@ sha256sums.txt
 version.txt
 ```
 
-For production deployments, the published and checksum-verified `v3.1.1` release binary is the recommended installation method.
+For production deployments, the published and checksum-verified `v3.2.3` release binary is the recommended installation method.
 
 Building from source is provided for:
 
@@ -149,13 +152,13 @@ sudo install -d -m 0750 -o xgr -g xgr /var/log/xgr
 
 ---
 
-## 5. Recommended installation: official `v3.1.1` binary
+## 5. Recommended installation: official `v3.2.3` binary
 
 For Linux AMD64:
 
 ```bash
 curl -fL \
-  https://github.com/xgr-network/xgr-node/releases/download/v3.1.1/xgrchain-v3.1.1-linux-amd64 \
+  https://github.com/xgr-network/xgr-node/releases/download/v3.2.3/xgrchain-v3.2.3-linux-amd64 \
   -o xgrchain
 ```
 
@@ -163,7 +166,7 @@ Verify the artifact:
 
 ```bash
 echo \
-"429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d  xgrchain" \
+"7b1b7cd3fac11046e7b00430e33f3ae403a72ae920ebc482a24df4f5b511a4a7  xgrchain" \
 | sha256sum -c -
 ```
 
@@ -190,7 +193,7 @@ For normal production operation, prefer this published release artifact over a l
 
 ---
 
-## 6. Alternative installation: build `v3.1.1` from source
+## 6. Alternative installation: build `v3.2.3` from source
 
 The source-build path is optional.
 
@@ -218,7 +221,7 @@ git clone https://github.com/xgr-network/xgr-node.git
 cd xgr-node
 
 git fetch --all --tags
-git checkout v3.1.1
+git checkout v3.2.3
 ```
 
 Verify:
@@ -231,13 +234,13 @@ git rev-parse HEAD
 Expected:
 
 ```text
-v3.1.1
+v3.2.3
 ```
 
 and:
 
 ```text
-1a4844b311fb856cb8c2303a40fa8aa69b560544
+6cef5899a8dc6829fb8fbd9cd1bda79cb4fcd066
 ```
 
 Build using the versioned repository target:
@@ -333,7 +336,7 @@ optional tuning
 
 Values that already match the software defaults are not repeated merely for completeness.
 
-For `v3.1.1`, the following defaults therefore do not need to appear in a normal RPC start command:
+For `v3.2.3`, the following defaults therefore do not need to appear in a normal RPC start command:
 
 | Setting | Default |
 | --- | ---: |
@@ -457,7 +460,7 @@ sudo -u xgr /opt/xgr/bin/xgrchain server \
   --trie-sweeper
 ```
 
-With only `--trie-sweeper` specified, `v3.1.1` uses its built-in retention defaults:
+With only `--trie-sweeper` specified, `v3.2.3` uses its built-in retention defaults:
 
 ```text
 10,000 retained canonical state roots
@@ -648,7 +651,7 @@ Override these only when the operator intentionally wants a different peer-capac
 
 ## 15. Optional RPC and WebSocket tuning
 
-Built-in `v3.1.1` defaults:
+Built-in `v3.2.3` defaults:
 
 | Flag | Default | Meaning |
 | --- | ---: | --- |
@@ -871,7 +874,7 @@ The built-in `10,000`-block retention is a software default, not a universal pro
 Online State Trie Sweeper
 ```
 
-It was introduced in `v2.1.0` and remains available in `v3.1.1`.
+It was introduced in `v2.1.0` and remains available in `v3.2.3`.
 
 The feature reclaims obsolete historical EVM-state trie and contract-code data while the node remains online.
 
@@ -1332,7 +1335,7 @@ and that the monitoring process can reach that private listener.
 
 Before considering a standalone XGRChain RPC node production-ready:
 
-- `xgr-node v3.1.1` is installed,
+- `xgr-node v3.2.3` is installed,
 - the official release artifact or equivalent build provenance is verified,
 - canonical mainnet genesis is used unchanged,
 - chain ID returns `0x66b`,
@@ -1386,4 +1389,13 @@ State Storage & Retention
 Access Control
 ```
 
-This runbook is sufficient to deploy and operate a standalone XGRChain `v3.1.1` full/RPC node without validator participation.
+This runbook is sufficient to deploy and operate a standalone XGRChain `v3.2.3` full/RPC node without validator participation.
+
+
+---
+
+## XITA / ILN validator supplemental operations (v3.2.3)
+
+The generic full/RPC-node installation documented above is distinct from **optional Interchain validator participation**. Participating validators need a properly configured `XGR_INTERCHAIN_<NAME>_*` destination environment, access to canonical source RPCs, correct on-chain Registry addresses and local BLS signing capability. Interchain execution is outside IBFT consensus-critical block production. **New routes** on existing configured chains are automatically discovered from confirmed `RouteAdded` events, while **entirely new physical chains** still require adding environment configuration and a controlled v3.2.3 worker restart. Never treat a route-add as a consensus upgrade or redeploy the Solidity stack just to upgrade a node binary.
+
+Use [`xgrchain ibft interchain --help`](https://github.com/xgr-network/xgr-node/tree/v3.2.3/command/ibft/interchain) for opt-in/out, bootstrap BLS possession proofs, 2/3 source-fee proposals/approval/execution and offline storage status. Validate health through `xgr_getILNIndexerStatus`; preserve ordered Merkle replicas and Dispatch evidence in backups. When a transfer remains pending, **never sign a second lock/burn** merely to recover delivery. See the [full v3.2.3 node operator runbook](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md).
