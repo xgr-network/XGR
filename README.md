@@ -32,7 +32,7 @@ The public node implementation is maintained in:
 
 https://github.com/xgr-network/xgr-node
 
-The documentation under `docs/chain/` is maintained against the current public XGRChain node baseline unless a document explicitly describes a historical release.
+The detailed `docs/chain/` manuals retain their original explicitly documented `v3.1.1` feature/behavior baseline. The current published node binary is `v3.2.3`; its later Interchain-specific changes are covered separately in `docs/interchain/` and the `xgr-node` v3.2.3 operator manual. A new node release does not imply a change to consensus, staking, EVM or gas semantics.
 
 Documentation index:
 
