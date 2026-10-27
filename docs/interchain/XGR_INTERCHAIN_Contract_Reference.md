@@ -1,5 +1,7 @@
 # Public contracts, source fees and claims
 
+Start with [system context and contract interactions](XGR_INTERCHAIN_Context_and_Contracts.md) for the complete component diagram and individual contract responsibilities.
+
 [Documentation index](README.md). Signatures below describe the public implementation; use compiled ABI artifacts from the reviewed checkout for encoding structs and inherited methods. Values named wei are native smallest units unless explicitly a token amount.
 
 ## 1. Public Gateway
@@ -113,7 +115,7 @@ The quote binds payer, Gateway, route, immediate/final destination and recipient
 
 The independent recovery admin can change quote lifetime or rotate `serviceWallet`; that wallet signs quotes, receives service fees and funds optional sponsorship. Rotation invalidates old signer quotes and directs accrued fees to the new wallet. Two-step ownership transfer remains separate; renunciation is disabled. Neither role controls public protocol asset admission, minting or BLS membership.
 
-`continueJourney` links a wallet-authorized hub onward operation to its parent. It is optional; independent users can initiate the next public Gateway hop directly. `claimFees()` withdraws commercial fees under adapter rules. Service fees can be claimed before destination completion; this is operator trust, not an on-chain execution/refund guarantee. See [services](XGR_INTERCHAIN_Services.md).
+`continueJourney` links a wallet-authorized hub onward operation to its parent. It is optional; independent users can initiate the next public Gateway hop directly. `claimFees()` is callable by anyone and pays the entire accrued balance exclusively to the current `serviceWallet`. The caller cannot select a recipient or claim a per-message refund. A failed payout reverts the accounting update. Service fees can be claimed before destination completion; this is operator trust, not an on-chain execution/refund guarantee. See [services](XGR_INTERCHAIN_Services.md).
 
 ## 9. API completeness and integration errors
 

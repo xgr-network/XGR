@@ -118,10 +118,6 @@ curl -fsS http://127.0.0.1:8545 \
 
 Check JSON-RPC `error`, not only HTTP status or curl exit code. Application errors use the node dispatcher's JSON-RPC envelope with a message; this reference does not assign invented stable error codes to implementation errors. Missing files, malformed storage, worker unavailability and destination RPC failures must remain visible and must not be transformed into successful proof readiness. Deploy authenticated/rate-limited RPC infrastructure according to operator policy; public quorum hints never provide arbitrary signing authority.
 
-## Storage result fields
+## Local storage diagnostics
 
-`baseDir`, `totalFiles`, `totalBytes`, `attestationFiles`, `localVoteFiles`, `requestFiles`, `governanceFiles`, `otherFiles`. Category values are counts; `totalBytes` is the measured aggregate bytes.
-
-## Storage result fields
-
-`baseDir`, `totalFiles`, `totalBytes`, `attestationFiles`, `localVoteFiles`, `requestFiles`, `governanceFiles`, `otherFiles`. Category values are counts; `totalBytes` is the measured aggregate bytes.
+Disk usage is exposed by the local `xgrchain ibft interchain storage-status --json` command, not by an Interchain JSON-RPC method. See the [CLI result schema](XGR_INTERCHAIN_CLI.md#storage-result-schema). The eight methods above expose message, membership, fee-quorum and worker state; they do not expose filesystem counters.

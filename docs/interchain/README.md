@@ -6,9 +6,11 @@ This documentation separates the protocol, the validator implementation and opti
 
 | Document | Contents |
 | --- | --- |
+| [System context and contract interactions](XGR_INTERCHAIN_Context_and_Contracts.md) | Whole-system diagram, contract interaction diagrams, all production Solidity roles and value flows |
 | [Architecture](XGR_INTERCHAIN_Overview.md) | Components, multiple assets/routes, hub topology, authorization and transaction flow |
 | [Security and wire format](XGR_INTERCHAIN_Security_Model.md) | Exact signing bytes, metadata, receipt verification, current sets, replay and trust boundaries |
 | [Assets and permissionless registration](XGR_INTERCHAIN_Asset_Bridge.md) | Asset/route identity, Factory procedures, reciprocal bindings, supply, escrow and native claims |
+| [Declared Solidity API](XGR_INTERCHAIN_Contract_API.md) | Source-declared functions, events and errors; inherited ABI and generated getters identified separately |
 | [Contract and fee reference](XGR_INTERCHAIN_Contract_Reference.md) | Public calls, results, events, error handling, source fee governance and FeeVault claims |
 | [Independent transfer runbook](XGR_INTERCHAIN_v3.4.0_Operations.md) | Quote, approval, wallet dispatch, original receipt, quorum, unsigned recovery, delivery and two-hop transfer |
 | [Validator runtime](XGR_INTERCHAIN_Validator_Runtime.md) | Discovery, grouped observation, evidence witnesses, signing/P2P, durable state, cleanup and monitoring |
