@@ -1,10 +1,12 @@
 # XGR Chain — Access Control & Permission Boundaries
 
+> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+
 **Document ID:** XGRCHAIN-ACCESS-CONTROL  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-27  
 **Audience:** Node operators, validator operators, RPC operators, protocol developers, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.4.0`  
+**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, path `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain access-control and permission boundaries
@@ -169,7 +171,7 @@ The node exposes several possible RPC surfaces.
 | gRPC operator services | Node management and diagnostics | Internal only |
 | Metrics | Monitoring | Internal only |
 
-Public XGR PoS methods available in the `v3.1.1` node baseline include:
+Public XGR PoS methods available in the `v3.4.0` node baseline include:
 
 ```text
 eth_getPosValidatorsOverview
@@ -209,7 +211,7 @@ CORS is a browser access-control mechanism.
 
 It does not protect a node from direct non-browser clients.
 
-The `v3.1.1` node configuration exposes CORS-related settings including:
+The `v3.4.0` node configuration exposes CORS-related settings including:
 
 ```text
 cors_allowed_origins
@@ -265,7 +267,7 @@ Relevant runtime control:
 --concurrent-requests-debug
 ```
 
-Default in `xgr-node v3.1.1`:
+Default in `xgr-node v3.4.0`:
 
 ```text
 32
@@ -348,7 +350,7 @@ It is normal EVM-compatible transaction validation combined with XGRChain-specif
 
 ## 10. Chain-parameter address-list fields
 
-The public `xgr-node v3.1.1` chain-parameter schema contains optional address-list configuration fields:
+The public `xgr-node v3.4.0` chain-parameter schema contains optional address-list configuration fields:
 
 ```text
 contractDeployerAllowList
@@ -553,7 +555,7 @@ Recommended controls:
 - health monitoring,
 - node separation from validators.
 
-Relevant `xgr-node v3.1.1` default runtime limits:
+Relevant `xgr-node v3.4.0` default runtime limits:
 
 | Setting | Default |
 | --- | ---: |

@@ -1,6 +1,9 @@
 # XGR Interchain — current runtime and independent transfer operations
 
-> **Full documentation set:** [XGR Interchain v3.2.3 reference](./XGR_INTERCHAIN_v3.2.3_Reference.md), [node v3.2.3 CLI and RPC operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md). The old `xgr-hyperlane` repository is retired.
+> **Historical snapshot — not current execution instructions.** The current v3.4.0 [technical reference](./XGR_INTERCHAIN_v3.4.0_Reference.md) and [independent operations](./XGR_INTERCHAIN_v3.4.0_Operations.md) supersede this page for Direct-BLS transport, route registration, fees and recovery. Historical contract addresses and Merkle/route-governance procedures below must not be used for current deployments.
+
+
+> **Full documentation set:** [XGR Interchain v3.2.3 reference](./XGR_INTERCHAIN_v3.4.0_Reference.md), [node v3.2.3 CLI and RPC operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V340_OPERATOR_REFERENCE.md). Use the current `xgr-interchain` implementation.
 
 **Reviewed:** 2026-10-23  
 **Node baseline:** [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/releases/tag/v3.2.3)  
@@ -40,4 +43,4 @@ The XITA website's fee Execution Gateway adds a separately disclosed **commercia
 
 ## Version/status discipline
 
-Documents dated October 4, 2026 describing `xgr-node v3.1.1`, `v3.1.3` planned routes, `bridge.xgr.network` and `xgr-hyperlane` must be treated as legacy deployment descriptions. Their historical addresses and activation assumptions are **not** current route authority. Always use verified current deployments, EVM state and the latest running node binary. Version `v3.2.4` is not part of the current operational baseline.
+Documents dated October 4, 2026 describing `xgr-node v3.1.1`, `v3.1.3` planned routes, `bridge.xgr.network` and `xgr-interchain` must be treated as legacy deployment descriptions. Their historical addresses and activation assumptions are **not** current route authority. Always use verified current deployments, EVM state and the latest running node binary. Version `v3.2.4` is not part of the current operational baseline.

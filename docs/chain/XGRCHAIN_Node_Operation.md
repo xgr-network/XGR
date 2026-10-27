@@ -1,10 +1,12 @@
 # XGR Chain — Node Operation & RPC Runbook
 
+> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+
 **Document ID:** XGRCHAIN-NODE-OPERATION  
-**Last updated:** 2026-10-05  
+**Last updated:** 2026-10-27  
 **Audience:** Node operators, RPC operators, infrastructure engineers  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.4.0`  
+**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`
 
@@ -16,7 +18,7 @@ This document is the practical operations runbook for standalone XGRChain full n
 
 It covers:
 
-- installing the official `xgr-node v3.1.1` release binary,
+- installing the official `xgr-node v3.4.0` release binary,
 - verifying the published artifact,
 - optionally building the same release from source,
 - installing the canonical mainnet genesis,
@@ -44,25 +46,25 @@ The examples in this runbook intentionally use only the flags required for the d
 Current production baseline:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.4.0
 ```
 
 Release commit:
 
 ```text
-1a4844b311fb856cb8c2303a40fa8aa69b560544
+cbe6f8a4ae1718429a9924dcf87f0d28591d74e1
 ```
 
 Published Linux AMD64 artifact:
 
 ```text
-xgrchain-v3.1.1-linux-amd64
+xgrchain-v3.4.0-linux-amd64
 ```
 
 Published artifact SHA-256:
 
 ```text
-429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d
+c4b41557ee957f1a1e6487aa7701ae593ae2e657a911a4761627f728a61be85e
 ```
 
 The release also publishes:
@@ -72,7 +74,7 @@ sha256sums.txt
 version.txt
 ```
 
-For production deployments, the published and checksum-verified `v3.1.1` release binary is the recommended installation method.
+For production deployments, the published and checksum-verified `v3.4.0` release binary is the recommended installation method.
 
 Building from source is provided for:
 
@@ -149,13 +151,13 @@ sudo install -d -m 0750 -o xgr -g xgr /var/log/xgr
 
 ---
 
-## 5. Recommended installation: official `v3.1.1` binary
+## 5. Recommended installation: official `v3.4.0` binary
 
 For Linux AMD64:
 
 ```bash
 curl -fL \
-  https://github.com/xgr-network/xgr-node/releases/download/v3.1.1/xgrchain-v3.1.1-linux-amd64 \
+  https://github.com/xgr-network/xgr-node/releases/download/v3.4.0/xgrchain-v3.4.0-linux-amd64 \
   -o xgrchain
 ```
 
@@ -163,7 +165,7 @@ Verify the artifact:
 
 ```bash
 echo \
-"429d18db37e9cdb6eb82b33583880c407701fcf070f1d8f6398ca8c4c7a0c88d  xgrchain" \
+"c4b41557ee957f1a1e6487aa7701ae593ae2e657a911a4761627f728a61be85e  xgrchain" \
 | sha256sum -c -
 ```
 
@@ -190,7 +192,7 @@ For normal production operation, prefer this published release artifact over a l
 
 ---
 
-## 6. Alternative installation: build `v3.1.1` from source
+## 6. Alternative installation: build `v3.4.0` from source
 
 The source-build path is optional.
 
@@ -218,7 +220,7 @@ git clone https://github.com/xgr-network/xgr-node.git
 cd xgr-node
 
 git fetch --all --tags
-git checkout v3.1.1
+git checkout v3.4.0
 ```
 
 Verify:
@@ -231,13 +233,13 @@ git rev-parse HEAD
 Expected:
 
 ```text
-v3.1.1
+v3.4.0
 ```
 
 and:
 
 ```text
-1a4844b311fb856cb8c2303a40fa8aa69b560544
+cbe6f8a4ae1718429a9924dcf87f0d28591d74e1
 ```
 
 Build using the versioned repository target:
@@ -333,7 +335,7 @@ optional tuning
 
 Values that already match the software defaults are not repeated merely for completeness.
 
-For `v3.1.1`, the following defaults therefore do not need to appear in a normal RPC start command:
+For `v3.4.0`, the following defaults therefore do not need to appear in a normal RPC start command:
 
 | Setting | Default |
 | --- | ---: |
@@ -457,7 +459,7 @@ sudo -u xgr /opt/xgr/bin/xgrchain server \
   --trie-sweeper
 ```
 
-With only `--trie-sweeper` specified, `v3.1.1` uses its built-in retention defaults:
+With only `--trie-sweeper` specified, `v3.4.0` uses its built-in retention defaults:
 
 ```text
 10,000 retained canonical state roots
@@ -648,7 +650,7 @@ Override these only when the operator intentionally wants a different peer-capac
 
 ## 15. Optional RPC and WebSocket tuning
 
-Built-in `v3.1.1` defaults:
+Built-in `v3.4.0` defaults:
 
 | Flag | Default | Meaning |
 | --- | ---: | --- |
@@ -871,7 +873,7 @@ The built-in `10,000`-block retention is a software default, not a universal pro
 Online State Trie Sweeper
 ```
 
-It was introduced in `v2.1.0` and remains available in `v3.1.1`.
+It was introduced in `v2.1.0` and remains available in `v3.4.0`.
 
 The feature reclaims obsolete historical EVM-state trie and contract-code data while the node remains online.
 
@@ -1332,7 +1334,7 @@ and that the monitoring process can reach that private listener.
 
 Before considering a standalone XGRChain RPC node production-ready:
 
-- `xgr-node v3.1.1` is installed,
+- `xgr-node v3.4.0` is installed,
 - the official release artifact or equivalent build provenance is verified,
 - canonical mainnet genesis is used unchanged,
 - chain ID returns `0x66b`,
@@ -1386,4 +1388,4 @@ State Storage & Retention
 Access Control
 ```
 
-This runbook is sufficient to deploy and operate a standalone XGRChain `v3.1.1` full/RPC node without validator participation.
+This runbook is sufficient to deploy and operate a standalone XGRChain `v3.4.0` full/RPC node without validator participation.

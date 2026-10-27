@@ -1,10 +1,12 @@
 # XGR Chain — Ethereum JSON-RPC Reference
 
+> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+
 **Document ID:** XGRCHAIN-ETH-RPC  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-27  
 **Audience:** Wallet developers, explorer developers, dApp developers, node operators, infrastructure integrators  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.4.0`  
+**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Standard Ethereum-compatible JSON-RPC exposed by XGRChain
 
@@ -171,7 +173,7 @@ Supported areas include:
 - state queries,
 - WebSocket subscriptions when WebSocket RPC is enabled.
 
-Important `v3.1.1` behavior:
+Important `v3.4.0` behavior:
 
 1. `eth_sendTransaction` is intentionally unsupported.
 2. The node does not manage user private keys through JSON-RPC.
@@ -798,7 +800,7 @@ A revert returns an RPC error together with revert data where available.
 
 ### Simulation nonce behavior
 
-For simulation calls, `v3.1.1` aligns a default/zero transaction nonce with the referenced state when required.
+For simulation calls, `v3.4.0` aligns a default/zero transaction nonce with the referenced state when required.
 
 This avoids failures caused by differences between txpool nonce state and the selected canonical state during simulation.
 
@@ -829,7 +831,7 @@ latest
 
 is used.
 
-Important `v3.1.1` behavior:
+Important `v3.4.0` behavior:
 
 - simple EOA value transfers can use intrinsic gas directly,
 - transfers to contract recipients are executed because `receive`/fallback code may consume additional gas,
@@ -852,7 +854,7 @@ A contract recipient can execute code even when transaction calldata is empty.
 
 ---
 
-## 19. Gas-price suggestion model in `v3.1.1`
+## 19. Gas-price suggestion model in `v3.4.0`
 
 The standard RPC-facing fee suggestion path is intentionally simple.
 
@@ -880,7 +882,7 @@ The public RPC endpoints described here use the deterministic suggestion path ab
 
 ## 20. `eth_gasPrice`
 
-Current `v3.1.1` behavior:
+Current `v3.4.0` behavior:
 
 ```text
 eth_gasPrice = latestHeader.BaseFee
@@ -916,7 +918,7 @@ The actual value depends on the current XGRChain base fee.
 
 ## 21. `eth_maxPriorityFeePerGas`
 
-Current `v3.1.1` RPC suggestion:
+Current `v3.4.0` RPC suggestion:
 
 ```text
 0
@@ -951,7 +953,7 @@ Wallet integrations must not reject XGRChain merely because the node suggests a 
 
 ## 22. Simulation fee defaults
 
-When RPC simulation needs fee fields and the caller has omitted them, `v3.1.1` fills them deterministically.
+When RPC simulation needs fee fields and the caller has omitted them, `v3.4.0` fills them deterministically.
 
 ### Dynamic-fee transaction
 
@@ -1007,7 +1009,7 @@ Response fields:
 | `gasUsedRatio` | `gasUsed / gasLimit` |
 | `reward` | Effective tip percentiles |
 
-`v3.1.1` behavior includes:
+`v3.4.0` behavior includes:
 
 - `blockCount` must be greater than zero,
 - maximum processed block count is `1024`,
@@ -1250,10 +1252,10 @@ Shape:
 <chainName>/<version>/<os>-<architecture>/<goVersion>
 ```
 
-For a tagged `v3.1.1` build, output is expected to follow a form similar to:
+For a tagged `v3.4.0` build, output is expected to follow a form similar to:
 
 ```text
-xgrchain/v3.1.1/linux-amd64/go<runtime-version>
+xgrchain/v3.4.0/linux-amd64/go<runtime-version>
 ```
 
 Exact output depends on:
@@ -1352,7 +1354,7 @@ Relevant runtime limit:
 --json-rpc-batch-request-limit
 ```
 
-Default in `v3.1.1`:
+Default in `v3.4.0`:
 
 ```text
 20
@@ -1372,7 +1374,7 @@ Range-based RPC requests can be limited using:
 --json-rpc-block-range-limit
 ```
 
-Default in `v3.1.1`:
+Default in `v3.4.0`:
 
 ```text
 1000 blocks
@@ -1390,7 +1392,7 @@ Public RPC infrastructure can apply additional reverse-proxy or application-leve
 
 The node defines a WebSocket message read limit.
 
-Default in `v3.1.1`:
+Default in `v3.4.0`:
 
 ```text
 8192 bytes
@@ -1603,7 +1605,7 @@ Signing:    client-side
 The active public node documentation baseline is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.4.0
 ```
 
 Applications requiring historical-state access must additionally establish the retention policy of the RPC endpoint they use.

@@ -1,6 +1,6 @@
 # XGR Network
 
-**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). `xgr-hyperlane` is retired; the current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.2.3`.
+**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.4.0_Reference.md). The current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.4.0`.
 
 XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on deterministic on-chain process execution rather than simple value transfer.
 
@@ -18,7 +18,7 @@ XGRChain is the EVM-compatible execution and settlement layer of the XGR ecosyst
 
 Current public chain baseline:
 
-- **xgr-node:** `v3.2.3`
+- **xgr-node:** `v3.4.0`
 - **Chain ID:** `1643`
 - **Native asset:** XGR
 - **Mainnet:** live
@@ -61,7 +61,7 @@ XDaLa is deployed on XGRChain mainnet.
 
 ## Interchain
 
-**Current implementation (October 2026):** [XGR Interchain v3.2.3 operations, direct independent transfer and recovery](docs/interchain/XGR_INTERCHAIN_v3.2.3_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
+**Current implementation (October 2026):** [XGR Interchain v3.4.0 operations, direct independent transfer and recovery](docs/interchain/XGR_INTERCHAIN_v3.4.0_Operations.md). Legacy v3.4.0/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
 
 
 XGR Network maintains XGRChain-native Interchain infrastructure for cross-chain XGR transfers.
@@ -115,11 +115,9 @@ The public bidirectional bridge is available at:
 
 https://xita.xgr.network
 
-The official Base wXGR contract is:
+The current Base wXGR contract is identified by its deployment receipt and on-chain router binding:
 
-```text
-0x3b83687d77170d42feddfe221629cc21e771e021
-```
+[See current verified asset deployments](https://github.com/xgr-network/xgr-interchain/tree/main/deployments/assets). Historical token addresses must not be reused as current route authority.
 
 The nominal bridge representation is:
 
@@ -141,7 +139,7 @@ XGR Interchain uses:
 - XGR-native validator attestations,
 - BLS aggregate signatures,
 - destination-specific validator registries,
-- Merkle inclusion proofs,
+- message-specific Direct-BLS authorization,
 - destination Interchain Security Modules,
 - native relayers,
 - explicit route and safety controls.
@@ -170,7 +168,7 @@ The public specification set is maintained under:
 docs/interchain/
 ```
 
-Start with:
+Start with the current [complete reference](docs/interchain/XGR_INTERCHAIN_v3.4.0_Reference.md) and [independent operations](docs/interchain/XGR_INTERCHAIN_v3.4.0_Operations.md). Historical snapshots:
 
 - [`docs/interchain/XGR_INTERCHAIN_Overview.md`](docs/interchain/XGR_INTERCHAIN_Overview.md)
 - [`docs/interchain/XGR_INTERCHAIN_Security_Model.md`](docs/interchain/XGR_INTERCHAIN_Security_Model.md)
@@ -182,7 +180,7 @@ These documents define:
 - architecture and system boundaries,
 - validator membership and quorum,
 - BLS attestations,
-- Merkle proof verification,
+- current-set Direct-BLS message verification,
 - relayer trust boundaries,
 - native XGR and wXGR asset semantics,
 - lock/mint and burn/unlock behavior,
@@ -272,7 +270,7 @@ The `docs/chain/` section contains the public technical documentation for XGRCha
 - access-control boundaries,
 - network upgrades and hardfork procedures.
 
-The current Chain documentation targets `xgr-node v3.2.3` unless explicitly marked as historical.
+The current Chain documentation targets `xgr-node v3.4.0` unless explicitly marked as historical.
 
 ### XGR Interchain
 
@@ -337,7 +335,7 @@ XGR Interchain uses a separate security model based on:
 - authenticated cross-chain messages,
 - destination-specific XGR Interchain validator sets,
 - BLS quorum attestations,
-- Merkle inclusion proofs,
+- message-specific Direct-BLS authorization,
 - destination-side security modules,
 - explicit asset locking, minting, burning and unlocking.
 
@@ -365,7 +363,7 @@ This repository is intended for:
 ## Project Status
 
 - **XGRChain:** Mainnet
-- **Current public node release:** `v3.2.3`
+- **Current public node release:** `v3.4.0`
 - **Consensus:** Mainnet — IBFT finality with delegated PoS validator participation
 - **State Growth Control:** Mainnet — Online State Trie Sweeper available for configurable historical-state retention and reclamation of unreachable trie/code data
 - **XDaLa:** Mainnet
@@ -390,7 +388,7 @@ XGR components use independent but coordinated versioning.
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.2.3
+xgr-node v3.4.0
 ```
 
 This version applies to the public node and the Chain documentation describing that node baseline.
@@ -487,3 +485,14 @@ For local or development networks, prefer generating a fresh genesis through the
 ## License
 
 Unless stated otherwise, all documentation in this repository is licensed under the Apache License 2.0.
+
+
+## Current v3.4.0 documentation and independent operation
+
+XGRChain node v3.4.0 is deployed on Testnet and Mainnet according to the network operator (27 October 2026). Binary rollout and consensus activation are distinct: the published Mainnet configuration activates `params.forks.securityAccounting.block` at **12,186,213**, inclusively. An omitted fork entry leaves the new rules inactive.
+
+The current Interchain implementation is [xgr-interchain](https://github.com/xgr-network/xgr-interchain). Route registration through the public Factory is permissionless; XITA listing is not protocol admission. Message validity depends on the current destination validator BLS quorum and verified source evidence, not on the identity of a relayer. Users or independent executors can prepare and submit the same authenticated `Mailbox.process` call without the XITA website, commercial execution gateway, sponsor or managed relayer. Gas, protocol fees, working RPC access and validator quorum availability remain required.
+
+- [Complete Direct-BLS technical reference](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_v3.4.0_Reference.md)
+- [Independent transfer and recovery runbook](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_v3.4.0_Operations.md)
+- [Node release, checksums and activation](https://github.com/xgr-network/XGR/blob/main/docs/chain/XGRCHAIN_v3.4.0_Release_and_Activation.md)

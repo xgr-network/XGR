@@ -1,10 +1,12 @@
 # XGR Chain — Genesis & Network Configuration
 
+> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+
 **Document ID:** XGRCHAIN-GENESIS-CONFIG  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-27  
 **Audience:** Node operators, protocol developers, auditors, infrastructure engineers  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.4.0`  
+**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Genesis and network-defining XGRChain configuration
@@ -83,7 +85,7 @@ Changing consensus-critical genesis values creates a different chain or an incom
 The current public node release is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.4.0
 ```
 
 This does **not** mean that XGRChain uses a new mainnet genesis.
@@ -97,7 +99,7 @@ genesis/mainnet/genesis.json
 The distinction is:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.4.0
     = software implementation baseline
 
 genesis/mainnet/genesis.json
@@ -422,7 +424,7 @@ feePoolSplit
 
 inside `params.forks`.
 
-However, `xgr-node v3.1.1` aligns the effective `FeePoolSplit` fork with the first PoS fork.
+However, `xgr-node v3.4.0` aligns the effective `FeePoolSplit` fork with the first PoS fork.
 
 For mainnet:
 
@@ -618,7 +620,7 @@ Some XGR protocol behavior is implemented as native node precompiles.
 
 These are not necessarily represented as genesis accounts containing EVM bytecode.
 
-For example, `v3.1.1` registers the native interchain BLS12-381 verifier at:
+For example, `v3.4.0` registers the native interchain BLS12-381 verifier at:
 
 ```text
 0x0000000000000000000000000000000000002040
@@ -881,8 +883,8 @@ Operators must distinguish consensus changes from operational changes before dep
 
 | Category | Current value |
 | --- | --- |
-| Node baseline | `xgr-node v3.1.1` |
-| Release commit | `1a4844b311fb856cb8c2303a40fa8aa69b560544` |
+| Node baseline | `xgr-node v3.4.0` |
+| Release commit | `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1` |
 | Network | `xgrchain` |
 | Chain ID | `1643` |
 | Native asset | XGR |
