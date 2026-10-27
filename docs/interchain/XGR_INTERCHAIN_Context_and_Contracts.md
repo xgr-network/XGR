@@ -12,7 +12,7 @@ Solid arrows show transactions or data dependencies; dotted arrows show optional
 flowchart TD
   W["User-controlled wallet"]
   UI["XITA website or independent interface"]
-  O["Optional XITA services: quotes, sponsor, indexer, admin, Join"]
+  O["Optional XITA services: quotes, sponsor, indexer, Join"]
   subgraph Networks["On-chain protocol"]
     B["Base: local contracts and asset representations"]
     H["XGRChain: hub contracts and asset representations"]
@@ -33,7 +33,7 @@ flowchart TD
 
 Base↔Arbitrum is a two-hop journey through XGRChain. The chain connections represent authenticated lock/burn and mint/unlock operations, not movement of one token object between chains. XGR validator nodes read their own committed XGRChain state locally; Base and Arbitrum evidence uses the configured remote RPC operators and checked `safe` policy. Validators communicate votes over their P2P runtime. The public RPC exposes requests and quorum results; it is not an arbitrary signing oracle.
 
-XITA's website, indexer, quote signer, sponsor and managed executor can be replaced or omitted. Direct users call the public Gateway, obtain valid authorization and fund destination execution. The optional sponsor sends native gas to user-controlled wallets; it does not sign their transfers. Join and the admin deployment workflow organize XITA's catalog and deployments; public Factory registration does not depend on catalog approval. [Services](XGR_INTERCHAIN_Services.md) specifies the separate processes and APIs.
+XITA's website, indexer, quote signer, sponsor and managed executor can be replaced or omitted. Direct users call the public Gateway, obtain valid authorization and fund destination execution. The optional sponsor sends native gas to user-controlled wallets; it does not sign their transfers. Join organizes XITA's catalog; public Factory registration does not depend on catalog approval. [Services](XGR_INTERCHAIN_Services.md) specifies the separate processes and APIs.
 
 ### Hub, validator and application relationships
 

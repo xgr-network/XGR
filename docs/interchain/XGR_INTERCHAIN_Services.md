@@ -7,7 +7,6 @@
 | Component | Entrypoint / default listen | State or credentials | Protocol authority |
 | --- | --- | --- | --- |
 | Static website | `apps/web/`, static SPA | Catalog, injected user wallet | No backend user signing key |
-| Deployment admin | `services/admin/server.mjs`, 127.0.0.1:4087 | Local deployment journals; scoped GitHub credentials; operator wallet in browser | Its own approved-main workflow, no exclusive Factory admission |
 | Read API/indexer | `services/indexer/server.mjs`, 127.0.0.1:4088 | SELECT-only database role, verified metrics file | Read/discovery and unsigned preparation |
 | Source-hash intake | `services/indexer/transfer-intake.mjs`, 127.0.0.1:4089 | Restricted staging-table writer | Untrusted hints only |
 | Join/onboarding | `services/onboarding/server.mjs`, 127.0.0.1:4090 | Private contact/token store, mail and scoped GitHub writer | Listing proposal only |
@@ -19,7 +18,7 @@
 | Optional managed executor | `services/managed-relay/worker.mjs` | Independent executor wallet and durable local index | Pays destination gas for valid original messages |
 | Public native watcher | `runtime/native-relayer/iln.mjs` | Per-route local cursor/pending file; optional executor key | Observe or independently submit valid metadata |
 
-Bind internal services to loopback and expose only intended reverse-proxy locations. Admin requires authenticated TLS proxy protection for **all** subpaths. A matching Origin/Host header is not user authentication. Node validator secrets and an offline commercial recovery-admin key do not belong in these service environments.
+Bind internal services to loopback and expose only intended reverse-proxy locations. Node validator secrets and an offline commercial recovery-admin key do not belong in these service environments.
 
 ## 2. Website transfer model
 
@@ -141,27 +140,7 @@ Version-2 local state binds physical source/destination, Gateway and route ident
 
 `runtime/manage-relayers.sh {start|stop|restart|status|logs} [iln-<source>-to-<destination>|all]` operates configured `.env.relayer.iln.<source>-to-<destination>` files. These shell aliases are not node RPC route labels. With several asset instances in one direction, launch independent processes/state identities rather than assuming a chain-pair alias distinguishes every route.
 
-## 8. Deployment admin
-
-Admin's approved-main gate checks remote GitHub main against a clean local main and derives its queue from that exact inventory. A PR, issue label or local modified manifest is not an additional application deployment authorization. Public protocol registration remains independent of that application gate.
-
-The implemented chain/asset operators plan dependencies, build/verify trusted artifacts and constructor parameters, prepare wallet calls, record submitted hashes, reconcile canonical receipts/code/bindings and append deployment evidence. Browser wallet approval remains necessary. The previous README assertion that the entire executor was still unimplemented is obsolete. Readiness can still block a particular missing artifact, counterpart or receipt.
-
-Important API groups (all under authenticated `/admin/api/`):
-
-| Group | Implemented operations |
-| --- | --- |
-| Inventory/health | GET `workqueue`, `infrastructure`, `chain-preflight`, `operations/health`, `balance`, `fee-treasury` |
-| Bootstrap/readiness | GET `bootstrap`, `bootstrap/suggestions`, `deployment-readiness`, `route-lifecycle` |
-| Chain deployment | POST `chain-deploy/preview`, `prepare`, `hash`, `reconcile`, `cancel-prepared`; GET `chain-deploy/status` |
-| Asset deployment | POST `asset-deploy/preview`, `prepare`, `hash`, `reconcile`, `cancel-prepared` |
-| Progress/sync | POST `deploy/advance`; GET `deployment-sync/status`, `progress`, `plan`, `jobs`; diagnostic POST `inspect`, `evidence`, `jobs/status` |
-
-Each path after a group prefix is literal, e.g. `/admin/api/asset-deploy/reconcile`. Bodies are validated by the corresponding operator module; no generic arbitrary transaction signing API exists. Use the local authenticated UI/API-client implementation for the exact prepared-intent body. A receipt-reporting failure must resume evidence sync without re-executing an already successful creation transaction.
-
-State defaults to `runtime-state/admin`, configurable with `XGR_ADMIN_STATE_DIR`. Trusted artifacts, journals and append-only deployment receipts must remain distinct from browser claims. GitHub writer credentials stay backend-only. Current validator health is Direct-BLS schema 2; Merkle leaf/replica health fields are obsolete.
-
-## 9. Join/onboarding
+## 8. Join/onboarding
 
 GET `/api/xita/join/status` exposes readiness. POST `preview`, `submit`, `confirm` under that prefix implement manifest preview and private email-confirmed submission. The server validates canonical token/CoinGecko identity, current catalog and current-main identity before preparing a GitHub **draft listing PR**.
 
@@ -169,13 +148,12 @@ Submission stores contact and confirmation-token hashes in private storage and s
 
 Never put applicant email, confirmation secrets or private role-holder information in public manifests. The website may export a draft when optional submission is unavailable. The Join service's listing policy does not control public Factory admission.
 
-## 10. Operations and configuration ownership
+## 9. Operations and configuration ownership
 
 Install dependencies in the component package directory using its declared package manager. Packages without a lockfile use `npm install --ignore-scripts`, not `npm ci`. Do not infer a service's dependency installation from the native relayer's ethers install.
 
 | Configuration | Owner / purpose |
 | --- | --- |
-| `XGR_ADMIN_HOST`, `XGR_ADMIN_PORT`, `XGR_ADMIN_STATE_DIR` | Loopback admin host/port/journal root |
 | `XITA_INDEXER_HOST`, `XITA_INDEXER_PORT`, `XITA_INDEXER_DATABASE_URL` | Read API and SELECT-only role |
 | `XITA_METRICS_EVIDENCE`, `XITA_TVL_HISTORY` | Verified local evidence/history paths |
 | `XITA_TRANSFER_WORKER_DATABASE_URL` | Restricted finalized projection/proof worker writer |
@@ -189,7 +167,5 @@ Install dependencies in the component package directory using its declared packa
 | `XITA_MANAGED_RELAYER_PRIVATE_KEY`, `XITA_MANAGED_INDEX_FILE` | Optional paid executor key / durable source index |
 
 Complete component example files and SQL grants are authoritative for additional limits/credentials; see the [source map](XGR_INTERCHAIN_Source_Map.md). Do not copy a production environment into docs. For each service inspect the installed unit, loaded environment, current commit, API body coverage and worker logs; process health alone is insufficient.
-
-`manage.sh` controls web/admin installation/publication, not validators or public relay processes. Commands include `status`, `start`, `stop`, `restart`, `logs`, `follow`, `health`, `check`, `check-routes`, `publish-web`, `update`, `install-sync`, `install-join`, `install-transfer-api`, `install-transfer-intake`, `repair-transfer-db`, `install-tvl`, `install-fee-preview`, `install-interchain-fee`, `install-fee-tax-ledger`. `deploy` is a web-publication alias. `hard-reset-dev` is explicitly destructive development reset, not a routine upgrade instruction. Additional explicit installers are documented by their current case implementation; inspect `./manage.sh help` and the script before invoking a mutation.
 
 This documentation update installs, restarts, funds or enables none of those services. Source implementation, recorded deployment and actual server rollout are separate evidence levels.

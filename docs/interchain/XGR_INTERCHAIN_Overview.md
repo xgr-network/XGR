@@ -91,7 +91,7 @@ On an already supported physical chain, public Factory registration requires nei
 
 Adding a new physical network is a different operation: reviewed transport/registry deployments, supported finality/evidence readers, compiled chain bindings and validator rollout are necessary. Per-token validator environment edits are not part of public route admission.
 
-XITA's approved-main deployment queue governs that application's deployment workflow. It does not turn GitHub admission into an on-chain protocol privilege. An independent interface can call the public contracts directly.
+An independent interface can call the public contracts directly. Application catalog admission does not grant an on-chain protocol privilege.
 
 ### Permissionless does not mean unrestricted
 
@@ -107,7 +107,7 @@ Permissionless asset registration does not let an issuer mint an arbitrary exist
 
 ### How optional XITA services fit around the protocol
 
-The website composes wallet calls and presents status. The indexer derives searchable transfer history from chain evidence; it does not own the transfer. The quote service signs commercial terms for the optional Execution Gateway; it cannot sign a user's wallet transaction or replace validator authorization. Gas sponsorship funds eligible wallet actions and carries its own commitment/accounting lifecycle. The managed executor submits already authorized destination calls. Join and admin workflows manage catalog proposals and deployment evidence for the application.
+The website composes wallet calls and presents status. The indexer derives searchable transfer history from chain evidence; it does not own the transfer. The quote service signs commercial terms for the optional Execution Gateway; it cannot sign a user's wallet transaction or replace validator authorization. Gas sponsorship funds eligible wallet actions and carries its own commitment/accounting lifecycle. The managed executor submits already authorized destination calls. Join manages catalog proposals for the application.
 
 These services can cooperate without becoming protocol admission authorities. For example, a listed token still needs valid contracts and a real source transfer; an unlisted independently registered route can be used through the public protocol. A website outage can hide status without reversing on-chain state. An executor outage leaves a valid message available for independent delivery. Missing validator quorum remains a protocol availability problem that another frontend cannot fix.
 
