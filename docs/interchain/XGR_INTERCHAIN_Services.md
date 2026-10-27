@@ -107,6 +107,16 @@ The sponsor reserves unique grant identity/nonce and budget under database locks
 
 The service wallet signs optional quotes, receives fees and funds sponsorship. The recovery admin is a different offline identity. No private key belongs in a public catalog, browser, receipt or GitHub file. Commercial fees are not an on-chain delivery/refund bond. Direct users fund their own gas and bypass this adapter.
 
+### Open sponsorship failure cases and read-only monitoring
+
+The newer public commit `200f636c37cd55c4476f3b5a349fcceb715066d2` adds an operator-only obligation monitor; it does not change payment execution. The [F-07/F-19 operating procedure](https://github.com/xgr-network/xgr-interchain/blob/200f636c37cd55c4476f3b5a349fcceb715066d2/docs/SPONSOR_F07_F19_LAUNCH_MONITORING.md) explicitly keeps both findings open.
+
+F-07 concerns a reserved grant/nonce without a durably recorded transaction hash after a failure. F-19 concerns an indexed paid commitment whose promised grant is unresolved, including a transfer completed externally before the grant confirms. Successful message delivery does not prove fulfillment of a commercial gas promise.
+
+`services/managed-relay/sponsor-obligation-audit.mjs` uses the SELECT-only sponsor-status database and public service address, enforces a read-only PostgreSQL session and reports aggregate alert groups. It has no signing/payment/retry path. Exit 0 means no aged alerts found, 2 means attention, 1 diagnostic failure. Never clear reservations or send another payment solely from that report.
+
+To stop new promises, stop accepting new signed quotes while preserving existing commitments, journals and reconciliation. `XITA_INTERCHAIN_SPONSOR_ENABLED=false` also stops the existing worker and must not be presented as settling old paid obligations. Follow the linked operator procedure for emergency stops and review. These are optional commercial-service risks, separate from public Direct-BLS message authorization.
+
 ### Managed executor implementation limit
 
 `services/managed-relay/worker.mjs` currently has an explicit configured paid-source map for **XGRChain and Base**. Do not infer generic Arbitrum paid-source execution support merely from a dynamically generated quote catalog or public protocol support. This is an optional worker limitation, not a restriction on public Arbitrum routes or independent delivery.

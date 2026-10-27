@@ -6,6 +6,7 @@
 
 - Public node source: `418926f90f9b85af66f4ea4b0cc060dce6cdc862` on XGR3.0, with v3.4.0 execution code. Release tag `v3.4.0` points to `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`.
 - Public Interchain source/deployment snapshot: `9518472c04432c57a5939a3688e90be332180636` on main. Contract suffixes and helper package versions are independent interface/tool versions.
+- Subsequent Interchain commit `200f636c37cd55c4476f3b5a349fcceb715066d2` adds the read-only sponsor-obligation monitor and disposable-PostgreSQL tests. Its source/procedure was reviewed while preparing this correction; it does not replace the protocol/deployment snapshot above. F-07/F-19 remain open.
 - XGR and organization-profile READMEs link these references. MCP is a separately versioned client/service; this documentation update does not modify its implementation.
 - Private development repositories are not an alternative source authority. Historical audit records are unchanged.
 
