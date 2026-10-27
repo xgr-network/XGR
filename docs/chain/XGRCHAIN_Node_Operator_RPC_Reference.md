@@ -1,10 +1,12 @@
 # XGR Chain — Node Operator RPC & Internals
 
+> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+
 **Document ID:** XGRCHAIN-NODE-OPERATOR-RPC  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-27  
 **Audience:** Node operators, validator operators, infrastructure engineers, tracing operators, internal tooling developers  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.4.0`  
+**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Operator-facing JSON-RPC, tracing, txpool, XGR-specific diagnostic endpoints and gRPC services
 
@@ -12,7 +14,7 @@
 
 ## 1. Scope
 
-This document describes operator-facing node interfaces in `xgr-node v3.1.1`.
+This document describes operator-facing node interfaces in `xgr-node v3.4.0`.
 
 It covers:
 
@@ -50,7 +52,7 @@ XGRCHAIN_Staking_PoS_Endpoint_Reference.md
 
 ## 2. Current dispatcher namespaces
 
-The `v3.1.1` JSON-RPC dispatcher registers:
+The `v3.4.0` JSON-RPC dispatcher registers:
 
 ```text
 eth
@@ -127,7 +129,7 @@ The dispatcher supports:
 
 Relevant runtime limits:
 
-| Setting | `v3.1.1` default |
+| Setting | `v3.4.0` default |
 | --- | ---: |
 | Batch request limit | `20` |
 | Block-range limit | `1000` |
@@ -151,7 +153,7 @@ A value of `0` for the batch-request limit disables that specific limit.
 
 ## 5. Debug RPC overview
 
-`v3.1.1` exposes:
+`v3.4.0` exposes:
 
 ```text
 debug_traceBlockByNumber
@@ -645,7 +647,7 @@ The effective gas price is calculated using the node's current base fee.
 
 ## 20. TxPool defaults
 
-Current `v3.1.1` defaults:
+Current `v3.4.0` defaults:
 
 | Setting | Default |
 | --- | ---: |
@@ -798,7 +800,7 @@ Clients should not repeatedly resubmit the same nonce at the same or lower effec
 
 ## 26. `bridge_*` namespace
 
-`v3.1.1` registers a `bridge` namespace.
+`v3.4.0` registers a `bridge` namespace.
 
 Implemented methods:
 
@@ -1023,7 +1025,7 @@ Do not hard-code optional service addresses based solely on one node instance's 
 
 ## 34. `xgr_getInterchainAttestation`
 
-`v3.1.1` adds a native XGR interchain operator/read interface.
+`v3.4.0` adds a native XGR interchain operator/read interface.
 
 Method:
 
@@ -1281,7 +1283,7 @@ Do not expose operator gRPC unrestricted to the public internet.
 
 ## 42. System gRPC service
 
-`v3.1.1` defines:
+`v3.4.0` defines:
 
 ```text
 service System
@@ -1737,7 +1739,7 @@ A slow RPC endpoint does not necessarily imply slow consensus.
 
 ---
 
-## 65. `v3.1.1` operator-interface summary
+## 65. `v3.4.0` operator-interface summary
 
 | Area | Current behavior |
 | --- | --- |

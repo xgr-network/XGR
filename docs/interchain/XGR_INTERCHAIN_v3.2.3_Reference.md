@@ -1,15 +1,18 @@
 # XGR Interchain / XITA — complete v3.2.3 technical reference
 
-**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Retired:** `xgr-hyperlane`. Do not deploy, install or follow legacy routing procedures from that repository. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
+> **Historical snapshot — not current execution instructions.** The current v3.4.0 [technical reference](./XGR_INTERCHAIN_v3.4.0_Reference.md) and [independent operations](./XGR_INTERCHAIN_v3.4.0_Operations.md) supersede this page for Direct-BLS transport, route registration, fees and recovery. Historical contract addresses and Merkle/route-governance procedures below must not be used for current deployments.
+
+
+**Updated:** 2026-10-23. **Code:** [xgr-interchain](https://github.com/xgr-network/xgr-interchain) and [xgr-node v3.2.3](https://github.com/xgr-network/xgr-node/tree/v3.2.3). **Implementation repository:** `xgr-interchain`. This snapshot predates Direct-BLS. **Current website:** https://xita.xgr.network. Production public-launch status remains separately controlled.
 
 ## Documentation map
 
 | Audience | Authoritative reference |
 | --- | --- |
 | Protocol integrators and auditors | This reference; [XITA v3.1.5 contract specification](https://github.com/xgr-network/xgr-interchain/blob/main/docs/XITA_SPEC_V315.md) for frozen contract interfaces |
-| Validator node operators | [XGR-Node v3.2.3 operator, CLI, RPC and recovery](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md) |
-| Independent transfer users | [Direct ILN source/destination recovery without commercial fee adapter or relayer](./XGR_INTERCHAIN_v3.2.3_Operations.md) |
-| Contract integrators | [ILNGateway](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/ILNGateway.sol), [Factory/Registry](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNRegistryV315.sol), [FeeVault](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNFeeVault.sol), [ISM](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNInterchainISMV2.sol) |
+| Validator node operators | [XGR-Node v3.2.3 operator, CLI, RPC and recovery](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V340_OPERATOR_REFERENCE.md) |
+| Independent transfer users | [Direct ILN source/destination recovery without commercial fee adapter or relayer](./XGR_INTERCHAIN_v3.4.0_Operations.md) |
+| Contract integrators | [ILNGateway](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/ILNGateway.sol), [Factory/Registry](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNRegistryV315.sol), [FeeVault](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XGRILNFeeVault.sol), [ISM](https://github.com/xgr-network/xgr-interchain/blob/main/contracts/XITADirectBLSISM.sol) |
 | Deployment/maintenance operators | [Deployment references](https://github.com/xgr-network/xgr-interchain/blob/main/docs/GENERIC_CHAIN_DEPLOYMENT_V315.md), [Merkle bootstrap](https://github.com/xgr-network/xgr-interchain/blob/main/docs/ILN_V320_MERKLE_BOOTSTRAP.md), [actual receipts](https://github.com/xgr-network/xgr-interchain/tree/main/deployments) |
 | XITA website maintainers | [UI architecture](https://github.com/xgr-network/xgr-interchain/blob/main/docs/XETA_UI_ARCHITECTURE.md), [source](https://github.com/xgr-network/xgr-interchain/tree/main/apps/web) |
 | Release engineers | Tagged xgr-node source, CI and [operational tests](https://github.com/xgr-network/xgr-interchain/tree/main/contracts/test) |
@@ -85,7 +88,7 @@ Merkle P2P replication transfers **public hashes, not secret keys or trust**. Ea
 
 The public **ILNGateway** is not the optional commercial **XITAExecutionGateway**. Quote with `quoteILN(destinationDomain,recipient,amount)`; approve the **ILNGateway** for ERC-20; sign `bridge` with exact native quoted value. Obtain message ID from source receipt. `node runtime/native-relayer/recover-iln.mjs MESSAGE_ID` reconstructs and validates the public proof using public RPCs and releases an **unsigned** destination Mailbox call. The user pays destination gas and signs `Mailbox.process`. Repeat for second hop as a separately signed operation. The web UI, commercial service fee, gas sponsor and managed relayer are optional. Protocol validator fee, authentic validator quorum, on-chain contracts, chain RPC access and user native gas remain necessary.
 
-**Full procedure, env variables, caveats and replay protection:** [v3.2.3 independent transfer operations](./XGR_INTERCHAIN_v3.2.3_Operations.md).
+**Full procedure, env variables, caveats and replay protection:** [v3.2.3 independent transfer operations](./XGR_INTERCHAIN_v3.4.0_Operations.md).
 
 ## 7. Fees and accounting trust separation
 
@@ -112,7 +115,7 @@ xgrchain ibft interchain storage-status --data-dir /ABS/PATH
 
 Source authoritative node RPC: `xgr_getInterchainValidators`, `xgr_requestILNQuorum`, `xgr_getILNQuorum`, `xgr_getILNQuorumAttestation`, `xgr_getILNReplicaProof`, `xgr_getILNIndexerStatus`, `xgr_getILNGovernanceQuorum`. Quorum requests are untrusted **hints**, not arbitrary signing instructions.
 
-For complete flags, sample JSON-RPC requests, Merkle backup/catch-up, deployment env and failure tables, see [node v3.2.3 operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V323_OPERATOR_REFERENCE.md).
+For complete flags, sample JSON-RPC requests, Merkle backup/catch-up, deployment env and failure tables, see [node v3.2.3 operator reference](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V340_OPERATOR_REFERENCE.md).
 
 ## 9. Production operation and release acceptance
 
@@ -129,4 +132,4 @@ Changes to node consensus/StateTx/EVM require appropriate tagged node release, i
 - If source Hook history is missing from **all** replicas and reliable backups, the on-chain Merkle root alone cannot invert into the missing ordered hashes.
 - Validators are not required to fund third-party destination gas; any account may act as an untrusted executor once proof is available.
 - No single RPC should be accepted as an unquestioned authority; verify chain ID, deployment binding, receipt, root/count and destination `process` simulation.
-- `xgr-hyperlane` and the historic `bridge.xgr.network` references are **legacy**; do not use them for current onboarding/deployments.
+- `xgr-interchain` and the historic `bridge.xgr.network` references are **legacy**; do not use them for current onboarding/deployments.

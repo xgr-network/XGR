@@ -1,10 +1,13 @@
 # XGR & XDaLa — Deterministic Process Execution on EVM-Compatible Infrastructure
 
+> Current node baseline: **v3.4.0**. For current permissionless Interchain architecture and relayer-independent execution, use the [Direct-BLS reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md) and [operations runbook](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md).
+
+
 **Document ID:** XGR-GENERAL-OVERVIEW  
 **Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, partners, technical readers  
 **Implementation status:** Mainnet  
-**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`, `xgr-hyperlane`
+**Sources of truth:** `XGR`, `xgrEngine`, `xgr-node`, `xgr-interchain`
 
 > **One-liner**
 >
@@ -1373,14 +1376,12 @@ Both directions are deployed and have been validated end-to-end on mainnet.
 The public bidirectional bridge is available at:
 
 ```text
-https://bridge.xgr.network
+https://xita.xgr.network
 ```
 
 Official wXGR on Base:
 
-```text
-0x3b83687d77170d42feddfe221629cc21e771e021
-```
+[See current verified asset deployments](https://github.com/xgr-network/xgr-interchain/tree/main/deployments/assets). Historical token addresses must not be reused as current route authority.
 
 The nominal bridge representation is:
 
@@ -1398,9 +1399,9 @@ XGR Interchain combines:
 
 - Hyperlane-compatible message transport,
 - destination-specific XGR Interchain validator registries,
-- XGR-native checkpoint attestations,
+- XGR-native per-message Direct-BLS attestations,
 - BLS aggregate signatures,
-- Merkle inclusion proofs,
+- canonical source-message and route binding,
 - destination Interchain Security Modules,
 - native relayers.
 
@@ -1431,7 +1432,7 @@ External-chain or relayer failure must therefore not become an XGRChain consensu
 The native relayer:
 
 - observes dispatched messages,
-- reconstructs Merkle proofs,
+- validates Direct-BLS authorization and prepares unsigned delivery,
 - retrieves completed validator attestations,
 - pays destination gas,
 - submits destination transactions.
@@ -1458,7 +1459,7 @@ docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md
 Implementation and operations:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 The public specification layer and implementation/runtime layer are maintained separately.
@@ -1612,7 +1613,7 @@ For XGR Interchain integration:
 4. Respect live route availability
 5. Do not treat the relayer as the security authority
 6. Use the public Interchain specifications for protocol semantics
-7. Use xgr-hyperlane for implementation and deployment details
+7. Use xgr-interchain for implementation and deployment details
 ```
 
 ---
@@ -1693,7 +1694,7 @@ https://github.com/xgr-network/xgrEngine
 XGR Interchain:
 
 ```text
-https://github.com/xgr-network/xgr-hyperlane
+https://github.com/xgr-network/xgr-interchain
 ```
 
 XGR MCP:

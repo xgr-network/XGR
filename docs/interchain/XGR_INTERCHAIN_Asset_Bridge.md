@@ -1,5 +1,8 @@
 # XGR Interchain — Asset Bridge
 
+> **Historical snapshot — not current execution instructions.** The current v3.4.0 [technical reference](./XGR_INTERCHAIN_v3.4.0_Reference.md) and [independent operations](./XGR_INTERCHAIN_v3.4.0_Operations.md) supersede this page for Direct-BLS transport, route registration, fees and recovery. Historical contract addresses and Merkle/route-governance procedures below must not be used for current deployments.
+
+
 **Document ID:** XGR-INTERCHAIN-ASSET-BRIDGE  
 **Last updated:** 2026-10-04  
 **Audience:** Developers, integrators, wallet developers, exchange integrators, infrastructure operators, auditors  
@@ -12,7 +15,7 @@
 
 ---
 
-> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.2.3_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
+> **Current implementation note (2026-10-23).** This document includes historical pre-v3.2.3 bridge behavior and may describe obsolete routes, addresses, status or governance. Do not use it as current signing or deployment instructions. Refer to [v3.2.3 operations and permissionless direct transfers](./XGR_INTERCHAIN_v3.4.0_Operations.md) and current independently verified deployment receipts in [xgr-interchain](https://github.com/xgr-network/xgr-interchain/tree/main/deployments).
 
 ## 1. Purpose
 

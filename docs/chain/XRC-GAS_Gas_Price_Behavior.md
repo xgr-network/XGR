@@ -1,10 +1,12 @@
 # XRC-GAS — Gas Price & Fee Behavior
 
+> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+
 **Document ID:** XRC-GAS-BEHAVIOR  
-**Last updated:** 2026-10-03  
+**Last updated:** 2026-10-27  
 **Audience:** Wallet developers, dApp developers, explorer developers, node operators, auditors  
-**Release baseline:** `xgr-node v3.1.1`  
-**Release commit:** `1a4844b311fb856cb8c2303a40fa8aa69b560544`  
+**Release baseline:** `xgr-node v3.4.0`  
+**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Public XGRChain gas pricing, transaction fees, fee accounting and PoS FeePool behavior
@@ -48,7 +50,7 @@ Applications must use XGRChain's actual RPC and receipt behavior rather than ass
 Current node baseline:
 
 ```text
-xgr-node v3.1.1
+xgr-node v3.4.0
 ```
 
 Mainnet:
@@ -155,7 +157,7 @@ XGRChain uses a custom base-fee policy designed to provide:
 
 ## 6. Static fallback parameters
 
-`v3.1.1` defines:
+`v3.4.0` defines:
 
 | Constant | Value |
 | --- | ---: |
@@ -437,7 +439,7 @@ This avoids division by zero.
 
 ## 14. `eth_gasPrice`
 
-Current `v3.1.1` behavior:
+Current `v3.4.0` behavior:
 
 ```text
 eth_gasPrice =
@@ -854,7 +856,7 @@ It is not a network-wide consensus gas-price parameter.
 
 ## 31. `eth_gasPrice` does not include `--price-limit`
 
-Current `v3.1.1` `eth_gasPrice` logic does not incorporate the local TxPool:
+Current `v3.4.0` `eth_gasPrice` logic does not incorporate the local TxPool:
 
 ```text
 --price-limit

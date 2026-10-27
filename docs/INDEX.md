@@ -1,6 +1,15 @@
 # XGR Documentation Index
 
-**Current complete technical reference:** [XGR Interchain v3.2.3 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; **xgr-hyperlane has been retired**.
+## Current v3.4.0 documentation
+
+- [Node release, artifact verification and consensus activation](chain/XGRCHAIN_v3.4.0_Release_and_Activation.md)
+- [Complete Direct-BLS Interchain reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md)
+- [Permissionless direct transfer and unsigned recovery](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md)
+
+Node v3.4.0 and contract family V315/V2 are independently versioned. Historical versioned specifications below are retained for provenance and must not override the current source-based references.
+
+
+**Current complete technical reference:** [XGR Interchain v3.4.0 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; the current implementation is **xgr-interchain**.
 
 **Document ID:** XGR-DOCS-INDEX  
 **Last updated:** 2026-10-04  
@@ -27,7 +36,7 @@ The documentation is divided into:
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.2.3
+xgr-node v3.4.0
 ```
 
 unless an individual document explicitly states otherwise.
@@ -201,7 +210,7 @@ XRC-GAS_Gas_Price_Behavior.md
 The current Chain documentation targets:
 
 ```text
-xgr-node v3.2.3
+xgr-node v3.4.0
 ```
 
 and the corresponding release commit:
@@ -312,7 +321,7 @@ https://mcp.testnet.xgr.network/mcp
 
 ## 15. XGR Interchain
 
-**Current implementation (October 2026):** [XGR Interchain v3.2.3 operations, direct independent transfer and recovery](interchain/XGR_INTERCHAIN_v3.2.3_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
+**Current implementation (October 2026):** [XGR Interchain v3.4.0 operations, direct independent transfer and recovery](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md). Legacy v3.1.1/v3.1.3 bridge deployment specifications are retained as historical references; contract addresses in them must not be treated as current.
 
 
 XGR Interchain is the cross-chain infrastructure of the XGR Network.
@@ -512,7 +521,7 @@ live on-chain and runtime state
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.2.3
+xgr-node v3.4.0
 ```
 
 A new node release does not automatically imply:
