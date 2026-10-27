@@ -1,5 +1,7 @@
 # XGR Interchain architecture
 
+Start with [system context and contract interactions](XGR_INTERCHAIN_Context_and_Contracts.md) for the complete component diagram and individual contract responsibilities.
+
 Baseline: node v3.4.0 and public Direct-BLS contracts/runtime, reviewed 2026-10-27. [Documentation index](README.md).
 
 ## 1. System boundaries
@@ -37,6 +39,31 @@ flowchart TD
 
 For two hops, the hub recipient first receives the representation or native payout. The wallet then authorizes the onward source operation. Destination delivery of hop one does not by itself authorize spending the recipient's hub assets.
 
+### Why XGRChain is the hub
+
+XGRChain has two distinct responsibilities: it is an actual settlement chain for the intermediate asset in a spoke-to-spoke journey, and its validator operators run the Interchain evidence/signing worker. The hub is not merely a routing label or a centralized API. A Base→Arbitrum journey really settles a first message on XGRChain and starts a second source transaction there.
+
+The hub constraint is enforced by route/asset contracts and node chain policy; it is not just a restriction in the XITA dropdown. Architecturally, connecting each supported spoke to a common hub provides a common place for asset representations and onward transfers. It avoids requiring a direct protocol relationship for every pair of spokes. This is a topology property, not a claim that every asset shares one router or that adding a chain requires no implementation work. Each asset and router pair still needs valid reciprocal bindings.
+
+This design also has explicit costs: a spoke-to-spoke journey needs two authorizations and two deliveries, and depends on XGRChain availability in addition to both spokes. Each hop has separate gas, fees, finality and retry state. The two hops are not one atomic cross-chain transaction; a successful first hop remains successful if the second hop is delayed.
+
+### Why the validators are XGR validators
+
+The implementation reuses XGR validator identities and their BLS keys for a separate Interchain worker. In `interchain/runtime/worker.go`, `interchainSignerEligible` requires the signer to belong to the destination's registered set **and** to exist as an active validator in canonical XGR state with the matching BLS public key. A random relayer or token issuer cannot become an authorized signer merely by calling a public endpoint.
+
+This connects the worker to the XGR validator lifecycle and lets it read XGR source evidence from locally committed chain state. For external source chains, those same operators obtain and check finality-qualified evidence through the configured independent RPC operators. They do not produce Base or Arbitrum blocks and do not replace those chains' consensus.
+
+| Layer | What it establishes | What must not be inferred |
+| --- | --- | --- |
+| XGR block consensus and PoS state | XGR blocks/state and active validator identity | An XGR block signature alone is not an authorization for an external-chain message |
+| Node Interchain worker | Canonical source evidence, signer eligibility, exact per-message BLS votes and aggregation | Worker progress or an indexer status is not destination settlement |
+| Per-destination ValidatorRegistry | Registered keys, current set ID, signer order and count-based quorum | Destination sets need not contain every XGR validator or have identical membership |
+| Destination ISM and Mailbox | Current-set signature, exact message/route binding, replay protection and authenticated delivery | They do not independently execute XGR PoS or query remote RPCs inside Solidity |
+
+Interchain quorum is `ceil(2*n/3)` of the destination Registry's members, not stake-weighted block consensus. Destination contracts verify their registered set; the canonical-XGR eligibility check is performed by the node implementation. Keeping registry membership and worker eligibility aligned is therefore operationally important. After a set change, the original source message needs current-set authorization, not a new source lock.
+
+The rationale is reuse of the existing validator identity, runtime and communication infrastructure rather than a company-controlled message signer. This does not make cross-chain evidence trustless: external RPC evidence, validator honesty and availability, destination membership and contract correctness remain part of the security model. No automatic Interchain-specific slashing or light-client verification guarantee is implied.
+
 ## 3. Multiple assets and parallel route instances
 
 The canonical Asset ID binds original chain, original token address and native/ERC-20 kind. A token symbol, display name or listing is not identity proof. Route IDs additionally bind source/destination chain/domain and router pair.
@@ -65,6 +92,24 @@ On an already supported physical chain, public Factory registration requires nei
 Adding a new physical network is a different operation: reviewed transport/registry deployments, supported finality/evidence readers, compiled chain bindings and validator rollout are necessary. Per-token validator environment edits are not part of public route admission.
 
 XITA's approved-main deployment queue governs that application's deployment workflow. It does not turn GitHub admission into an on-chain protocol privilege. An independent interface can call the public contracts directly.
+
+### Permissionless does not mean unrestricted
+
+| Participant | Independently available action | Remaining condition |
+| --- | --- | --- |
+| Asset/router creator | Deploy via public Factory and register owned router routes | Supported chain, deployment gas, valid asset identity and reciprocal bindings |
+| Transfer user | Quote, approve and call the public Gateway from their wallet | Principal, protocol fee, source gas and a usable route |
+| Executor | Obtain authorization and submit destination processing | Valid current-set proof, destination gas and executable recipient/router state |
+| Interface/service operator | Build a frontend, discovery index, quote service or executor | Public contract/RPC semantics and the operator's own service responsibilities |
+| Validator operator | Participate through the validator lifecycle and Interchain membership mechanisms | Active matching XGR identity, destination membership and evidence validation |
+
+Permissionless asset registration does not let an issuer mint an arbitrary existing representation or release another router's escrow. Public destination execution does not let an executor change the recipient. Permissionless access also does not remove dependencies on a sufficient validator set or authorize unsupported physical chains.
+
+### How optional XITA services fit around the protocol
+
+The website composes wallet calls and presents status. The indexer derives searchable transfer history from chain evidence; it does not own the transfer. The quote service signs commercial terms for the optional Execution Gateway; it cannot sign a user's wallet transaction or replace validator authorization. Gas sponsorship funds eligible wallet actions and carries its own commitment/accounting lifecycle. The managed executor submits already authorized destination calls. Join and admin workflows manage catalog proposals and deployment evidence for the application.
+
+These services can cooperate without becoming protocol admission authorities. For example, a listed token still needs valid contracts and a real source transfer; an unlisted independently registered route can be used through the public protocol. A website outage can hide status without reversing on-chain state. An executor outage leaves a valid message available for independent delivery. Missing validator quorum remains a protocol availability problem that another frontend cannot fix.
 
 ## 6. Transport and implementation dependencies
 

@@ -98,3 +98,9 @@ The broader repository CI retains its configured contract, web, service and mani
 ## 7. Validation of this documentation correction
 
 A fresh public-node build succeeded. The protocol, Interchain CLI, JSON-RPC and all `interchain/...` package tests passed. All 14 public native-recovery helper tests passed, including cross-language signing/metadata vectors and receipt/finality cases. The seven JavaScript runbook blocks passed syntax checking; they were not broadcast to live chains. Changed Markdown links and receipt-reference consistency were checked locally. Repository PR checks remain an additional merge gate.
+
+### Follow-up review on 2026-10-27
+
+The follow-up checked the system-context inventory against all 21 top-level production Solidity files and validated 131 local Markdown file targets in the Interchain documentation. The caller-authority matrix was checked against Factory registration, router bootstrap/outbound guards, source-fee quorum execution, FeeVault accounting, native beneficiary withdrawal and commercial gateway administration/claims. `claimFees()` is permissionless to invoke but has a fixed current-service-wallet payee. Storage counters were removed from the RPC reference because they belong to the local CLI command.
+
+The fetched public node branch had no Go-source differences from the documented checkout. The Interchain documentation branch was synchronized with public main, including the previously documented read-only sponsorship monitor; its five deterministic monitor tests passed in this follow-up. PostgreSQL integration, live transfers and the earlier full node/helper suites were not rerun for these Markdown changes. Historical test results in the preceding paragraph describe the earlier correction run, not new execution in this follow-up.
