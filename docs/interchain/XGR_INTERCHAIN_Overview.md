@@ -1,5 +1,7 @@
 # XGR Interchain architecture
 
+Start with [system context and contract interactions](XGR_INTERCHAIN_Context_and_Contracts.md) for the complete component diagram and individual contract responsibilities.
+
 Baseline: node v3.4.0 and public Direct-BLS contracts/runtime, reviewed 2026-10-27. [Documentation index](README.md).
 
 ## 1. System boundaries

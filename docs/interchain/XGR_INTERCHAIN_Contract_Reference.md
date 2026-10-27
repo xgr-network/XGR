@@ -1,5 +1,7 @@
 # Public contracts, source fees and claims
 
+Start with [system context and contract interactions](XGR_INTERCHAIN_Context_and_Contracts.md) for the complete component diagram and individual contract responsibilities.
+
 [Documentation index](README.md). Signatures below describe the public implementation; use compiled ABI artifacts from the reviewed checkout for encoding structs and inherited methods. Values named wei are native smallest units unless explicitly a token amount.
 
 ## 1. Public Gateway
