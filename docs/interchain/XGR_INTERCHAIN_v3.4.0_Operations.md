@@ -81,3 +81,245 @@ The direct path does not assume the website's `continueJourney` linkage, commerc
 - Source receipt missing: obtain the original canonical transaction receipt/logs from suitable RPC infrastructure. A requirement for old receipt evidence does not imply a requirement for historical `eth_call`.
 
 Node v3.4.0 obtains Interchain chain settings from its reviewed compiled `interchain/config.go`; new supported physical chains require a reviewed configuration/release rollout. No per-token validator environment edit is a permissionless registration prerequisite. Back up validator secrets and databases independently of relay/indexer services. Network consensus activation and data recovery follow the [node runbook](../chain/XGRCHAIN_v3.4.0_Release_and_Activation.md).
+
+
+
+## 7. Executable wallet procedure
+
+The following procedure prepares calls without a managed relayer, commercial signer, website or server-held user key. It assumes an already verified, reciprocally bound route. It is not a deployment wizard. Run the scripts from `runtime/native-relayer/` so they use that checkout's declared ethers dependency. Node.js must support ES modules and top-level await.
+
+First export the verified route variables from section 3. Add `SOURCE_ACCOUNT` (your source wallet), `RECIPIENT` (destination EVM account) and `AMOUNT_RAW` (positive decimal integer in token base units). Obtain decimals from the actual token contract; native XGR uses 18. Do not place a seed or private key in these variables.
+
+### 7.1 Prepare source quote and allowance calls
+
+Save this block as `runtime/native-relayer/prepare-source.mjs` in your independent checkout. It only performs RPC reads and prints unsigned calls.
+
+```javascript
+import {
+  Contract, JsonRpcProvider, Interface, getAddress, zeroPadValue,
+  ZeroAddress, toQuantity
+} from "ethers";
+const need = name => {
+  const value = process.env[name];
+  if (!value) throw Error("Missing " + name);
+  return value;
+};
+const eq = (a,b) => String(a).toLowerCase() === String(b).toLowerCase();
+const sourceChain = BigInt(need("ORIGIN_CHAIN_ID"));
+const destinationChain = BigInt(need("DESTINATION_CHAIN_ID"));
+const domain = Number(need("DESTINATION_DOMAIN"));
+const sourceDomain = Number(need("ORIGIN_DOMAIN"));
+const routeId = need("ROUTE_ID");
+const account = getAddress(need("SOURCE_ACCOUNT"));
+const recipient = zeroPadValue(getAddress(need("RECIPIENT")), 32);
+const raw = need("AMOUNT_RAW");
+if (!/^[1-9][0-9]*$/.test(raw) || BigInt(raw) >= 2n**256n)
+  throw Error("AMOUNT_RAW must be a positive uint256 decimal integer");
+const amount = BigInt(raw);
+const src = new JsonRpcProvider(need("ORIGIN_RPC_URL"));
+const dst = new JsonRpcProvider(need("DESTINATION_RPC_URL"));
+if (BigInt(await src.send("eth_chainId", [])) !== sourceChain ||
+    BigInt(await dst.send("eth_chainId", [])) !== destinationChain)
+  throw Error("RPC chain identity mismatch");
+const gatewayAddress = getAddress(need("ORIGIN_ILN_GATEWAY"));
+const gateway = new Contract(gatewayAddress, [
+  "function ilnRegistry() view returns(address)",
+  "function warpRouter() view returns(address)",
+  "function warpToken() view returns(address)",
+  "function routeId() view returns(bytes32)",
+  "function destinationDomain() view returns(uint32)",
+  "function quoteILN(uint32,bytes32,uint256) view returns(uint256,uint256,uint256,uint256)",
+  "function bridge(uint32,bytes32,uint256) payable returns(bytes32)"
+], src);
+const registry = new Contract(need("ORIGIN_ILN_REGISTRY"), [
+  "function getRoute(uint32,bytes32) view returns(uint64,uint32,address,address,address,address,address,uint256,bool)"
+], src);
+const r = await registry.getRoute(domain, routeId);
+if (!r[8] || r[0] !== sourceChain || Number(r[1]) !== sourceDomain ||
+    !eq(r[2], gatewayAddress) || !eq(r[3], need("ORIGIN_WARP_ROUTER")) ||
+    !eq(r[4], need("ORIGIN_MAILBOX")) ||
+    !eq(r[6], need("DESTINATION_WARP_ROUTER")) || r[7] <= 0n ||
+    !eq(await gateway.ilnRegistry(), need("ORIGIN_ILN_REGISTRY")) ||
+    !eq(await gateway.warpRouter(), r[3]) ||
+    !eq(await gateway.routeId(), routeId) ||
+    Number(await gateway.destinationDomain()) !== domain)
+  throw Error("Canonical source binding mismatch");
+const inbound = new Contract(need("DESTINATION_WARP_ROUTER"), [
+  "function verifyInboundRoute(uint64,uint32,address,bytes32) view returns(bool)"
+], dst);
+if (!await inbound.verifyInboundRoute(sourceChain,sourceDomain,r[3],routeId))
+  throw Error("Destination reciprocal route rejects source identity");
+const q = await gateway.quoteILN(domain, recipient, amount);
+const tokenAddress = await gateway.warpToken();
+const approvals = [];
+const call = (to,data,value=0n) => ({
+  from:account, to, data, value:toQuantity(value), chainId:toQuantity(sourceChain)
+});
+if (tokenAddress !== ZeroAddress) {
+  const token = new Contract(tokenAddress, [
+    "function allowance(address,address) view returns(uint256)",
+    "function balanceOf(address) view returns(uint256)",
+    "function decimals() view returns(uint8)",
+    "function approve(address,uint256) returns(bool)"
+  ], src);
+  if (await token.balanceOf(account) < q[3]) throw Error("Insufficient token balance");
+  const allowed = await token.allowance(account,gatewayAddress);
+  if (allowed < q[3]) {
+    if (allowed !== 0n) approvals.push(call(tokenAddress,
+      token.interface.encodeFunctionData("approve",[gatewayAddress,0n])));
+    approvals.push(call(tokenAddress,
+      token.interface.encodeFunctionData("approve",[gatewayAddress,q[3]])));
+  }
+  console.error("Token decimals:", String(await token.decimals()));
+}
+const bridge = call(gatewayAddress,
+  gateway.interface.encodeFunctionData("bridge",[domain,recipient,amount]),q[2]);
+console.log(JSON.stringify({
+  sourceChainId:String(sourceChain), destinationChainId:String(destinationChain),
+  routeId, account, recipient, amountRaw:raw,
+  quote:{validatorFeeWei:String(q[0]),routerNativeValueWei:String(q[1]),
+    totalNativeValueWei:String(q[2]),totalTokenAmount:String(q[3])},
+  approvals, bridge
+},null,2));
+```
+
+```sh
+cd runtime/native-relayer
+node prepare-source.mjs > source-call.json
+```
+
+Review the JSON: chain, account, Gateway, route, recipient, raw amount, token spender and native value. The printed calls omit nonce and fee policy for the wallet to populate. Native source balance must cover quoted value **and gas**. Approval transactions also consume gas.
+
+### 7.2 Submit through your own EIP-1193 wallet
+
+In a local interface you control with your wallet's injected provider, paste the reviewed JSON as `prepared`. This example uses `window.ethereum`; with several wallets select the intended provider explicitly. No import or company API is required.
+
+```javascript
+const provider = window.ethereum;
+if (!provider) throw Error("Select an injected EIP-1193 wallet");
+await provider.request({method:"eth_requestAccounts"});
+async function sendReviewed(tx) {
+  const connected = await provider.request({method:"eth_accounts"});
+  if (!connected.some(a => a.toLowerCase() === tx.from.toLowerCase()))
+    throw Error("Expected source/destination account is not connected");
+  await provider.request({method:"wallet_switchEthereumChain",
+    params:[{chainId:tx.chainId}]});
+  const actual = await provider.request({method:"eth_chainId"});
+  if (BigInt(actual) !== BigInt(tx.chainId)) throw Error("Wrong wallet chain");
+  const estimate = await provider.request({method:"eth_estimateGas",params:[tx]});
+  return provider.request({method:"eth_sendTransaction",
+    params:[{...tx,gas:"0x"+(BigInt(estimate)*12n/10n).toString(16)}]});
+}
+```
+
+If approvals are present, submit **one at a time**, waiting for each successful canonical receipt before the next:
+
+```javascript
+// Select only the next reviewed approval, then inspect its confirmed receipt.
+const approvalHash = await sendReviewed(prepared.approvals[0]);
+```
+
+After all required approvals confirm, rerun source preparation, replace `prepared` with the fresh JSON and confirm `approvals` is empty. A nonzero residual approval is not proof of successful principal transfer. Requote immediately before source execution, then explicitly submit:
+
+```javascript
+const sourceTxHash = await sendReviewed(prepared.bridge);
+```
+
+Record that hash immediately. If the wallet reports timeout or loses its connection, inspect the original hash and account nonce; never submit another principal transfer merely because the UI did not receive a receipt. If a chain has not been added to your wallet, add it using independently verified chain metadata, then repeat the switch/check.
+
+### 7.3 Extract original receipt identity and wait for finality
+
+Export `SOURCE_TX_HASH` as that confirmed source hash. Save this as `runtime/native-relayer/read-source.mjs`:
+
+```javascript
+import {JsonRpcProvider,Interface} from "ethers";
+import {verifiedSourceReceiptEvidence} from "./receipt-evidence.mjs";
+import {verifySourceFinalityReceipt} from "./source-finality.mjs";
+const env = name => {
+  if (!process.env[name]) throw Error("Missing " + name);
+  return process.env[name];
+};
+const rpc = new JsonRpcProvider(env("ORIGIN_RPC_URL"));
+const txHash = env("SOURCE_TX_HASH").toLowerCase();
+if (BigInt(await rpc.send("eth_chainId",[])) !== BigInt(env("ORIGIN_CHAIN_ID")))
+  throw Error("Wrong source RPC chain");
+const receipt = await rpc.getTransactionReceipt(txHash);
+if (!receipt || receipt.status !== 1) throw Error("Original source is not successful");
+const abi = new Interface([
+  "event ILNOperation(bytes32 indexed routeId,bytes32 indexed messageId,uint32 indexed destinationDomain,uint256 validatorFeeWei)"
+]);
+const found = receipt.logs.filter(log =>
+  log.address.toLowerCase() === env("ORIGIN_ILN_GATEWAY").toLowerCase())
+  .map(log => {try {return abi.parseLog(log);} catch {return null;}})
+  .filter(event => event && event.name === "ILNOperation" &&
+    event.args.routeId.toLowerCase() === env("ROUTE_ID").toLowerCase() &&
+    Number(event.args.destinationDomain) === Number(env("DESTINATION_DOMAIN")));
+if (found.length !== 1) throw Error("Expected exactly one matching Gateway operation");
+const messageId = found[0].args.messageId;
+await verifySourceFinalityReceipt(rpc,Number(env("ORIGIN_CHAIN_ID")),receipt);
+const evidence = verifiedSourceReceiptEvidence({
+  receipt,sourceTxHash:txHash,routeId:env("ROUTE_ID"),messageId,
+  destinationDomain:Number(env("DESTINATION_DOMAIN")),
+  gateway:env("ORIGIN_ILN_GATEWAY"),sourceRouter:env("ORIGIN_WARP_ROUTER"),
+  sourceMailbox:env("ORIGIN_MAILBOX"),destinationRouter:env("DESTINATION_WARP_ROUTER")
+});
+console.log(JSON.stringify({sourceTxHash:txHash,messageId,
+  sourceBlockNumber:evidence.blockNumber,
+  attestationRoute:`iln_${env("ORIGIN_DOMAIN")}_${env("DESTINATION_DOMAIN")}_${env("ROUTE_ID").slice(2).toLowerCase()}`
+},null,2));
+```
+
+```sh
+node read-source.mjs
+```
+
+If finality has not been reached, wait and repeat this read of the **same** source hash. Export the returned `MESSAGE_ID` and exact `ATTESTATION_ROUTE`. Quorum is requested by the recovery helper if no explicit-set archive is available. You may inspect progress using [RPC](XGR_INTERCHAIN_RPC.md), without giving the node a user wallet key.
+
+### 7.4 Prepare destination and submit
+
+From repository root:
+
+```sh
+node runtime/native-relayer/recover-iln.mjs "$MESSAGE_ID" > destination-call.json
+```
+
+For `PENDING`, retry the same message later. For a diagnostic failure inspect its named stage. For `ALREADY_DELIVERED`, verify existing recipient result. Only `READY_UNSIGNED_CALL` contains a submission candidate.
+
+Paste the reviewed result as `ready` in your own wallet interface. Select the destination executor account; it may differ from the source wallet and does not become the asset recipient. Before calling, rerun preparation if time has passed or a validator epoch rotated.
+
+```javascript
+if (ready.status !== "READY_UNSIGNED_CALL") throw Error("No verified call ready");
+const destinationAccounts = await provider.request({method:"eth_requestAccounts"});
+const executor = destinationAccounts[0]; // Explicitly select your intended account.
+const destinationTxHash = await sendReviewed({
+  from:executor, to:ready.to, data:ready.data, value:ready.value,
+  chainId:"0x"+BigInt(ready.destinationChainId).toString(16)
+});
+```
+
+`sendReviewed` above rechecks connected accounts for each submission. If changing wallet providers, select the intended provider in your interface before submitting. Confirm the expected Mailbox address and message identity and keep the destination hash. The executor needs destination native gas. No new source approval or lock is part of this step.
+
+### 7.5 Confirm destination and recipient result
+
+Save as `runtime/native-relayer/read-destination.mjs`, exporting `DESTINATION_TX_HASH`:
+
+```javascript
+import {Contract,JsonRpcProvider} from "ethers";
+const rpc = new JsonRpcProvider(process.env.DESTINATION_RPC_URL);
+if (BigInt(await rpc.send("eth_chainId",[])) !== BigInt(process.env.DESTINATION_CHAIN_ID))
+  throw Error("Wrong destination chain");
+const receipt = await rpc.getTransactionReceipt(process.env.DESTINATION_TX_HASH);
+if (!receipt || receipt.status !== 1) throw Error("Destination execution not confirmed successful");
+const mailbox = new Contract(process.env.DESTINATION_MAILBOX,
+  ["function delivered(bytes32) view returns(bool)"],rpc);
+if (!await mailbox.delivered(process.env.MESSAGE_ID)) throw Error("Original message not delivered");
+console.log("Message delivered; verify recipient token balance/Transfer logs or native claim next");
+```
+
+This receipt read proves included successful execution at the current RPC view. Apply the destination's accepted finality policy before reporting final settlement; Base/Arbitrum `safe` can lag inclusion. Recheck the receipt/block hash at that boundary. Verify mint/unlock amount and beneficiary separately. For native XGR inspect `NativeDeliveryDeferred`, `pendingNativeXGR` and `totalPendingNativeXGR`; only the beneficiary can withdraw a deferred payout to an alternate recipient.
+
+### 7.6 Onward hop and restart
+
+For Base → XGRChain → Arbitrum (or the reverse spoke journey), stop after first-hop recipient verification. Set the second route's source variables to XGRChain and destination variables to the target, quote its actual router/token, approve where needed and execute its new source call. Repeat receipt/quorum/recovery/delivery with a **new** message ID. Keep both identities together in your own records.
+
+An optional service's `continueJourney` call is not a requirement for direct two-hop operation. A relayer, indexer, website or browser restart does not erase an original canonical dispatch. Recover using the original successful source hash and message ID; do not pay principal twice to reconstruct UI state.

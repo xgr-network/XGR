@@ -387,7 +387,7 @@ Native Interchain attestation methods include:
 
 ```text
 xgr_getInterchainAttestation
-xgr_getInterchainAttestationByCheckpoint
+xgr_getILNQuorumAttestation
 ```
 
 The public RPC interface can therefore serve:
@@ -474,131 +474,22 @@ Those belong to the separate Interchain layer.
 
 ## 15. XGR Interchain
 
-XGR Network maintains XGRChain-native Interchain infrastructure connecting XGRChain with supported external chains.
+XGR Interchain supports multiple assets and directed route instances across **XGRChain (1643), Base (8453) and Arbitrum (42161)**. The repository records XGR representations on the hub and both spokes, and ARB collateral on Arbitrum with synthetic representations on XGRChain and Base. A manifest entry is not itself proof of current on-chain transfer readiness.
 
-The first production XGR asset route connects:
+Every directed route has XGRChain at exactly one endpoint. XGRChain↔Base and XGRChain↔Arbitrum are distinct one-hop connections; Base↔Arbitrum journeys use two separately authenticated hops through XGRChain. This is not a single-route or XGR-only bridge.
 
-```text
-XGRChain ↔ Base
-```
+The public Factory permits independent router deployments and route registration. A router has one immutable Gateway/route binding **per destination domain**; the hub router can bind multiple spoke domains. Parallel route instances for the same canonical asset are possible using separate router pairs. XITA's listing does not grant exclusive protocol admission.
 
-Network identities:
+Each message is authenticated with **Direct-BLS**, binding its original source evidence, route, fee and current destination set. `XITADirectTransport` uses a Mailbox and a zero-fee `ProtocolFee` dispatch hook. The retained `dispatchHook` field is **not a MerkleTreeHook**; it stores no message leaves and supplies no Merkle proof. Native chain state/receipt tries are unrelated.
 
-| Network | Chain ID | Interchain domain | Asset |
-| --- | ---: | ---: | --- |
-| XGRChain | `1643` | `1643` | Native XGR |
-| Base | `8453` | `8453` | wXGR |
+The managed relayer is optional. Any executor can submit valid destination `Mailbox.process` calldata and pay destination gas. The public recovery helper prepares that calldata without signing keys or company permission. Source fees, principal/allowance, chain access and eligible validator quorum remain required.
 
-The asset model is:
+- [Detailed multi-asset architecture](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_Overview.md)
+- [Exact security model and signed payload](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_Security_Model.md)
+- [Transfer without managed relayer: complete procedure](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_v3.4.0_Operations.md)
+- [Validator CLI and JSON-RPC](https://github.com/xgr-network/xgr-node/blob/XGR3.0/docs/ILN_V340_OPERATOR_REFERENCE.md)
+- [Deployment and route inventory](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md)
 
-```text
-XGRChain                     Base
-
-native XGR
-   │
-   │ lock
-   ▼
-XGR router
-   │
-   │ authenticated
-   │ cross-chain message
-   ▼
-                              mint
-                               │
-                               ▼
-                              wXGR
-```
-
-Reverse direction:
-
-```text
-Base                         XGRChain
-
-wXGR
-  │
-  │ burn
-  ▼
-Base router
-  │
-  │ authenticated
-  │ cross-chain message
-  ▼
-                              unlock
-                                │
-                                ▼
-                            native XGR
-```
-
-Both directions are deployed and have been validated end-to-end on mainnet.
-
-The public bidirectional bridge is available at:
-
-```text
-https://xita.xgr.network
-```
-
-Official Base wXGR contract:
-
-[See current verified asset deployments](https://github.com/xgr-network/xgr-interchain/tree/main/deployments/assets). Historical token addresses must not be reused as current route authority.
-
-The nominal bridge representation is:
-
-```text
-1 XGR ↔ 1 wXGR
-```
-
-before applicable transaction and routing fees.
-
-The Interchain layer uses:
-
-- Hyperlane-compatible cross-chain messaging,
-- destination-specific XGR Interchain validator registries,
-- XGR-native validator attestations,
-- BLS aggregate signatures,
-- message-specific Direct-BLS authorization,
-- destination security modules,
-- native relayers,
-- asset router contracts,
-- explicit operational safety controls.
-
-XGRChain provides native support for this security model, including the native BLS verification precompile at:
-
-```text
-0x0000000000000000000000000000000000002040
-```
-
-The Interchain worker is deliberately separated from weighted-IBFT consensus-critical execution.
-
-Therefore:
-
-```text
-XGRChain consensus
-≠
-XGR Interchain validator quorum
-```
-
-A remote-network or relayer failure must not prevent XGRChain block production, verification or IBFT finality.
-
-Public Interchain specification:
-
-```text
-docs/interchain/XGR_INTERCHAIN_Overview.md
-docs/interchain/XGR_INTERCHAIN_Security_Model.md
-docs/interchain/XGR_INTERCHAIN_Asset_Bridge.md
-docs/interchain/XGR_INTERCHAIN_Deployment_Reference.md
-```
-
-Implementation and deployment tooling:
-
-```text
-https://github.com/xgr-network/xgr-interchain
-```
-
-Dynamic operational availability remains a live property.
-
-Route gates, pause controls, current validator membership, RPC health and relayer process state must therefore be queried from current deployment and runtime state when operational availability matters.
-
----
 
 ## 16. Consensus validators vs Interchain validators
 

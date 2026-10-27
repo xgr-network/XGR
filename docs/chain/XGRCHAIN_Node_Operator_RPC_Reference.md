@@ -876,7 +876,7 @@ bridge_*
 with:
 
 ```text
-XGRChain ↔ Base native Interchain
+Multi-asset XGRChain/Base/Arbitrum Interchain
 ```
 
 The current native XGR Interchain stack uses separate:
@@ -884,9 +884,9 @@ The current native XGR Interchain stack uses separate:
 - router contracts,
 - Hyperlane-compatible messaging,
 - BLS attestations,
-- Merkle checkpoints,
+- per-message Direct-BLS authorizations,
 - Interchain Security Modules,
-- relayer infrastructure.
+- permissionless delivery by any gas-paying executor.
 
 The `bridge_*` namespace remains a separate compatibility surface inherited from the node architecture.
 
@@ -1021,243 +1021,24 @@ Do not hard-code optional service addresses based solely on one node instance's 
 
 ---
 
-# Native Interchain Attestation RPC
-
-## 34. `xgr_getInterchainAttestation`
-
-`v3.4.0` adds a native XGR interchain operator/read interface.
-
-Method:
-
-```text
-xgr_getInterchainAttestation
-```
-
-Purpose:
-
-> Return the latest completed native XGR interchain checkpoint attestation for one configured route.
-
-The method is explicitly read-only.
-
-It does **not** trigger BLS signing.
-
-Conceptual request:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "xgr_getInterchainAttestation",
-  "params": ["base"]
-}
-```
-
-The route name is normalized to lowercase.
-
-Allowed route-name characters are:
-
-```text
-letters
-digits
--
-_
-```
-
----
-
-## 35. Latest attestation storage
-
-For a route such as:
-
-```text
-base
-```
-
-the node reads:
-
-```text
-<data-dir>/interchain/attestations/base/latest.json
-```
-
-Maximum accepted attestation file size:
-
-```text
-1 MiB
-```
-
-The RPC does not generate a new attestation based on the request.
-
-It only exposes an already completed locally stored attestation.
-
----
-
-## 36. Interchain attestation response
-
-Current response fields include:
-
-| Field | Meaning |
-| --- | --- |
-| `version` | Attestation format version |
-| `chain` | Configured route |
-| `destination` | Destination identifier where present |
-| `originChainId` | Origin EVM chain ID |
-| `originDomain` | Origin messaging domain |
-| `destinationDomain` | Destination messaging domain |
-| `setId` | Interchain validator-set ID |
-| `mailbox` | Mailbox address |
-| `merkleTreeHook` | Merkle Tree Hook address |
-| `root` | Checkpoint Merkle root |
-| `index` | Checkpoint index |
-| `payload` | Signed attestation payload |
-| `signerBitmap` | Participating validator bitmap |
-| `aggregateSignature` | Aggregate BLS signature |
-| `aggregateSignatureCompressed` | Compressed aggregate signature |
-
-The attestation must contain at least:
-
-```text
-chain
-root
-payload
-aggregateSignature
-```
-
-or it is considered incomplete.
-
----
-
-## 37. `xgr_getInterchainAttestationByCheckpoint`
-
-Method:
-
-```text
-xgr_getInterchainAttestationByCheckpoint
-```
-
-Parameters:
-
-```text
-chain
-setID
-index
-root
-```
-
-Conceptual request:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "xgr_getInterchainAttestationByCheckpoint",
-  "params": [
-    "base",
-    3,
-    12,
-    "0x<32-byte-root>"
-  ]
-}
-```
-
-Validation includes:
-
-```text
-setID != 0
-```
-
-and:
-
-```text
-root = 32-byte 0x-prefixed hexadecimal hash
-```
-
-The node reads the exact archived checkpoint-attestation file.
-
----
-
-## 38. Archived attestation path
-
-The file name follows:
-
-```text
-<setID>-<index>-<root>.json
-```
-
-under:
-
-```text
-<data-dir>/interchain/attestations/<route>/
-```
-
-Example structure:
-
-```text
-/var/lib/xgr/validator/
-└── interchain/
-    └── attestations/
-        └── base/
-            ├── latest.json
-            └── <setID>-<index>-<root>.json
-```
-
-These files are local operator/interchain state.
-
-They are not canonical XGRChain consensus state.
-
----
-
-## 39. Interchain RPC trust boundary
-
-The attestation RPC is intentionally read-only.
-
-A remote caller cannot use:
-
-```text
-xgr_getInterchainAttestation
-```
-
-to cause a validator to sign arbitrary caller-provided content.
-
-Signing is performed by the validator worker against canonical internally derived data.
-
-The RPC only exposes completed output.
-
-This boundary is important:
-
-```text
-RPC input
-≠ signing instruction
-```
-
----
-
-## 40. Interchain attestation RPC and relayers
-
-A relayer can request:
-
-```text
-latest attestation
-```
-
-or:
-
-```text
-specific checkpoint attestation
-```
-
-and use it as input to its destination verification/submission flow.
-
-The RPC itself:
-
-- does not submit destination transactions,
-- does not unlock XGR,
-- does not mint wXGR,
-- does not change validator membership,
-- does not alter XGRChain consensus.
-
-Those operations belong to separate interchain components.
-
----
+# Direct-BLS Interchain RPC
+
+Current methods and complete parameter/response/error semantics are specified in the [Interchain JSON-RPC reference](../interchain/XGR_INTERCHAIN_RPC.md). The implementation is message-specific Direct-BLS; root/index/Merkle-hook fields and checkpoint-indexed lookup do not apply.
+
+| Method | Ordered parameters | Result |
+| --- | --- | --- |
+| `xgr_requestILNQuorum` | route, messageId, sourceBlockNumber | Bounded untrusted processing hint |
+| `xgr_getILNQuorum` | route, messageId | Local progress, not delivery |
+| `xgr_getILNQuorumAttestation` | route, messageId, setId | Explicit-set archive |
+| `xgr_getInterchainAttestation` | route | Latest Direct-BLS archive |
+| `xgr_getILNInterchainAttestation` | route, messageId | Message archive compatibility read |
+| `xgr_getInterchainValidators` | destinationName | Ordered current configured destination set |
+| `xgr_getILNGovernanceQuorum` | proposalId | Completed source-fee quorum |
+| `xgr_getILNIndexerStatus` | none | Schema-2 worker/per-route health |
+
+Use the complete canonical `iln_<sourceDomain>_<destinationDomain>_<routeIdWithout0x>` label. A chain name such as `base` is used for physical membership selection, not an arbitrary token route alias. Archived proof reads do not initiate a wallet transaction and do not imply current-set acceptance or recipient settlement.
+
+For source dispatch, current-set recovery and wallet submission use the [independent runbook](../interchain/XGR_INTERCHAIN_v3.4.0_Operations.md). Validator control uses the [CLI reference](../interchain/XGR_INTERCHAIN_CLI.md). The website and managed relayer are optional.
 
 # gRPC Operator Services
 
@@ -1591,10 +1372,10 @@ Possible causes:
 
 - route not configured,
 - validator worker not producing attestations,
-- no completed checkpoint yet,
+- no completed current-set message quorum yet,
 - wrong data directory,
 - wrong route name,
-- requested archived checkpoint does not exist.
+- requested message/set archive does not exist.
 
 Expected error:
 
@@ -1731,7 +1512,7 @@ A slow RPC endpoint does not necessarily imply slow consensus.
 | Legacy state-sync proof | `bridge_getStateSyncProof` |
 | Next process ID stub | `xgr_getNextProcessId` |
 | Latest interchain attestation | `xgr_getInterchainAttestation` |
-| Exact checkpoint attestation | `xgr_getInterchainAttestationByCheckpoint` |
+| Explicit-set message attestation | `xgr_getILNQuorumAttestation` |
 | Node operator status | gRPC `System.GetStatus` |
 | Peer administration | gRPC `PeersAdd/List/Status` |
 | Blockchain event stream | gRPC `System.Subscribe` |
@@ -1753,7 +1534,7 @@ A slow RPC endpoint does not necessarily imply slow consensus.
 | Engine-dependent XGR RPC | Registered but disabled in stub mode |
 | Native Interchain attestation RPC | Active |
 | Latest attestation lookup | `xgr_getInterchainAttestation` |
-| Exact checkpoint lookup | `xgr_getInterchainAttestationByCheckpoint` |
+| Explicit-set message lookup | `xgr_getILNQuorumAttestation` |
 | Attestation RPC signing side effect | None |
 | gRPC System service | Active |
 | Debug concurrency default | `32` |
