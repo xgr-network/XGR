@@ -12,6 +12,8 @@
 
 ---
 
+For every registered CLI subcommand and exact flags/defaults, use the [complete CLI reference](XGRCHAIN_CLI_Reference.md). Interchain-specific command behavior is in its [dedicated CLI reference](../interchain/XGR_INTERCHAIN_CLI.md).
+
 ## 1. Purpose
 
 This document is the practical operations runbook for standalone XGRChain full nodes and production RPC infrastructure.
