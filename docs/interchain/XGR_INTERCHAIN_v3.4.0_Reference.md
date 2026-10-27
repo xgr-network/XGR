@@ -14,7 +14,7 @@ This documentation separates the protocol, the validator implementation and opti
 | [Validator runtime](XGR_INTERCHAIN_Validator_Runtime.md) | Discovery, grouped observation, evidence witnesses, signing/P2P, durable state, cleanup and monitoring |
 | [CLI reference](XGR_INTERCHAIN_CLI.md) | Every Interchain subcommand, flags/defaults, output, examples and failure semantics |
 | [JSON-RPC reference](XGR_INTERCHAIN_RPC.md) | Every Interchain RPC, request/response fields, progress states and errors |
-| [Optional applications and services](XGR_INTERCHAIN_Services.md) | Website, admin, indexer, read proxy, intake, quote, sponsor and onboarding APIs; operating boundaries |
+| [Optional applications and services](XGR_INTERCHAIN_Services.md) | Website, indexer, read proxy, intake, quote, sponsor and onboarding APIs; operating boundaries |
 | [Deployment inventory](XGR_INTERCHAIN_Deployment_Reference.md) | Recorded shared contracts and asset representations; receipts, activation heights and route verification |
 | [Source map and validation](XGR_INTERCHAIN_Source_Map.md) | Repository/module ownership, reproducible source inventory, test coverage and evidence limits |
 | [Release/consensus activation](../chain/XGRCHAIN_v3.4.0_Release_and_Activation.md) | Binary verification and `securityAccounting`; separate from Interchain deployments |

@@ -19,7 +19,6 @@
 | [xgr-interchain/script](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/script) | Shared infrastructure deployment scripts and reviewed constructor/build inputs | [Deployment_Reference](XGR_INTERCHAIN_Deployment_Reference.md), [Services](XGR_INTERCHAIN_Services.md) |
 | [xgr-interchain/config](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/config) | Approved application manifests: chains, assets/routes, publication and defaults; prospect does not mean active node support | [Asset_Bridge](XGR_INTERCHAIN_Asset_Bridge.md), [Deployment_Reference](XGR_INTERCHAIN_Deployment_Reference.md) |
 | [xgr-interchain/deployments](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/deployments) | Append-only receipts, shared addresses, representations and directed Gateway/FeeVault records | [Deployment_Reference](XGR_INTERCHAIN_Deployment_Reference.md), [Contract_Reference](XGR_INTERCHAIN_Contract_Reference.md) |
-| [xgr-interchain/services/admin](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/services/admin) | Main gate, chain/asset planners, artifact verification, wallet intents, journals, reconciliation, receipt auto-sync, operations health | [Services](XGR_INTERCHAIN_Services.md), [Deployment_Reference](XGR_INTERCHAIN_Deployment_Reference.md) |
 | [xgr-interchain/services/indexer](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/services/indexer) | Canonical transfer index, reorg handling, discovery/intake, proof job leases, read proxy, TVL/flow/history/publication | [Services](XGR_INTERCHAIN_Services.md), [v3.4.0_Operations](XGR_INTERCHAIN_v3.4.0_Operations.md) |
 | [xgr-interchain/services/managed-relay](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/services/managed-relay) | Commercial quote/tax evidence, price cache, immutable sponsor commitments, grant budgets/nonces/reconciliation, fee claims and optional executor | [Services](XGR_INTERCHAIN_Services.md), [Contract_Reference](XGR_INTERCHAIN_Contract_Reference.md) |
 | [xgr-interchain/services/onboarding](https://github.com/xgr-network/xgr-interchain/tree/9518472c04432c57a5939a3688e90be332180636/services/onboarding) | Manifest proposals, live original-token identity checks, private confirmation storage, mail/publisher/status notifications | [Services](XGR_INTERCHAIN_Services.md), [Asset_Bridge](XGR_INTERCHAIN_Asset_Bridge.md) |
@@ -68,7 +67,7 @@ When adding a module or public method, update this map, its behavioral reference
 | CLI/RPC | node `command/ibft/interchain`, `jsonrpc` tests; fresh CLI help | Parsing, storage/schema/error behavior; not wallet execution |
 | Contract behavior | Interchain `test/`, configured Foundry workflow | Local contract invariants and simulations; not all deployed cross-chain transfers |
 | Recovery codecs and receipts | `runtime/native-relayer/*.test.mjs` | Canonical metadata, original receipt/finality and gas calculations |
-| Website/admin/indexer/services | component `*.test.mjs`, `*.test.js`, tools tests | Tested application policies/fixtures; no assumed production enablement |
+| Website/indexer/services | component `*.test.mjs`, `*.test.js`, tools tests | Tested application policies/fixtures; no assumed production enablement |
 
 Reproducible node invocation:
 
@@ -104,3 +103,25 @@ A fresh public-node build succeeded. The protocol, Interchain CLI, JSON-RPC and 
 The follow-up checked the system-context inventory against all 21 top-level production Solidity files and validated 131 local Markdown file targets in the Interchain documentation. The caller-authority matrix was checked against Factory registration, router bootstrap/outbound guards, source-fee quorum execution, FeeVault accounting, native beneficiary withdrawal and commercial gateway administration/claims. `claimFees()` is permissionless to invoke but has a fixed current-service-wallet payee. Storage counters were removed from the RPC reference because they belong to the local CLI command.
 
 The fetched public node branch had no Go-source differences from the documented checkout. The Interchain documentation branch was synchronized with public main, including the previously documented read-only sponsorship monitor; its five deterministic monitor tests passed in this follow-up. PostgreSQL integration, live transfers and the earlier full node/helper suites were not rerun for these Markdown changes. Historical test results in the preceding paragraph describe the earlier correction run, not new execution in this follow-up.
+
+## 8. Public-reference follow-up and evidence, 2026-10-27
+
+Reviewed documentation base: XGR `684c5d7`; implementation checkouts: xgr-interchain `26d1356` and xgr-node `51d92f1` (public XGR3.0). These are documentation/source checks, not a new security audit or live-deployment certification.
+
+| Reference | Source checked / evidence | Result and limit |
+| --- | --- | --- |
+| Index, overview and context | Factory/route hub checks, worker `interchainSignerEligible`, direct signing path, Registry/ISM | Public route creation, hub settlement and destination quorum are distinct; deployment administration UI removed from public scope |
+| Security / wire format | `XITADirectProtocol.encode`, Go `XITADirectMessage.MarshalBinary`, helper codec and ISM `verify` | 22-byte domain plus 268-byte tail; metadata is one ABI dynamic struct; current set and exact message binding. Four helper codec tests passed |
+| Assets | `XGRILNProtocol`, Factory, router core and concrete adapters | Standard ABI asset/route hashes, creator-bound registration, reciprocal identity, principal lock/burn/mint/release and 30,000-gas native attempt checked |
+| Contracts and declared API | Top-level 21 Solidity sources; Gateway, FeeVault, Registry, ISM and commercial adapter entry points | Named declarations cross-checked; internal protocol-library encoders identified explicitly; inherited ABI/getters still require compiled artifacts |
+| Independent transfer runbook | Gateway quote/bridge, `recover-iln.mjs`, receipt/finality/codec/gas helpers | Source identity, unsigned destination call and recovery assumptions checked; 14 helper tests passed. Examples were not broadcast |
+| Validator runtime | `config.go`, `iln_direct_signing.go`, `rpc_evidence_quorum.go`, observer retry and storage/polling constants | Active matching XGR identity, two independent complete external witnesses, durable retry bounds and retention distinctions checked |
+| CLI | `command/ibft/interchain` flag declarations and command bodies | Documented commands/defaults compared with source; no new executable CLI collection in this follow-up |
+| RPC | Four endpoint source files listed in RPC reference | All eight exported Interchain endpoint method names covered; private read helper excluded; local disk counters remain CLI-only |
+| Services | Read server recovery/admission limits, proof-observer lease, native watcher/recovery and quote/sponsor separation | Public integration/service roles retained. Deployment UI, its API routes/configuration and management commands removed |
+| Deployment inventory | JSON paths linked from inventory | All 52 linked deployment JSON references resolve and parse in the pinned checkout. This is repository evidence, not a fresh on-chain code/balance check |
+| Cross-page navigation | Relative Markdown file targets | 131 local file targets resolve; website build/navigation is a separate check |
+
+Execution in this follow-up: `npm test` in `runtime/native-relayer`: 14 passed, zero failed. Tests cover receipt event identity/spoof rejection, source safe finality, encoding vectors, metadata tuple layout and destination gas planning. Go and Foundry executables were unavailable in this environment; their suites were not rerun. Earlier suite results above remain historical evidence and must not be read as new execution here.
+
+The public documentation intentionally excludes the deployment administration UI. Contract recovery-owner permissions remain part of the public contract/security description because they affect user trust. No operator UI access is required for protocol registration or independent delivery.

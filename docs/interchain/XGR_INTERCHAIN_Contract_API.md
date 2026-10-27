@@ -206,6 +206,8 @@ error InvalidRouteKey();
 error InvalidGovernanceProposal();
 ```
 
+The library also contains internal encoding helpers (not external transaction entry points): `assetIdV315`, `routeInstanceIdV315`, and `encodeSourceFeeProposalV315`. Their formulas and authority domains are explained in the asset and security references.
+
 ## XGRILNRegistryV315
 
 [Source](https://github.com/xgr-network/xgr-interchain/blob/9518472c04432c57a5939a3688e90be332180636/contracts/XGRILNRegistryV315.sol)
