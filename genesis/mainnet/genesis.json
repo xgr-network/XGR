@@ -34,6 +34,9 @@
   },
   "params": {
     "forks": {
+      "securityAccounting": {
+        "block": 12186213
+      },
       "EIP2930": {
         "block": 1208500
       },
