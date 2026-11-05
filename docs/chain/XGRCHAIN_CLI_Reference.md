@@ -1,6 +1,6 @@
-# XGRChain complete CLI reference — v3.4.0
+# XGRChain complete CLI reference — v3.5.0
 
-This reference captures every registered application command and its help/flags from a fresh build of the public node source at `418926f90f9b85af66f4ea4b0cc060dce6cdc862` (v3.4.0 execution code plus documentation merge). Help was invoked only; no command body or node service was run. Defaults below are software defaults, not recommended production settings.
+Help refreshed on 2026-11-05 from the reviewed v3.5.0 execution code at `b3717a44b5ec5faa19fabdd88bd4b91f54659983`. Only `--help` was invoked; no command body or node service was run. Defaults are software defaults, not production recommendations.
 
 ## Command roles
 
@@ -10,6 +10,7 @@ This reference captures every registered application command and its help/flags 
 | genesis | Create a chain definition; does not upgrade a running canonical network |
 | secrets init/generate/output | Initialize/configure/read public identity; protect existing secrets and do not overwrite live identities |
 | ibft status/snapshot/candidates/validators | Operator inspection; use the correct gRPC endpoint |
+| ibft bls-pop proof/assemble/verify/configure | Offline possession proof collection, canonical migration manifests and candidate configuration; no broadcast |
 | ibft join/stake/unstake/withdraw/setactive/poolconfig | Validator/staking transactions; review account, chain, amounts, gas and resulting receipt |
 | ibft propose/switch/quorum | Consensus configuration workflows; follow network governance and fork instructions |
 | ibft interchain | Bootstrap proof, membership, source fee governance and storage diagnostics; detailed semantic reference below |
@@ -25,6 +26,10 @@ Use [node operations](XGRCHAIN_Node_Operation.md), [staking model](XGRCHAIN_Stak
 
 `--json` selects machine-readable output. Inherited flags are shown in each help block; in particular `--grpc-address` is an operator endpoint flag, not an arbitrary Interchain source-chain selection. `--help` does not execute a command. Shell completion is provided by Cobra via `completion <shell>`.
 
+## Automatic PoP in validator join
+
+`ibft join` detects the upgraded staking runtime, reads the live chain ID and nonce, and signs with the local BLS secret. It submits the two-argument registration and never retries a failed PoP as proofless registration. Existing migrated keys need no new join. A new join still needs the stake minimum, gas and normal epoch/total-support eligibility. Offline `bls-pop proof` emits nonce-zero historical migration evidence; it is not the ordinary post-fork join workflow.
+
 ## Command index
 
 - `xgrchain`
@@ -32,6 +37,11 @@ Use [node operations](XGRCHAIN_Node_Operation.md), [staking model](XGRCHAIN_Stak
 - `xgrchain genesis`
 - `xgrchain genesis predeploy`
 - `xgrchain ibft`
+- `xgrchain ibft bls-pop`
+- `xgrchain ibft bls-pop assemble`
+- `xgrchain ibft bls-pop configure`
+- `xgrchain ibft bls-pop proof`
+- `xgrchain ibft bls-pop verify`
 - `xgrchain ibft candidates`
 - `xgrchain ibft interchain`
 - `xgrchain ibft interchain bootstrap-proof`
@@ -138,10 +148,10 @@ Available Commands:
 
 Flags:
       --base-fee-config string          initial base fee(in wei), base fee elasticity multiplier, and base fee change denominator
-                                                (provided in the following format: [<baseFee>][:<baseFeeEM>][:<baseFeeChangeDenom>]).
-                                                BaseFeeChangeDenom represents the value to bound the amount the base fee can change between blocks.
-                                                Default BaseFee is 1 Gwei, BaseFeeEM is 2 and BaseFeeChangeDenom is 8.
-                                                Note: BaseFee, BaseFeeEM, and BaseFeeChangeDenom should be greater than 0. (default "1000000000:2:8")
+                                        		(provided in the following format: [<baseFee>][:<baseFeeEM>][:<baseFeeChangeDenom>]). 
+                                        		BaseFeeChangeDenom represents the value to bound the amount the base fee can change between blocks.
+                                        		Default BaseFee is 1 Gwei, BaseFeeEM is 2 and BaseFeeChangeDenom is 8.
+                                        		Note: BaseFee, BaseFeeEM, and BaseFeeChangeDenom should be greater than 0. (default "1000000000:2:8")
       --block-gas-limit uint            the maximum amount of gas used by all transactions in a block (default 5242880)
       --block-time duration             the predefined period which determines block creation frequency (default 2s)
       --bootnode stringArray            multiAddr URL for p2p discovery bootstrap. This flag can be used multiple times
@@ -197,6 +207,7 @@ Usage:
    ibft [command]
 
 Available Commands:
+  bls-pop     Prepare and verify public staking BLS migration proofs offline
   candidates  Queries the current set of proposed candidates, as well as candidates that have not been included yet
   interchain  Manage optional XGR interchain validator participation on configured EVM destinations
   join        One-shot PoS validator join: ensure keys, register BLS pubkey, stake required amount
@@ -220,6 +231,109 @@ Global Flags:
       --json   get all outputs in json format (default false)
 
 Use " ibft [command] --help" for more information about a command.
+```
+
+## `xgrchain ibft bls-pop`
+
+```text
+Prepare and verify public staking BLS migration proofs offline
+
+Usage:
+   ibft bls-pop [command]
+
+Available Commands:
+  assemble    Verify proofs and build a canonical migration manifest
+  configure   Write a separate candidate chain configuration with one explicit PoP gate
+  proof       Create a nonce-zero migration proof using existing local validator keys
+  verify      Independently verify every public proof and report the manifest digest
+
+Flags:
+  -h, --help   help for bls-pop
+
+Global Flags:
+      --grpc-address string   the GRPC interface (default "127.0.0.1:9632")
+      --json                  get all outputs in json format (default false)
+
+Use " ibft bls-pop [command] --help" for more information about a command.
+```
+
+## `xgrchain ibft bls-pop assemble`
+
+```text
+Verify proofs and build a canonical migration manifest
+
+Usage:
+   ibft bls-pop assemble [flags]
+
+Flags:
+      --activation-height uint   proposed single activation height; does not activate it
+      --chain-id uint            expected chain ID
+  -h, --help                     help for assemble
+      --out string               new canonical manifest file (never overwritten)
+      --proof stringArray        public proof file (repeat for each address/key pair)
+
+Global Flags:
+      --grpc-address string   the GRPC interface (default "127.0.0.1:9632")
+      --json                  get all outputs in json format (default false)
+```
+
+## `xgrchain ibft bls-pop configure`
+
+```text
+Write a separate candidate chain configuration with one explicit PoP gate
+
+Usage:
+   ibft bls-pop configure [flags]
+
+Flags:
+      --activation-height uint   explicitly chosen activation height matching the manifest
+      --chain string             existing chain configuration (read only)
+  -h, --help                     help for configure
+      --manifest string          verified canonical manifest
+      --out string               new candidate configuration file (never overwritten)
+
+Global Flags:
+      --grpc-address string   the GRPC interface (default "127.0.0.1:9632")
+      --json                  get all outputs in json format (default false)
+```
+
+## `xgrchain ibft bls-pop proof`
+
+```text
+Create a nonce-zero migration proof using existing local validator keys
+
+Usage:
+   ibft bls-pop proof [flags]
+
+Flags:
+      --chain-id uint     explicit chain ID for this proof
+      --config string     existing cloud secrets-manager configuration
+      --data-dir string   existing local secrets directory
+  -h, --help              help for proof
+      --out string        new public-proof JSON file (never overwritten)
+
+Global Flags:
+      --grpc-address string   the GRPC interface (default "127.0.0.1:9632")
+      --json                  get all outputs in json format (default false)
+```
+
+## `xgrchain ibft bls-pop verify`
+
+```text
+Independently verify every public proof and report the manifest digest
+
+Usage:
+   ibft bls-pop verify [flags]
+
+Flags:
+      --activation-height uint   expected activation height
+      --chain-id uint            expected chain ID
+  -h, --help                     help for verify
+      --manifest string          canonical migration manifest file
+
+Global Flags:
+      --grpc-address string   the GRPC interface (default "127.0.0.1:9632")
+      --json                  get all outputs in json format (default false)
 ```
 
 ## `xgrchain ibft candidates`

@@ -1,5 +1,7 @@
 # XGRChain v3.4.0 — release, consensus activation and operations
 
+> Historical v3.4.0 release record. The current node release and already activated staking PoP fork are documented in [v3.5.0 release and activation](./XGRCHAIN_v3.5.0_Release_and_Activation.md).
+
 **Updated:** 2026-10-27. This document supplements the detailed chain, gas, IBFT and operator references. Source authority is [xgr-node v3.4.0](https://github.com/xgr-network/xgr-node/tree/v3.4.0), release commit `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`.
 
 ## Release and deployment evidence

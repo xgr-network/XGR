@@ -1,11 +1,11 @@
 # XGR Chain — Networking & P2P
 
-> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+> **v3.5.0 update (2026-11-05):** Current node release: `v3.5.0`. The [release and activation reference](./XGRCHAIN_v3.5.0_Release_and_Activation.md) specifies staking BLS possession, the single `stakingBlsPoP` gate, canonical genesis and automatic CLI join. Mainnet activation: **12,586,649**. Detailed v3.4.0 observations below remain the prior baseline where not superseded by this update; they are not a new full audit of every subsystem.
 
 **Document ID:** XGRCHAIN-NETWORKING-P2P  
 **Last updated:** 2026-10-27  
 **Audience:** Node operators, validator operators, RPC operators, infrastructure engineers  
-**Release baseline:** `xgr-node v3.4.0`  
+**Release baseline:** `xgr-node v3.5.0` (with explicitly dated v3.4.0 detail below)  
 **Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  

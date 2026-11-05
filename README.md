@@ -1,5 +1,13 @@
 # XGR Network
 
+## v3.5.0 staking BLS possession
+
+XGRChain v3.5.0 activated `stakingBlsPoP` on Mainnet at block **12,586,649**, inclusively, on 5 November 2026. Testnet activation was at **6,613,834**. This single gate upgrades the staking runtime, migrates independently verified public possession proofs and enforces proven BLS keys in consensus. Stakes and delegations remain in the existing contract at `0x0000000000000000000000000000000000001001`; no restaking is required.
+
+The v3.5.0 `ibft join` command creates and submits the possession proof automatically from the local BLS secret, using the live chain ID and registration nonce. New validators do not edit the historical migration manifest. Keep the activated genesis configuration for every restart and fresh sync; a standalone manifest file is not required.
+
+[Release, verified artifacts, migration and operator instructions](https://github.com/xgr-network/XGR/blob/main/docs/chain/XGRCHAIN_v3.5.0_Release_and_Activation.md). Consensus BLS seal encoding and the XITA / Direct-BLS message format are unchanged.
+
 [System context and every Interchain contract](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_Context_and_Contracts.md): component diagrams, contract roles, trust boundaries and value flows.
 
 ## Technical reference navigation
@@ -14,7 +22,7 @@
 - [Source map and validation scope](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_Source_Map.md)
 
 
-**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.4.0_Reference.md). The current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.4.0`.
+**Complete Interchain reference:** [XGR Interchain architecture, smart contracts, protocol/fees, governance, CLI, RPC and production operations](docs/interchain/XGR_INTERCHAIN_v3.4.0_Reference.md). The current implementation is `xgr-interchain` and the validator runtime is `xgr-node v3.5.0`.
 
 XGR Network develops XGRChain, an EVM-compatible Layer-1 blockchain focused on deterministic on-chain process execution rather than simple value transfer.
 
@@ -32,7 +40,7 @@ XGRChain is the EVM-compatible execution and settlement layer of the XGR ecosyst
 
 Current public chain baseline:
 
-- **xgr-node:** `v3.4.0`
+- **xgr-node:** `v3.5.0`
 - **Chain ID:** `1643`
 - **Native asset:** XGR
 - **Mainnet:** live
@@ -166,7 +174,7 @@ The `docs/chain/` section contains the public technical documentation for XGRCha
 - access-control boundaries,
 - network upgrades and hardfork procedures.
 
-The current Chain documentation targets `xgr-node v3.4.0` unless explicitly marked as historical.
+The current Chain documentation targets `xgr-node v3.5.0` unless explicitly marked as historical.
 
 ### XGR Interchain
 
@@ -259,7 +267,7 @@ This repository is intended for:
 ## Project Status
 
 - **XGRChain:** Mainnet
-- **Current public node release:** `v3.4.0`
+- **Current public node release:** `v3.5.0`
 - **Consensus:** Mainnet — IBFT finality with delegated PoS validator participation
 - **State Growth Control:** Mainnet — Online State Trie Sweeper available for configurable historical-state retention and reclamation of unreachable trie/code data
 - **XDaLa:** Mainnet
@@ -284,7 +292,7 @@ XGR components use independent but coordinated versioning.
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.4.0
+xgr-node v3.5.0
 ```
 
 This version applies to the public node and the Chain documentation describing that node baseline.
@@ -383,12 +391,12 @@ For local or development networks, prefer generating a fresh genesis through the
 Unless stated otherwise, all documentation in this repository is licensed under the Apache License 2.0.
 
 
-## Current v3.4.0 documentation and independent operation
+## Current v3.5.0 documentation and independent operation
 
-XGRChain node v3.4.0 is deployed on Testnet and Mainnet according to the network operator (27 October 2026). Binary rollout and consensus activation are distinct: the published Mainnet configuration activates `params.forks.securityAccounting.block` at **12,186,213**, inclusively. An omitted fork entry leaves the new rules inactive.
+XGRChain v3.5.0 activated `stakingBlsPoP` on Mainnet at block **12,586,649**, inclusively, on 5 November 2026. Testnet activation was at **6,613,834**. This single gate upgrades the staking runtime, migrates independently verified public possession proofs and enforces proven BLS keys in consensus. Stakes and delegations remain in the existing contract at `0x0000000000000000000000000000000000001001`; no restaking is required. The earlier `securityAccounting` activation at 12,186,213 remains unchanged.
 
 The current Interchain implementation is [xgr-interchain](https://github.com/xgr-network/xgr-interchain). Route registration through the public Factory is permissionless; XITA listing is not protocol admission. Message validity depends on the current destination validator BLS quorum and verified source evidence, not on the identity of a relayer. Users or independent executors can prepare and submit the same authenticated `Mailbox.process` call without the XITA website, commercial execution gateway, sponsor or managed relayer. Gas, protocol fees, working RPC access and validator quorum availability remain required.
 
 - [Complete Direct-BLS technical reference](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_v3.4.0_Reference.md)
 - [Independent transfer and recovery runbook](https://github.com/xgr-network/XGR/blob/main/docs/interchain/XGR_INTERCHAIN_v3.4.0_Operations.md)
-- [Node release, checksums and activation](https://github.com/xgr-network/XGR/blob/main/docs/chain/XGRCHAIN_v3.4.0_Release_and_Activation.md)
+- [Node release, checksums and activation](https://github.com/xgr-network/XGR/blob/main/docs/chain/XGRCHAIN_v3.5.0_Release_and_Activation.md)

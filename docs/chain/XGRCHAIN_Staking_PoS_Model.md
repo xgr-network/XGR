@@ -1,11 +1,11 @@
 # XGR Chain — Staking and Delegated PoS Model
 
-> **v3.4.0 update:** The current release and fork-dependent changes are specified in [v3.4.0 release and activation](./XGRCHAIN_v3.4.0_Release_and_Activation.md). Interchain uses [Direct-BLS message authorization and independent delivery](../interchain/XGR_INTERCHAIN_v3.4.0_Reference.md); older checkpoint/Merkle transport descriptions do not apply to the current Interchain runtime. This does not remove the chain state/transaction tries.
+> **v3.5.0 update (2026-11-05):** Current node release: `v3.5.0`. The [release and activation reference](./XGRCHAIN_v3.5.0_Release_and_Activation.md) specifies staking BLS possession, the single `stakingBlsPoP` gate, canonical genesis and automatic CLI join. Mainnet activation: **12,586,649**. Detailed v3.4.0 observations below remain the prior baseline where not superseded by this update; they are not a new full audit of every subsystem.
 
 **Document ID:** XGRCHAIN-STAKING-POS-MODEL  
 **Last updated:** 2026-10-27  
 **Audience:** Validators, delegators, staking UI developers, explorer developers, auditors, node operators  
-**Release baseline:** `xgr-node v3.4.0`  
+**Release baseline:** `xgr-node v3.5.0` (with explicitly dated v3.4.0 detail below)  
 **Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
@@ -340,24 +340,36 @@ the live contract values can differ from the stake effective for the current epo
 
 ---
 
-## 13. BLS public key
+## 13. BLS public key and possession (v3.5.0)
 
-XGRChain validators use BLS consensus identities.
+After Mainnet block **12,586,649**, registration and key rotation use:
 
-Registration:
+```solidity
+registerBLSPublicKey(bytes calldata blsPubKey, bytes calldata proof)
+```
 
-    registerBLSPublicKey(bytes calldata blsPubKey)
+The old one-argument selector reverts after activation. The caller must already
+have a validator staking position and be its own validator. A valid possession
+signature proves control of the submitted BLS secret and binds the public-key
+hash, caller address, live chain ID, staking contract, protocol domain and
+current registration nonce. The consumed nonce prevents replay. The pool
+metadata mirrors the accepted key. A transaction rollback also rolls back nonce
+consumption.
 
-Rules:
+`xgrchain ibft join --data-dir "$HOME/xgrchain/data" --jsonrpc <RPC>` creates
+and submits this proof automatically with v3.5.0; it never exports the secret.
+No separate manifest entry or operator-approved list is needed for new joins.
+The migration manifest is fixed public evidence for keys existing at the fork.
+All five Mainnet keys were independently proven; existing stakes and delegations
+were retained without restaking.
 
-- caller must already have a validator staking position,
-- caller must be its own validator,
-- key is stored in validator state,
-- pool metadata mirrors the BLS key.
+Post-fork validator selection and cached signing sets require proven keys.
+Missing proofs fail closed; the node does not shrink a canonical quorum to hide
+incomplete migration coverage. Normal stake/activation/epoch requirements still
+apply. Historical blocks and ParentCommittedSeals use the rules of the signed
+height. Consensus BLS signature encodings are unchanged.
 
-For BLS validator selection, `v3.4.0` attempts to decode the BLS public key.
-
-Invalid BLS keys exclude the validator from BLS consensus selection.
+See [proof collection, migration, storage and recovery](./XGRCHAIN_v3.5.0_Release_and_Activation.md).
 
 ---
 

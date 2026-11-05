@@ -34,6 +34,9 @@
   },
   "params": {
     "forks": {
+      "stakingBlsPoP": {
+        "block": 12586649
+      },
       "securityAccounting": {
         "block": 12186213
       },
@@ -87,6 +90,10 @@
       }
     },
     "chainID": 1643,
+    "stakingBlsPoPMigration": {
+      "manifest": "{\n  \"version\": 1,\n  \"chainId\": 1643,\n  \"stakingContract\": \"0x0000000000000000000000000000000000001001\",\n  \"activationHeight\": 12586649,\n  \"entries\": [\n    {\n      \"validator\": \"0x7913fdae82c678f42b98ca8076fe7d13b3edff15\",\n      \"publicKey\": \"0xb56b72d028aa6d063d36917f9f18a3ee4b216e22694a701814af4fd55e6cbbe99209fc1359012e4733987ebdd0123e88\",\n      \"proof\": \"0xaf9885242b80413278082dc990d7faf459a8378991fdaf6d205513d6575a282ddaffebf813d9977ddecc2d598a31de7613ab4b15df9cff25f0ca4aebb3d32a9b83f7f41ae1edeee5d2117c587744084a40ebc7dee51be4a96abc7c38efe346fa\"\n    },\n    {\n      \"validator\": \"0x7e8f8fd2a198f77df298041b48d79b0df4c8b1fa\",\n      \"publicKey\": \"0xa32a09397128b801da5b88319bcca6cc33d4400e12ef7e1a94141b2360abd70306aaeb5599dd0d0984bb02f88fe20b71\",\n      \"proof\": \"0xa16b9125c7e7ce718d7c652e0c9b581459d8c7713a15af439699a46bd8dd170a2c168bef219bf9003eb5d0935b20ca8017929fb8a502c106a8c3b5a07bd2a02d7c70a60379e428c29ae219af55b4b0c59ea95cacc3da13c9f43d9743b996f8d7\"\n    },\n    {\n      \"validator\": \"0x82f0b6f1efbb3fc9bcde0ee5a08e01e76cc29e13\",\n      \"publicKey\": \"0x8b94120a8ae2a89a0f7deb09f266d90bf5d5152a6ee559977d7f3361a0ce1cc65b012f3a820c7f1c18a01cef9ba8ae90\",\n      \"proof\": \"0xaa1adcf8909ec6d07d220eb72369d7f48b4450c6ebc6d80db1a5ea1c9a93a01344ecb82f701382ad07a5a8ab6a711cf9083ca31297493ecb759ad6b21ab4a46a10cd700d1769bd0d43989b3a7bb8cd6eb56c1c8011f510438c8e03fc6dcb9b49\"\n    },\n    {\n      \"validator\": \"0x98f8bc086454b8386788244eee9a43d5d0b4e63e\",\n      \"publicKey\": \"0xa65579c3b300f0d8e94e77b3915ac09f309c0a109a3aa3bb66d8beb538d733026624bf9d096e2a3d52deff78a36513d1\",\n      \"proof\": \"0x993773d63ad6eaa98dab93aaf8b855fa23de780df6f360ff827b613670905b3fe2ddc7f8b744eb359dc37696bcc2aa2702d62e628e01486f8b2e0d7261bf7fdf7a46089cb8cfec3076a361f5570f0f7d1be5cb292814606ba6775eb8ffdf47c7\"\n    },\n    {\n      \"validator\": \"0xc5cc7b4ee5b0f6524ecac177ed37b2b567180707\",\n      \"publicKey\": \"0x91bf571d3f5563976e560c5f7d9898f75a0829804ce5e212370834303c23953388f01e06d0a9da2615c5e7f1aaf10da7\",\n      \"proof\": \"0x980c944955b68c94e3366358d33860a223e1a7212b8f43933de2efbb9614f1feeac0d98e90787bc5a3e2577c87af4a4b0a3257afa8791acc3c01e6b96a04afdfd824f703dbf7e50eee17848f0d8f5a3d381f9a439b852b04d79d4013f27bce13\"\n    }\n  ]\n}\n",
+      "digest": "0x98803459ccdbbf1a8b89d8c44c95081661ebdeb3e037eb0c144126e74ec5d735"
+    },
 "engine": {
   "ibft": {
     "blockTime": 2000000000,

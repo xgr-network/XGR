@@ -1,0 +1,106 @@
+{
+  "checkedAtUTC": "2026-11-05T19:10:37.888979+00:00",
+  "head": 12586685,
+  "activationHeight": 12586649,
+  "legacyCodeAtParentMatches": true,
+  "newCodeAtActivationMatches": true,
+  "runtimeSHA256": "120acc0e54f2af48adcb1518186f39d9a93244a52087927cdf554e7c8cf3f864",
+  "migrationHash": "0x98803459ccdbbf1a8b89d8c44c95081661ebdeb3e037eb0c144126e74ec5d735",
+  "migrationHashMatches": true,
+  "oldSlots0to10Unchanged": true,
+  "registeredAddressesUnchanged": true,
+  "registeredKeysUnchanged": true,
+  "validatorStates": [
+    {
+      "validator": "0x7913fdae82c678f42b98ca8076fe7d13b3edff15",
+      "verified": true,
+      "nonce": 1,
+      "stakerPoolAndDelegationValuesUnchanged": true
+    },
+    {
+      "validator": "0x7e8f8fd2a198f77df298041b48d79b0df4c8b1fa",
+      "verified": true,
+      "nonce": 1,
+      "stakerPoolAndDelegationValuesUnchanged": true
+    },
+    {
+      "validator": "0xc5cc7b4ee5b0f6524ecac177ed37b2b567180707",
+      "verified": true,
+      "nonce": 1,
+      "stakerPoolAndDelegationValuesUnchanged": true
+    },
+    {
+      "validator": "0x82f0b6f1efbb3fc9bcde0ee5a08e01e76cc29e13",
+      "verified": true,
+      "nonce": 1,
+      "stakerPoolAndDelegationValuesUnchanged": true
+    },
+    {
+      "validator": "0x98f8bc086454b8386788244eee9a43d5d0b4e63e",
+      "verified": true,
+      "nonce": 1,
+      "stakerPoolAndDelegationValuesUnchanged": true
+    }
+  ],
+  "blocks": [
+    {
+      "number": 12586648,
+      "hash": "0xa41d8bd8becd01e665868b8a118a9effb2f89e7a9a5420bf4b91109f1ee0b965",
+      "parentHash": "0x2e08d5c75c5c81ec14c47653856f9f770adf5b6d513ce4ca7253564eecdd6056",
+      "timestamp": 1793905740,
+      "transactions": 0
+    },
+    {
+      "number": 12586649,
+      "hash": "0x0bfa15a478cb9ebb07f06a0c162e7d296eee9da64475774726964ababc12e691",
+      "parentHash": "0xa41d8bd8becd01e665868b8a118a9effb2f89e7a9a5420bf4b91109f1ee0b965",
+      "timestamp": 1793905742,
+      "transactions": 0
+    },
+    {
+      "number": 12586650,
+      "hash": "0x3fe1c0136dd24df29b32e1c51d7fb18a3dc1deef0cfdd1c779d72a6a53c85593",
+      "parentHash": "0x0bfa15a478cb9ebb07f06a0c162e7d296eee9da64475774726964ababc12e691",
+      "timestamp": 1793905744,
+      "transactions": 0
+    },
+    {
+      "number": 12586659,
+      "hash": "0x494a5cd8a9383312fb2b42569283d3097465a5a2b34ec942cff7a8f16d9de0f1",
+      "parentHash": "0x521adb3d809ebbb85db933b7fddc72539bf2f4706084ff63bbf6b9deb63d2d7e",
+      "timestamp": 1793905762,
+      "transactions": 0
+    }
+  ],
+  "epochBoundary": 12587000,
+  "nextEpoch": 12588,
+  "nextEpochValidatorCount": 5,
+  "nextEpochKeysCovered": true,
+  "epochBlocks": [
+    {
+      "number": 12586999,
+      "hash": "0x0000478f640ad459aae7ee13be29844f71209ada338b87a6a0f2ec0172eb9b1b",
+      "parentHash": "0xb672822d62d13db3dfd02ad2179e7d0393916c5570f01097be4ca5d301a9824e",
+      "timestamp": 1793906442
+    },
+    {
+      "number": 12587000,
+      "hash": "0xc991e168c4e6b4b69a42a61a4d4b826b957ba54b9a9a6d22c27b8989d27e6e5b",
+      "parentHash": "0x0000478f640ad459aae7ee13be29844f71209ada338b87a6a0f2ec0172eb9b1b",
+      "timestamp": 1793906444
+    },
+    {
+      "number": 12587001,
+      "hash": "0xb8b4864c3d30e74a53bb1c4edf785bab82646b27e4c92f96e56289d916cd3747",
+      "parentHash": "0xc991e168c4e6b4b69a42a61a4d4b826b957ba54b9a9a6d22c27b8989d27e6e5b",
+      "timestamp": 1793906446
+    },
+    {
+      "number": 12587002,
+      "hash": "0x9416a1a809ae22974955306d0b7b66d5204aaf917df1cc2160b24d000bf062d0",
+      "parentHash": "0xb8b4864c3d30e74a53bb1c4edf785bab82646b27e4c92f96e56289d916cd3747",
+      "timestamp": 1793906448
+    }
+  ],
+  "scope": "Read-only observations at rpc.xgr.network; not an inventory of every host or a fresh Mainnet sync."
+}

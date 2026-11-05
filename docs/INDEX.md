@@ -1,22 +1,22 @@
 # XGR Documentation Index
 
-## Current v3.4.0 documentation
+## Current v3.5.0 documentation
 
 - [Structured Interchain documentation: architecture, contracts, CLI, RPC, transfer, runtime and services](interchain/README.md)
 - [Complete node CLI: all commands, flags and defaults](chain/XGRCHAIN_CLI_Reference.md)
 - [Source-to-document map and verification boundaries](interchain/XGR_INTERCHAIN_Source_Map.md)
 
-- [Node release, artifact verification and consensus activation](chain/XGRCHAIN_v3.4.0_Release_and_Activation.md)
+- [Node release, artifact verification and consensus activation](chain/XGRCHAIN_v3.5.0_Release_and_Activation.md)
 - [Complete Direct-BLS Interchain reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md)
 - [Permissionless direct transfer and unsigned recovery](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md)
 
-Node v3.4.0 and contract family V315/V2 are independently versioned. Historical versioned specifications below are retained for provenance and must not override the current source-based references.
+Node v3.5.0 and contract family V315/V2 are independently versioned. Historical versioned specifications below are retained for provenance and must not override the current source-based references.
 
 
 **Current complete technical reference:** [XGR Interchain v3.4.0 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; the current implementation is **xgr-interchain**.
 
 **Document ID:** XGR-DOCS-INDEX  
-**Last updated:** 2026-10-27  
+**Last updated:** 2026-11-05  
 **Audience:** Developers, node operators, validators, integrators, auditors, contributors  
 **Implementation status:** Mainnet  
 **Source of truth:** `docs/`
@@ -40,7 +40,7 @@ The documentation is divided into:
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.4.0
+xgr-node v3.5.0
 ```
 
 unless an individual document explicitly states otherwise.
@@ -214,7 +214,7 @@ XRC-GAS_Gas_Price_Behavior.md
 The current Chain documentation targets:
 
 ```text
-xgr-node v3.4.0
+xgr-node v3.5.0
 ```
 
 and the corresponding release commit:
@@ -525,7 +525,7 @@ live on-chain and runtime state
 The current XGRChain documentation baseline is:
 
 ```text
-xgr-node v3.4.0
+xgr-node v3.5.0
 ```
 
 A new node release does not automatically imply:

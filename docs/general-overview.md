@@ -1,6 +1,6 @@
 # XGR & XDaLa — Deterministic Process Execution on EVM-Compatible Infrastructure
 
-> Current node baseline: **v3.4.0**. For current permissionless Interchain architecture and relayer-independent execution, use the [Direct-BLS reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md) and [operations runbook](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md).
+> Current node baseline: **v3.5.0**. For current permissionless Interchain architecture and relayer-independent execution, use the [Direct-BLS reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md) and [operations runbook](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md).
 
 
 **Document ID:** XGR-GENERAL-OVERVIEW  
