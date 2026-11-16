@@ -1,5 +1,7 @@
 # XGRChain complete CLI reference — v3.5.0
 
+> **Current node release (2026-11-16): [XGRChain v3.5.1](./XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
 Help refreshed on 2026-11-05 from the reviewed v3.5.0 execution code at `b3717a44b5ec5faa19fabdd88bd4b91f54659983`. Only `--help` was invoked; no command body or node service was run. Defaults are software defaults, not production recommendations.
 
 ## Command roles

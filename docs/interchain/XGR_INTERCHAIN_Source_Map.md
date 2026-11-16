@@ -1,5 +1,7 @@
 # Source map, reference coverage and verification
 
+> **Current node release (2026-11-16): [XGRChain v3.5.1](../chain/XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
 [Documentation index](README.md). This map organizes the two implementations by responsibility and ties their public behavior to the corresponding reference. It is a documentation review and reproducible surface inventory, not a new security audit or a certification that every code path was executed.
 
 ## 1. Exact source baselines

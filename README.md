@@ -1,6 +1,8 @@
 # XGR Network
 
-## v3.5.0 staking BLS possession
+> **Current node release (2026-11-16): [XGRChain v3.5.1](docs/chain/XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
+## v3.5.0 staking BLS possession (historical activation; retained in v3.5.1)
 
 XGRChain v3.5.0 activated `stakingBlsPoP` on Mainnet at block **12,586,649**, inclusively, on 5 November 2026. Testnet activation was at **6,613,834**. This single gate upgrades the staking runtime, migrates independently verified public possession proofs and enforces proven BLS keys in consensus. Stakes and delegations remain in the existing contract at `0x0000000000000000000000000000000000001001`; no restaking is required.
 
@@ -40,7 +42,7 @@ XGRChain is the EVM-compatible execution and settlement layer of the XGR ecosyst
 
 Current public chain baseline:
 
-- **xgr-node:** `v3.5.0`
+- **xgr-node:** `v3.5.1`
 - **Chain ID:** `1643`
 - **Native asset:** XGR
 - **Mainnet:** live

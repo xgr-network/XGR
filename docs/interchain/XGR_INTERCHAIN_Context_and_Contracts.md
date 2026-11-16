@@ -1,5 +1,7 @@
 # System context and contract interactions
 
+> **Current node release (2026-11-16): [XGRChain v3.5.1](../chain/XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
 [Documentation index](README.md) · [Contract methods and fees](XGR_INTERCHAIN_Contract_Reference.md) · [Declared Solidity API](XGR_INTERCHAIN_Contract_API.md)
 
 Baseline: public node v3.4.0 and the Direct-BLS implementation identified in the [source map](XGR_INTERCHAIN_Source_Map.md). The diagrams describe implementation roles, not a claim that every deployment is live. Contract names below are exact source names; suffixes are contract-family versions, not node release versions.

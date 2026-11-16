@@ -1,5 +1,7 @@
 # XGR Interchain architecture
 
+> **Current node release (2026-11-16): [XGRChain v3.5.1](../chain/XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
 Start with [system context and contract interactions](XGR_INTERCHAIN_Context_and_Contracts.md) for the complete component diagram and individual contract responsibilities.
 
 Baseline: node v3.4.0 and public Direct-BLS contracts/runtime, reviewed 2026-10-27. [Documentation index](README.md).
