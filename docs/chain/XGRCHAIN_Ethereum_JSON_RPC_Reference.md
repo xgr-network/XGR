@@ -2,13 +2,14 @@
 
 > **Current node release (2026-11-16): [XGRChain v3.5.1](./XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
 
-> **v3.5.0 update (2026-11-05):** Current node release: `v3.5.0`. The [release and activation reference](./XGRCHAIN_v3.5.0_Release_and_Activation.md) specifies staking BLS possession, the single `stakingBlsPoP` gate, canonical genesis and automatic CLI join. Mainnet activation: **12,586,649**. Detailed v3.4.0 observations below remain the prior baseline where not superseded by this update; they are not a new full audit of every subsystem.
+> **Historical v3.5.0 consensus activation (2026-11-05):** Node release at the time: `v3.5.0`. The [release and activation reference](./XGRCHAIN_v3.5.0_Release_and_Activation.md) specifies staking BLS possession, the single `stakingBlsPoP` gate, canonical genesis and automatic CLI join. Mainnet activation: **12,586,649**. Detailed v3.4.0 observations below remain the prior baseline where not superseded by this update; they are not a new full audit of every subsystem.
 
 **Document ID:** XGRCHAIN-ETH-RPC  
 **Last updated:** 2026-10-27  
 **Audience:** Wallet developers, explorer developers, dApp developers, node operators, infrastructure integrators  
-**Release baseline:** `xgr-node v3.5.0` (with explicitly dated v3.4.0 detail below)  
-**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
+**Current public node release:** `xgr-node v3.5.1` (legacy dated v3.4.0/v3.5.0 implementation details retained below)  
+**Current release commit:** `723ff829d7380a29a116fd2f29c3b808ec073c0d`  
+**Historical v3.4.0 source snapshot:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Standard Ethereum-compatible JSON-RPC exposed by XGRChain
 
@@ -884,7 +885,7 @@ The public RPC endpoints described here use the deterministic suggestion path ab
 
 ## 20. `eth_gasPrice`
 
-Current `v3.4.0` behavior:
+Historical `v3.4.0` behavior:
 
 ```text
 eth_gasPrice = latestHeader.BaseFee

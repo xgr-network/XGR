@@ -2,13 +2,14 @@
 
 > **Current node release (2026-11-16): [XGRChain v3.5.1](./XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
 
-> **v3.5.0 update (2026-11-05):** Current node release: `v3.5.0`. The [release and activation reference](./XGRCHAIN_v3.5.0_Release_and_Activation.md) specifies staking BLS possession, the single `stakingBlsPoP` gate, canonical genesis and automatic CLI join. Mainnet activation: **12,586,649**. Detailed v3.4.0 observations below remain the prior baseline where not superseded by this update; they are not a new full audit of every subsystem.
+> **Historical v3.5.0 consensus activation (2026-11-05):** Node release at the time: `v3.5.0`. The [release and activation reference](./XGRCHAIN_v3.5.0_Release_and_Activation.md) specifies staking BLS possession, the single `stakingBlsPoP` gate, canonical genesis and automatic CLI join. Mainnet activation: **12,586,649**. Detailed v3.4.0 observations below remain the prior baseline where not superseded by this update; they are not a new full audit of every subsystem.
 
 **Document ID:** XGRCHAIN-STAKING-POS-MODEL  
 **Last updated:** 2026-10-27  
 **Audience:** Validators, delegators, staking UI developers, explorer developers, auditors, node operators  
-**Release baseline:** `xgr-node v3.5.0` (with explicitly dated v3.4.0 detail below)  
-**Release commit:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
+**Current public node release:** `xgr-node v3.5.1` (legacy dated v3.4.0/v3.5.0 implementation details retained below)  
+**Current release commit:** `723ff829d7380a29a116fd2f29c3b808ec073c0d`  
+**Historical v3.4.0 source snapshot:** `cbe6f8a4ae1718429a9924dcf87f0d28591d74e1`  
 **Mainnet genesis source:** `xgr-network/XGR`, branch `main`, `genesis/mainnet/genesis.json`  
 **Node implementation:** `xgr-network/xgr-node`  
 **Scope:** Chain-level delegated PoS, staking, voting-power and epoch-economics model
