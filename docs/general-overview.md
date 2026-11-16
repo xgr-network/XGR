@@ -1,6 +1,8 @@
 # XGR & XDaLa — Deterministic Process Execution on EVM-Compatible Infrastructure
 
-> Current node baseline: **v3.5.0**. For current permissionless Interchain architecture and relayer-independent execution, use the [Direct-BLS reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md) and [operations runbook](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md).
+> **Current node release (2026-11-16): [XGRChain v3.5.1](./XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
+> Current node baseline: **v3.5.1**. For current permissionless Interchain architecture and relayer-independent execution, use the [Direct-BLS reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md) and [operations runbook](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md).
 
 
 **Document ID:** XGR-GENERAL-OVERVIEW  

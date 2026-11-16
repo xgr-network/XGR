@@ -1,22 +1,25 @@
 # XGR Documentation Index
 
-## Current v3.5.0 documentation
+> **Current node release (2026-11-16): [XGRChain v3.5.1](chain/XGRCHAIN_v3.5.1_Release_and_Operations.md)** — official maintenance release at `723ff829d7380a29a116fd2f29c3b808ec073c0d`. F-20 Direct-BLS vote-recovery durability only; no new fork, PoP migration, genesis, consensus or staking change. Dated v3.4.0/v3.5.0 sections below retain their historical source baselines. XITA service and contract versions are independent.
+
+## Current v3.5.1 documentation
 
 - [Structured Interchain documentation: architecture, contracts, CLI, RPC, transfer, runtime and services](interchain/README.md)
 - [Complete node CLI: all commands, flags and defaults](chain/XGRCHAIN_CLI_Reference.md)
 - [Source-to-document map and verification boundaries](interchain/XGR_INTERCHAIN_Source_Map.md)
 
-- [Node release, artifact verification and consensus activation](chain/XGRCHAIN_v3.5.0_Release_and_Activation.md)
+- [Current node v3.5.1 release, artifacts and operator update](chain/XGRCHAIN_v3.5.1_Release_and_Operations.md)
+- [Historical v3.5.0 staking/PoP activation](chain/XGRCHAIN_v3.5.0_Release_and_Activation.md)
 - [Complete Direct-BLS Interchain reference](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md)
 - [Permissionless direct transfer and unsigned recovery](interchain/XGR_INTERCHAIN_v3.4.0_Operations.md)
 
-Node v3.5.0 and contract family V315/V2 are independently versioned. Historical versioned specifications below are retained for provenance and must not override the current source-based references.
+Node v3.5.1 and contract family V315/V2 are independently versioned. Historical versioned specifications below are retained for provenance and must not override the current source-based references.
 
 
 **Current complete technical reference:** [XGR Interchain v3.4.0 — architecture, public contracts, routes, validator nodes, CLI, RPC and recovery](interchain/XGR_INTERCHAIN_v3.4.0_Reference.md). The historical v3.1.x pages below are retained as historical snapshots; the current implementation is **xgr-interchain**.
 
 **Document ID:** XGR-DOCS-INDEX  
-**Last updated:** 2026-11-05  
+**Last updated:** 2026-11-16  
 **Audience:** Developers, node operators, validators, integrators, auditors, contributors  
 **Implementation status:** Mainnet  
 **Source of truth:** `docs/`
